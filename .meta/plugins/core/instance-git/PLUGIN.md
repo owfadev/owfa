@@ -37,3 +37,8 @@ Not a git repository at the root (no `.git`)? The contract is dormant — one in
 ## One upgrade path, FYI
 
 Pure local (the default) → a `git bundle` file copied elsewhere → a private remote. Before any remote, sweep the sensitive faces (vault/ assets, cuhksz course records — anything you would not hand to a stranger); public remotes are out of the question for an instance.
+
+## Changelog
+
+- 0.2 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
+- 0.1 2026-10-13: established (see git history)

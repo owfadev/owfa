@@ -25,6 +25,7 @@ A derivation-destination bridge governing high-value conclusions: domain plugins
 
 ## Changelog
 
+- 0.16 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.15 2026-10-02: global-domain batch two — established the on-demand bridge as the derivation destination; domain-plugin self-descriptions retained with a pointer
 - 0.14 2026-09-23: added the wiki dependency edge — inner plugins attach to wiki, aligning with the domain 0.1 declaration; missed in the 2026-09-22 domainization batch
 - 0.13 2026-09-14: slimmed down; ruling: the architecture takes no responsibility for form classification — the form enumeration removed from body and inject line; 'concept/question/decision/entity' was personal-library migration residue, drifted from registry, comparison missed; type layering: territory values closed, namely source, session, profile — the basis for mechanical checks; form values demoted to an instance default vocabulary, registry defaults, open to self-extension

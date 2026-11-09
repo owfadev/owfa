@@ -1,16 +1,16 @@
 id: notes
 schema_version: 1
-version: 0.15
+version: 0.16
 bridge: 按需
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "wiki/notes/ — native notes zone"
 fields: {}
 commands:
   - save
-inject: "Native notes `wiki/notes/`: knowledge whose provenance is the wiki itself, subdivided by the type field (open form vocabulary, default values in registry); no-regeneration zone, commands append-only and never modify; session and profile types do not land in this zone (they belong to the sessions / user-profile territories); notes on-demand bridge — domain plugins one-way derive high-value conclusions into this zone on an emergence basis, and must back-link the source page (constitutional principle 11, format owned by this bridge)"
+inject: "Native notes `wiki/notes/`: knowledge born in the wiki, open `type` vocabulary (defaults in registry); commands append, never modify; session/profile pages live in their own territories; domain derivations must back-link the source; details PLUGIN.md"
 usage:
   - Landing spot `wiki/notes/<title>.md`, file name free (named by humans); type form vocabulary in registry (open, self-extended by instances), territory values do not land in this zone
   - Append-only: commands never rewrite an existing note wholesale; updating = append-style merge under user instruction (trace left in the body) or manual human edits

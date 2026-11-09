@@ -34,5 +34,6 @@
 
 ## Changelog
 
+- 0.5 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.4 (2026-10-06) inject line: sections lost to the kernel comment-strip clip restored (quoted values are now protected), tightened for budget headroom — issue #12 post-migration nit- 0.3 (2026-10-06) inject line compressed to pointer density (issue #12 layer discipline) — procedural detail lives in usage / PLUGIN.md / skills- 0.2 2026-10-04: added the tool-environment summary section — the body's `## Tool Environment` records presence-level info on connectors/runtimes/channels, a cross-device lookup registry, the AGENTS shell pointing to the pages; presence-level granularity, (un)install syncing, no full inventory
 - 0.1 2026-10-04: established — reusing the notes territory (type: entity suggested), the device block mapping minimal key set, the attached-audit expiry scan (30-day window), expiry entering todo via delegation and confirmation; zero commands; depends wiki

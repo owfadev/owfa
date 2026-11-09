@@ -1,16 +1,16 @@
 id: link
 schema_version: 1
-version: 0.14
+version: 0.15
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "Cross-cutting plugin, no files of its own: owns the link-syntax conventions and the related / aliases fields"
   - "scripts/check.py — attached audit (broken links / garbled text / alias ambiguity / orphans / one-way related)"
 fields:
   related: "YAML list, full-name wikilinks of related pages"
   aliases: "YAML list, aliases/short names, for link resolution"
-inject: "Link syntax `[[page full name]]` — full name = the relative path within wiki/ minus the trailing .md (e.g. `notes/X`, pdf asset proxy `vault/a.pdf`, md asset proxy `vault/<name>.md`, only one removed); truncated references forbidden, same-name ambiguity resolved by path; fields `related` / `aliases`; broken link = warning (not yet written down), orphan (no inbound links and no references, derived pages don't count as sources) = warning for notes knowledge pages, info for territory-value registration pages (dynamically reads registry type.values, except session)"
+inject: "Link syntax `[[full name]]`: full name = path within `wiki/` minus trailing `.md` (`notes/X`, pdf proxy `vault/a.pdf`, md proxy `vault/<name>.md` — strip one .md only); never truncate; fields `related`/`aliases`; broken/orphan grading PLUGIN.md"
 checks:
   - Mechanical items (attached-audit script `scripts/check.py`, executed on audit discovery): broken link (target is neither a page full name nor any page's aliases) → warning; hand-written broken link in hot → warning (not counted as an inbound-link source); garbled link (target contains the U+FFFD replacement character, including related items) → error; alias ambiguity (two pages declaring the same aliases, resolution indeterminate) → error; orphan page (no inbound links and no related references, inbound sources counting concept pages only) → warning for notes knowledge pages, info for territory-value registration pages (registry territory values except session, having no inbound links yet being the registration norm); one-way related (A lists B while B does not list back) → info
   - Semantic items (check command): inbound-link density top list → info item (evidence for hub emergence, no alert)

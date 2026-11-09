@@ -24,6 +24,7 @@ Owns the `tags` field conventions:
 
 ## Changelog
 
+- 0.12 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.11 2026-10-04: language neutralization — "Chinese-primary" removed; the primary language follows the language page's default key (absent → session language); hierarchy wording changed to "≤2, `/` separated"; the English kebab-case word-shape rule kept (already neutral); same batch as the language v0.2 follow-up cleanup
 - 0.10 2026-09-23: added the wiki dependency edge — inner-side plugins attach to wiki, aligning with the domain 0.1 declaration; omitted from the 2026-09-22 domain-ization batch
 - 0.9 2026-09-13: checks merged with executors unified as mechanically-confirmed items; expert review: two conflicting tellings versus actions.md

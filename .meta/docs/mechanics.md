@@ -38,7 +38,7 @@ Seven required manifest keys, illustrated with real values from bb-quiz v0.2:
 
 Four optional keys. `commands` declares the commands this plugin drives; `usage` is the write-side rule list; `checks` is the inspection rules; `bridge` is the bridge declaration, which only global pieces may hold.
 
-A fifth optional key `inject_tier` (full|member, default full) carries the **tier law** (issue #12 layer discipline): member exits the AGENTS injection region — exposure rides on the family root's roster line, the skill catalog, and on-demand reads of the manifest, and validate requires a member to reach a full-tier domain root through depends. The projected region carries a byte budget (15 KiB), keeping the A layer pointer-dense: pointers and red lines, never procedures or formats (contract in `protocol/experiments.md`).
+A fifth optional key `inject_tier` (full|member, default full) carries the **tier law** (issue #12 layer discipline): member exits the AGENTS injection region — exposure rides on the family root's roster line, the skill catalog, and on-demand reads of the manifest, and validate requires a member to reach a full-tier domain root through depends. The projected region carries a byte budget (16 KiB), keeping the A layer pointer-dense: pointers and red lines, never procedures or formats (contract in `protocol/experiments.md`). Each full-tier inject line also has a 256 B pointer-density guideline (issue #49) — over it, validate warns: keep the line to path + read/write trigger + the one easy-to-break invariant + a pointer to PLUGIN.md.
 
 attachment deserves a closer look. bb-quiz declares three entries:
 

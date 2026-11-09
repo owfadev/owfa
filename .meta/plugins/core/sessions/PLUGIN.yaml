@@ -1,16 +1,16 @@
 id: sessions
 schema_version: 1
-version: 0.9
+version: 0.10
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "wiki/sessions/ — native sessions zone, session-type backbone pages"
 fields:
   participants: "YAML list, actor convention (human:name / process:flow name / agent/model id), the multi-agent collaboration extension point"
 commands:
   - save
-inject: "Native sessions `wiki/sessions/`: session backbone pages (type: session, participants required = actor list, default naming YYYY-MM-DD-<topic>); high-value topics promoted to standalone `wiki/notes/` pages with a back-link; no-regeneration zone, commands append-only and never modify"
+inject: "Native sessions `wiki/sessions/`: session backbone pages (`type: session`, `participants` required, named YYYY-MM-DD-<topic>); high-value topics promoted to `wiki/notes/` with a back-link; commands append, never modify"
 usage:
   - Landing spot `wiki/sessions/YYYY-MM-DD-<topic>.md` (default naming), type: session, participants required (actor list)
   - Backbone page five-section shape: Core Conclusions / Decisions & Rationale / Non-obvious Insights / Open Questions / Related Pages (full-shape sample in the Example section of `.meta/plugins/sessions/PLUGIN.md`)

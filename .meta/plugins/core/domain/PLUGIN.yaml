@@ -1,8 +1,8 @@
 id: domain
 schema_version: 1
-version: 0.1
+version: 0.2
 depends: []
-updated: 2026-10-06
+updated: 2026-11-09
 attachment: []
 fields: {}
-inject: "Domain abstraction (outer): wiki recognizes only the inner/outer distinction; an outer domain = an adapter contract (external territory / landing strategy / identity proof / wiki-side territory / write model / trust model), declared by each domain plugin itself, with in-domain plugins belonging to the domain transitively; landing is essentially a write-model choice (final-state assets → append-only repository, process container → full read/write, truth elsewhere → pointer), and projection density follows translation cost (mirror / pointer / disclosure-only); borrowing vault or pointers is the default posture, self-standing containers are the exception (criteria: write-model or structural-rigidity divergence); a domain must be discoverable within wiki (declaration page or injection line)"
+inject: "Outer domains: wiki knows only inner/outer; each domain plugin declares its adapter contract, members join transitively. Blocks here are routing pointers — before first acting in a territory, read `.meta/plugins/**/<id>/PLUGIN.md` (red lines, grammar)"

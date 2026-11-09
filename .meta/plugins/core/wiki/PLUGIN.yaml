@@ -1,8 +1,8 @@
 id: wiki
 schema_version: 1
-version: 0.7
+version: 0.8
 depends: []
-updated: 2026-10-06
+updated: 2026-11-09
 attachment: []
 fields: {}
-inject: "wiki container `wiki/` (the inner side of the inner/outer distinction): origin dichotomy — territory pages in two forms: proxy pages (default, projections of reconcilable external sources, territory paths self-disclosed by each domain's injection line) and in-domain native pages (domain-side archives declared by the domain — the true body lives here, no external source to reconcile, shape owned by the domain plugin; first case bb-track cognition profile user.md); everything outside territories is native pages (writings whose true body lives here; session pages are minutes not mirrors — once the conversation vanishes the page is the true body, writing is birth); index / tags / hot / log are derived pages (mechanical projections); page frontmatter takes a minimal YAML subset (top-level scalars / block lists / one-level block mappings), more complex structures are not parsed"
+inject: "wiki container `wiki/`: territory pages (domain proxy projections or in-domain native pages), native writings (true body here), derived index/tags/hot/log; frontmatter = top-level scalars, block lists, one-level block mappings only; details PLUGIN.md"

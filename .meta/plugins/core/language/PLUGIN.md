@@ -32,6 +32,7 @@
 
 ## Changelog
 
+- 0.6 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.5 (2026-10-23): restore the register discipline in manifest usage routed to save and align the field description; generated command projections now retain it across rebuilds (issue #26).
 - 0.4 (2026-10-07): register key — the `register` canonical key governs the audience reading level (program default first/second-year undergraduates, AGENTS principle 12), consumed by bb-teach (teaching) / bb-quiz (annotation) / save (PR #23, renumbered past master's 0.3 compression)
 - 0.3 (2026-10-06) inject line compressed to pointer density (issue #12 layer discipline) — procedural detail lives in usage / PLUGIN.md / skills- 0.2 2026-10-04: language neutralization — the absence fallback changed from 'Chinese-first' to 'follow the session language', Chinese demoted to a development-period instance fact; layered ruling: source alignment belongs to domain plugins, reader alignment to this page's canonical keys (the teaching/annotation precedent); same batch as bb-teach/bb-quiz v0.4

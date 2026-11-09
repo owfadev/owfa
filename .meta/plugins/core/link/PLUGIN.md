@@ -23,6 +23,7 @@
 
 ## Changelog
 
+- 0.15 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.14 2026-09-23: added the wiki dependency edge — inner-side plugins attach to wiki, aligning with the domain 0.1 declaration; omitted from the 2026-09-22 domain-ization batch
 - 0.13 2026-09-19: _concept excluded wiki/tmp/ — the temporary zone is not a link source and is exempt from graph checks; a draft's broken link = not yet written down, closed upon promotion
 - 0.12 2026-09-19: the orphan info set changed to dynamically reading registry type.values except session — new territory types covered automatically, the hardcoded set retired, prerequisite for project's establishment

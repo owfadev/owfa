@@ -61,7 +61,8 @@ The kernel journal (`.meta/kernel-journal.log`, rolling cap of 500 lines, git-tr
 
 - **`inject_tier: full | member`** (optional, default full): **full** projects into the AGENTS.md injection region; **member** exits it — exposure rides on the family root's roster line (every member named with id + one phrase), the skill catalog (trigger-surface awareness), and L-layer reads (the manifest `inject` field stays the full-disclosure home either way)
 - Validate requires a member to reach a **full-tier domain root** through depends (family membership, else it exits into invisibility)
-- The projected plugin blocks carry a **byte budget** (15 KiB, derived from the smallest mainstream whole-file AGENTS.md cap minus handwritten allowance): over-budget is a validate error — compress pointer lines or re-tier domain members; the A layer holds pointers and red lines only, never procedures or formats (content contract in `protocol/experiments.md`)
+- The projected plugin blocks carry a **byte budget** (16 KiB, derived from the smallest mainstream whole-file AGENTS.md cap minus handwritten allowance): over-budget is a validate error — compress pointer lines or re-tier domain members; the A layer holds pointers and red lines only, never procedures or formats (content contract in `protocol/experiments.md`)
+- Each full-tier `inject` line has a **pointer-density guideline** (256 B, `INJECT_LINE_GUIDE`, issue #49): a longer line is a validate warning, never an error — write path + read/write trigger + the one easy-to-break invariant + a pointer to PLUGIN.md; detail moves to PLUGIN.md / usage / skills
 
 ## Command-plugin binding
 

@@ -28,6 +28,7 @@ Cross-cutting plugins — tag, trust, link — occupy fields and syntax, not pag
 
 ## Changelog
 
+- 0.8 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.7 2026-10-02: two territory forms — proxy pages as the default, plus in-domain native pages, i.e. domain-side archives declared by a domain with shape owned by the domain plugin; group-meeting ruling, first case bb-track cognition profile user.md; legitimizes the existing tension of lark and email archive pages, not an exception hatch
 - 0.6 2026-09-29: narrative reinforcement — the origin dichotomy spelled out as three page-origin layers: domain territories, native territory, derived facilities; added cross-cutting plugin positioning; sessions characterized as minutes not mirrors, the source vanishes and the page is the true body
 - 0.5 2026-09-22: domain-ization — the origin dichotomy generalized to "pages each domain declares as its territory", removing the vault-specific hardcoding; territory-to-domain mapping read from path convention, declarations in each domain's manifest; first paragraph rewritten to the inner/outer narrative

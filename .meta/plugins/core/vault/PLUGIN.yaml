@@ -1,13 +1,13 @@
 id: vault
 schema_version: 1
-version: 0.6
+version: 0.7
 depends:
   - domain
   - wiki
   - trust
   - log
-updated: 2026-10-06
+updated: 2026-11-09
 attachment: []
 fields:
   url: "Source URL; provenance registration for URL-type assets (source preservation), optional for manual placement, required for agent channels (delegate etc.); also the interface for other domains to land via vault"
-inject: "Default domain — real-asset repository `vault/`, wiki-side territory `wiki/vault/`: holds assets of any format, doubling as the landing repository for other domains (the url field is the passthrough interface); append-only on the command side, freedom to delete and modify belongs to the human; layout rules belong to the structure plugin"
+inject: "Default domain `vault/` (real assets of any format; landing repository for other domains), wiki-side `wiki/vault/`; commands are append-only toward vault — deleting/modifying belongs to the human; layout per `wiki/structure.md`"

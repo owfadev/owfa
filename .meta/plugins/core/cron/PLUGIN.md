@@ -26,12 +26,14 @@
 - Executor names never enter invariants, the inject line, or field vocabulary — the replay recipes (usage) are their only home; trigger semantics declared wiki-side must remain translatable to any executor
 - Trigger vocabulary is open (extend words, not machinery); condition declarations carry executor-portable semantics only — what condition, edge, budget, cooldown; never how to probe or deliver
 - System-state writes require user confirmation: the script edition landing system tasks or watches, status changes syncing deletes/stops on the execution side — following the device attached-audit delegation precedent
+- Intent-change sync runs both directions; failures report via log only, never blocking other tasks (moved from the inject line, issue #49)
 - Normal runs write no task-page history; run notes take only anomalies and changes; last_run is machine-maintained
 - status: paused / deprecated pages are never deleted (kept for the record); deprecated tasks remain in the directory for lineage reference
 - Three-way boundary: todo one-shot delegations (the human states the trigger) · calendar event facts (what happens when — reality states the trigger) · cron deferred-trigger automation intent, systematically recorded and archived (machine conditions state the trigger); task outputs land per each domain's discipline (e.g. lark-calendar's daily-refresh output goes into the month page's schedule section, bili digest refreshes the digest page)
 
 ## Changelog
 
+- 0.5 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.4 (2026-10-08) deferred-trigger generalization (issue #29): schedule → trigger (time | condition forms, open kind vocabulary file|command|http|process|port|webhook), executor names withdrawn from the inject line into the replay recipes, trigger × form 2×2 matrix, per-form best-effort reconciliation (unreadable executor → info); executor-agnostic positioning ruled by the owner 2026-10-08
 - 0.3 (2026-10-06) inject line: sections lost to the kernel comment-strip clip restored (quoted values are now protected), tightened for budget headroom — issue #12 post-migration nit
 - 0.2 (2026-10-06) inject line compressed to pointer density (issue #12 layer discipline) — procedural detail lives in usage / PLUGIN.md / skills

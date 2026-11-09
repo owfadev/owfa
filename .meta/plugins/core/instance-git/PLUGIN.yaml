@@ -1,11 +1,11 @@
 id: instance-git
 schema_version: 1
-version: 0.1
+version: 0.2
 depends: []
-updated: 2026-10-13
+updated: 2026-11-09
 attachment: []
 fields: {}
-inject: "Instance git = the snapshot ledger of real use (rollback + time machine), never a collaboration face: three authors — the kernel never touches git (the journal is its ledger), the agent commits at transaction close (type: summary, log-shaped), humans snapshot freely; red lines — credentials/session files never tracked, adding an ignore sweeps tracked matches out, project entities keep their own git (the instance discloses, never hosts); recovery entrance: git log -- <page> → git checkout -- <page>; beyond this contract, usage is the human's own"
+inject: "Instance git = snapshot ledger of real use (rollback + time machine), never a collaboration face: the agent commits at transaction close (`type: summary`), the kernel never touches git; credentials/session files never tracked; contract PLUGIN.md"
 usage:
   - Package transactions: after validate goes green, one commit at close — mechanical + semantic in one snapshot (message `plugin: <verb> <pkg> [v<version>]`); see the plugin command's Transaction close section
   - Session close: commit the dirty tree the session leaves (`type: summary`, optional `[domain]` tag — the same shape as a log entry); no other rhythm is mandated
