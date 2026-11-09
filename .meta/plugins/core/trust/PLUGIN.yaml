@@ -1,10 +1,10 @@
 id: trust
 schema_version: 1
-version: 0.9
+version: 0.10
 bridge: 必依
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "scripts/check.py — attached audit (trust-field contract + stale list + trust-level counts)"
 fields:
@@ -12,7 +12,7 @@ fields:
   verified: "event list, items single-line `by: <actor>, at: <date>`, appendable multiple times; the trust level is derived from this"
   stale_after: "YYYY-MM-DD absolute moment; expiry check = the pure comparison now ≥ stale_after"
   sources: "source list, items contain id / resource / credibility signals (author, usage_count, last_modified)"
-inject: "Trust fields (optional per page): `generated` (who generated it) / `verified` (event list, items single-line by+at) / `stale_after` (expiry moment) / `sources` (sources and signals); level derivation never persisted — no record = unverified, only agent/process = machine-confirmed, contains human = human-reviewed, past stale_after = stale"
+inject: "Trust fields (optional): `generated` / `verified` (by+at events) / `stale_after` / `sources`; level is derived, never stored — no record = unverified, agent/process only = machine-confirmed, any human = human-reviewed, past stale_after = stale"
 usage:
   - When writing a page, write `generated` along the way (block style: `by: agent/<current-model>` / `at: <today>`)
   - When a review action happens, append a `verified` event (single line `by: <actor>, at: <date>`), never fabricated to inflate the level

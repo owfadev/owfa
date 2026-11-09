@@ -1,18 +1,18 @@
 id: user-profile
 schema_version: 1
-version: 0.6
+version: 0.7
 bridge: 按需
 depends:
   - wiki
   - trust
   - sessions
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "wiki/profile.md — user profile page (a continuing cognition profile of the user)"
 fields: {}
 commands:
   - profile
-inject: "User profile wiki/profile.md (type: profile): continuing cognition of the user, static identity + dynamic preference layers, dimensions open; convergence-style updates (new replaces old, trace in body), assertions carry evidence wikilinks, preference layer stale_after; zero own fields, reuses trust; not in the notes territory, no tags; updates via the profile command (dual-track trigger, self-creates on first); read before personalized decisions; cognition bridge — domain cognition pages register one line each in ## Domain Cognition, the profile aggregates pointers only"
+inject: "User profile `wiki/profile.md`: continuing cognition of the user (identity + preference layers); read before personalized decisions; write only via the profile command; assertions carry evidence wikilinks, preferences stale_after; details PLUGIN.md"
 usage:
   - Dual-track triggering: the user explicitly invokes profile; the agent calls it spontaneously in any session upon recognizing significant signals — signal distillation uniformly goes through this command, not parasitic on other command flows
   - Signal criteria: self-reported signals (preference expressions, corrections, background) and behavioral signals (subjects, fields, material habits); record only recurring subjects/fields, explicit preference expressions, corrections to output, and stable background facts (identity/tools/environment); one-off and instrumental content and uncertain observations are not recorded

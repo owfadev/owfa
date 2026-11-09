@@ -43,6 +43,9 @@ Injection tier and budget (issue #12 layer discipline, see protocol/experiments.
   membership, else it exits into invisibility)
 - the projected plugin blocks carry a byte budget (INJECT_BUDGET): over-budget is a validate
   error (compress pointer lines or re-tier domain members) the region under budget
+- each full-tier inject line carries a pointer-density guideline (INJECT_LINE_GUIDE, issue #49):
+  a line over it is a validate warning — the line is a routing pointer (path + read/write trigger
+  + the one easy-to-break invariant + pointer to PLUGIN.md), detail lives in PLUGIN.md / skills
 
 Command-plugin binding (mutual declaration, validate checks consistency):
 - command frontmatter adds owner: plugin id (multiple as an [a, b] list) or framework
@@ -120,6 +123,9 @@ INJECT_TIERS = ("full", "member")
 # injection budget on the projected plugin blocks: smallest mainstream whole-file AGENTS.md cap
 # (Devin 16 KiB) minus ~1 KiB instance handwritten allowance; over-budget is a validate error
 INJECT_BUDGET = 16 * 1024  # #12 layer discipline: raised 15->16 KiB at the conversion drill — five packages + core 21 project 15.7K; the 16K line stays the anchor (Devin floor)
+# per-line pointer-density guideline for full-tier inject lines (issue #49): the budget is the pressure
+# valve, this is the gauge — over-guideline lines warn, never block (third-party packages migrate at their pace)
+INJECT_LINE_GUIDE = 256
 
 
 def ordered_plugins(plugins):
@@ -325,6 +331,10 @@ def validate(plugins, errors, scope=None, warnings=None):
     size = sum(len(b.encode("utf-8")) for b in blocks)
     if size > INJECT_BUDGET:
         errors.append(f"[error] projected injection region {size} B over the {INJECT_BUDGET} B budget — compress pointer lines or re-tier domain members (issue #12 layer discipline)")
+    for name, m in sorted(plugins.items()):
+        n = len(str(m.get("inject") or "").encode("utf-8"))
+        if m.get("inject_tier") != "member" and n > INJECT_LINE_GUIDE:
+            warnings.append(f"{name}/: inject line {n} B over the {INJECT_LINE_GUIDE} B pointer guideline — keep path + read/write trigger + pointer to PLUGIN.md, move detail there (issue #49)")
     # dependency existence
     for name, m in sorted(plugins.items()):
         for dep in m.get("depends") or []:

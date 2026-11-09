@@ -23,4 +23,5 @@
 
 ## Changelog
 
+- 0.4 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.3 (2026-10-06) inject line: code formatting restored on the territory path (issue #12 post-migration nit)- 0.2 (2026-10-06) inject line compressed to pointer density (issue #12 layer discipline) — procedural detail lives in usage / PLUGIN.md / skills- 0.1 2026-09-19: established — path-as-territory, invisible to the derived layer, stale_after cleanup prompts, delete upon promotion

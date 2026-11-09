@@ -1,16 +1,16 @@
 id: log
 schema_version: 1
-version: 0.15
+version: 0.16
 bridge: 必依
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "wiki/log.md — single-file operation journal (rolling window)"
   - "wiki/archive/YYYY-MM/log.md — archive spillover (immutable zone, grouped by entry month)"
   - "scripts/check.py — attached audit (entry date contract)"
 fields: {}
-inject: "Run log `wiki/log.md`: new entries prepended at the top, entries never rewritten; entry = date + type (map/save/query/check/plugin/todo/profile/other) + [domain] (omissible — domainless transactions; log is a mandatory bridge: domain bases must depend on this plugin, constitution principle 11) + one sentence; window ≤100 entries, overflow is mechanically archived to `wiki/archive/<month>/log.md`"
+inject: "Run log `wiki/log.md`: prepend, never rewrite; entry = date + type (map/save/query/check/plugin/todo/profile/other) + optional [domain] + one sentence, written via `pipeline.py log`; >100 entries auto-archived; details PLUGIN.md"
 usage:
   - Writing lines (mechanical, automatic): `python .meta/scripts/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
 checks:

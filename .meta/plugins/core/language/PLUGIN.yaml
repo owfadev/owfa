@@ -1,9 +1,9 @@
 id: language
 schema_version: 1
-version: 0.5
+version: 0.6
 depends:
   - wiki
-updated: 2026-10-23
+updated: 2026-11-09
 attachment:
   - "wiki/language.md — the writing declaration page (output-language and writing-baseline ontology: frontmatter language/terms block mappings + body distillation section)"
   - "scripts/check.py — attached audit (territory placement / terms empty values / declaration page presence)"
@@ -12,7 +12,7 @@ fields:
   terms: block mapping (declaration page) — term original → unified translation (single-line value); the cross-session translation-consistency lookup piece
 usage_routes:
   - save
-inject: "Writing declaration page wiki/language.md (type: language): language block mapping = key → one-sentence rule (consumer precedents: teaching bb-teach, annotation bb-quiz, register = audience reading level, program default first/second-year undergraduates per AGENTS principle 12) + terms = original → unified translation; body distillation notes append-only; the agent reads it before producing written artifacts; page or key absent → session language (proper nouns/code/paths keep original); default baseline not a mandate — domain source-alignment disciplines take precedence; terms emergence-based (register after recurring hits); direct human edits legitimate"
+inject: "Writing declaration `wiki/language.md`: read it before writing artifacts — `language` keys → one-sentence rules (e.g. register), `terms` → unified translations; page/key absent → session language; domain source-alignment wins; details PLUGIN.md"
 usage:
   - Register discipline: follow the language.register audience reading level when writing saved artifacts; absent register uses the program baseline (first/second-year undergraduates), while explicit user audience requirements and domain source-alignment rules take precedence
   - When to read: read the declaration page before writing any artifact (wiki pages, documents, lecture distillates); page or key absent = follow the session language (conversation language is the output language); proper nouns, code, paths, commands, and file names always keep their original form (language neutrality, invariant under configuration) — the framework presets no specific language; Chinese is merely an instance fact of this project's development period (AGENTS principle 7)

@@ -17,9 +17,9 @@ Read: registry (`.meta/protocol/registry.yaml`, field and value-set anchor), tru
 ## Steps
 
 1. **Anchor (one-time read)**: read `.meta/protocol/registry.yaml` and `wiki/profile.md` — a missing page = first creation (construction), no reliance on an initialization mechanism
-2. **Judge signals** (criteria in the injection region): if this session's and recent observations do not qualify, report and exit — never force a write
+2. **Judge signals** (criteria in the user-profile usage block below): if this session's and recent observations do not qualify, report and exit — never force a write
 3. Assemble the update: incremental assertions (new value replaces old + body trace) or construction / consolidation (whole-page rewrite) — construction and consolidation **present a profile preview** (assertions / evidence / layers) and wait for user confirmation
-4. Write the page (layered placement and stale_after renewal in the injection region)
+4. Write the page (layered placement and stale_after renewal per the usage block below)
 5. **Post-write pipeline** (deterministic, mechanical and automatic, no prompting): execute each plugin's write calls in injection-region order, then finish with `python .meta/scripts/pipeline.py verify` (post-write self-verification; on failure, go back and fix); then commit per the commit discipline (`画像: <one line>`, see the vocabulary in `.meta/protocol/actions.md`)
 6. Report: what was updated / the evidence chain / which layer it landed in
 

@@ -59,6 +59,7 @@ Field bridge: the trust-field contract shared by all domain plugins across domai
 
 ## Changelog
 
+- 0.10 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.9 2026-10-02: global-domain batch one — established the mandatory bridge, i.e. the field bridge; domain bases must depend on it, kernel verifies completeness
 - 0.8 2026-09-23: added the wiki dependency edge — inner-side plugins attach to wiki, aligning with the domain 0.1 declaration; omitted from the 2026-09-22 domain-ization batch
 - 0.7 2026-09-13: usage gained the verified production channel — reviews are initiated by the user, agents never append spontaneously; expert review: the input channel was idling

@@ -40,4 +40,5 @@ Where the entropy goes: cross-domain semantic disambiguation is completed at ada
 
 ## Changelog
 
+- 0.2 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.1 2026-09-22: established — distilled from the 2026-09-19 domain problem report and four rounds of discussion; the three instances vault, lark, and project brought into compliance first

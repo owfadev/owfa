@@ -25,6 +25,7 @@
 
 ## Changelog
 
+- 0.14 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.13 (2026-10-06) inject line compressed to pointer density (issue #12 layer discipline) — procedural detail lives in usage / PLUGIN.md / skills- 0.12 2026-09-23: added the wiki dependency edge — inner-side plugins attach to wiki, aligning with the domain 0.1 declaration; omitted from the 2026-09-22 domain-ization batch
 - 0.11 2026-09-19: concept-page detection excluded wiki/tmp/ — the temporary zone stays out of indexes and tags, in step with the tmp plugin's establishment
 - 0.10 2026-09-19: the per-directory scheme changed to the overflow-offloading scheme — list window of at most M, subtree-descending splits, the root always present, empty-subtree visibility lines; small repositories collapse to a single index, the engineering repository 4-to-1, test-repo measured 8-to-1; invariants gained "pure-function rebuild" and "indexes do not invent structure"

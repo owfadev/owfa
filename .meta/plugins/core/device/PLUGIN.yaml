@@ -1,15 +1,15 @@
 id: device
 schema_version: 1
-version: 0.4
+version: 0.5
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "wiki/notes/ — home of device profile pages (one page per device, type: entity suggested, device block mapping registering serial/purchase/warranty)"
   - "scripts/check.py — attached audit (warranty_until within 30 days of expiry / already expired → warning list)"
 fields:
   device: block mapping (device profile page in notes) — serial (serial number) / purchased (purchase date YYYY-MM-DD) / warranty_until (warranty or coverage end date YYYY-MM-DD, the attached-audit scan item), a three-key minimal set; remaining keys open (model, vendor, etc.; the architecture does not enumerate)
-inject: "Device profiles: one page per personal device in wiki/notes/ (type: entity suggested); device block mapping minimal keys serial/purchased/warranty_until, rest open; body ## Tool Environment = presence-level connector/runtime/channel registry for cross-device lookup (synced on (un)install, no full inventory); invoice assets via vault + wikilink; attached audit scans warranty_until (30-day window → warning list; todo line only upon confirmation); no real-time monitoring, no team lending"
+inject: "Device profiles: one page per device in `wiki/notes/` (`device` block serial/purchased/warranty_until; `## Tool Environment` connector/runtime registry, synced on (un)install); audit warns 30 days before warranty ends; details PLUGIN.md"
 usage:
   - Registration: natural-language editing in conversation suffices (no command) — one page per device in `wiki/notes/`, type: entity (suggested form); page name free, same names disambiguated by suffix; `device` block mapping minimal keys serial / purchased / warranty_until, remaining keys open
   - Tool environment: the device page body's `## Tool Environment` summary section — records connector presence (lark-cli, bb-cli, etc.), runtimes (python, node), channels (ssh, web entries) and the device's purpose; only presence-level, never exact versions (look up live); sync this section when software is (un)installed; no full software inventory; this section is the cross-device lookup registry — the AGENTS shell reaches only this machine, device pages cover all relevant devices, the shell pointing to the device pages

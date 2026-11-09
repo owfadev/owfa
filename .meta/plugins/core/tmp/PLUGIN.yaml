@@ -1,13 +1,13 @@
 id: tmp
 schema_version: 1
-version: 0.3
+version: 0.4
 depends:
   - wiki
-updated: 2026-10-06
+updated: 2026-11-09
 attachment:
   - "wiki/tmp/ — temporary zone (the path is the territory; instance data — real contents never enter the framework repo or test-repo)"
 fields: {}
-inject: "Temporary zone `wiki/tmp/` (the path is the territory; type: tmp optional, landing outside → error): drafts and parsing intermediates, no retention promise, cleanable any time; invisible to the derived layer — excluded from index/tags, never a link source, broken links exempt; promote precious drafts promptly (draft deleted on promotion); intermediates set stale_after as they go — check reports over-age, disposal via confirmation (no automatic deletion); sensitive intermediates best gitignored instance-side"
+inject: "Temporary zone `wiki/tmp/` (path = territory): drafts and intermediates, no retention promise, invisible to the derived layer; promote precious drafts (draft deleted on promotion); set `stale_after` — deletion only on confirmation; details PLUGIN.md"
 usage:
   - Drafts / parsing scratch: land directly at `wiki/tmp/<name>.md`, frontmatter kept simple (title + optional stale_after); broken links may stay as written
   - Promotion: content distilled via save into notes or merged into the target territory (a project decision section, etc.); delete the draft after the links close (agent-created drafts deleted by the agent; human drafts upon confirmation)
