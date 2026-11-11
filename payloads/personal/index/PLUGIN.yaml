@@ -1,0 +1,18 @@
+id: index
+schema_version: 1
+version: 0.14
+depends:
+  - tag
+  - wiki
+updated: 2026-11-09
+attachment:
+  - "wiki/index.md — root index (always present; carries format_version; directly lists reachable pages)"
+  - "Per-directory index.md — born of the overflow-offloading scheme (split out when a list overflows the window, disappearing on rebuild once merged back into the parent)"
+  - "wiki/tags.md — tag reverse index"
+fields: {}
+inject: "Index `wiki/index.md` (+ subtree index.md on overflow): derived, never hand-edited — rebuild via `pipeline.py index`; lists every reachable page by full path; the overflow cure is subdirectories; details PLUGIN.md"
+usage:
+  - Post-write rebuild (mechanical, automatic): `python .owfa/scripts/pipeline.py index` (index — overflow-offloading scheme, including deletion of obsolete old indexes after merge-back) and the same script's `tags` (tag reverse index); LLMs never hand-write indexes
+checks:
+  - Deviation between indexes and the actual page set (including merged-back indexes pending deletion) → fixed by running `pipeline.py index` to rebuild (idempotent; no diff means consistent); same for tags (`pipeline.py tags`)
+  - Traces of hand editing → warning

@@ -1,0 +1,24 @@
+id: cron
+schema_version: 1
+version: 0.5
+bridge: 按需
+depends:
+  - wiki
+  - trust
+  - log
+updated: 2026-11-09
+attachment:
+  - "wiki/cron/ — deferred-trigger territory (one page per task, pure-directory scheme — the directory is the full declaration set, no root declaration page, quick views via the derived index)"
+  - "wiki/cron/<task name>.md — task page (type: cron; cron block mapping mechanical zone + two body sections)"
+fields:
+  cron: "block mapping (task page) — trigger (deferred-trigger declaration; v0.4 generalizes the v0.3 schedule key, schedule reads as the time form): time form = crontab 5-field or human-readable cadence, local timezone by default; condition form = condition <kind> <target> [pattern] [interval] [max_fires] [cooldown], kind first batch file|command|http|process|port|webhook (open vocabulary — extend words, not machinery), pattern semantics fixed as no-match→match edge (default any change after baseline) / action (the action in one sentence) / form (execution shape: session edition | script edition — criterion: any agent-judgment step means session, purely mechanical means script; orthogonal to trigger, all four combinations legal) / domain (owning domain, tagged when a domain plugin registers via the bridge, omittable for cross-domain tasks) / status (active in-service | paused suspended | deprecated retired) / last_run (most recent run or fire time, machine-maintained) / machine (optional: executing-machine anchor for multi-device location; no linkage built)"
+inject: "Deferred triggers `wiki/cron/`: one page per task (`cron` block: trigger time|condition, action, form session|script, status; `## Run Notes` append-only); the page is the source, executors replayable projections on user confirmation; grammar PLUGIN.md"
+usage:
+  - Registration (domain plugin via the bridge / direct human creation): build wiki/cron/<task name>.md — cron block mapping minimal key set (trigger/action/form/status) + a `## Task` section (action details: which command to call or what the session opening reads, back-linking the owning domain's skill); condition-form triggers declare executor-portable semantics only — what condition, edge, budget and cooldown; never executor-specific probes or delivery details; domain-plugin registrations tag domain and hang depends cron
+  - Replay — the 2×2 translations (executor names live here and only here): time+session → harness-scheduler unattended session, prompt self-contained (read wiki/cron/<task name>.md and execute per the page, report failures with a log line, never block other tasks); time+script → system timer / crontab; condition+session → the deployment's conditional executor as a watch (name = page name, note self-contained pointing at the task page); condition+script → system timer running a stateful edge-detection script (state file holds the last-seen match, fire on no-match→match, zero harness dependency — inline recipe, v1 ships no script artifact); system-state writes upon user confirmation; when execution-side tasks diff against the declarations, add and delete with the declaration pages as the authority
+  - Run traces: a normal completion or fire writes a log line (type other, tagging the task name) + a mechanical last_run update on the task page; anomalies enter `## Run Notes`, append-only and convergent; repair delegations → todo (one-way derivation)
+  - Reconciliation (check attached-audit discipline): per-form best-effort — the active page set diffed against each readable executor-side list (scheduler tasks / system tasks / conditional-executor watches), drift → warning; unreadable or absent executor → info skip, never error; time form: last_run beyond the schedule period with status: active → warning (projection-lost signal — the condition form has no cadence staleness, it rides this reconciliation); paused/deprecated pages still running on the execution side → error
+  - Pause and deprecation: a human changes status → the agent synchronously deletes/stops the execution-side task (scheduled task or watch) upon confirmation; deprecated pages are never deleted (kept for the record)
+checks:
+  - Mechanical: a type: cron page landing outside wiki/cron/ → error; task page missing the cron block or the minimal key set (trigger/action/form/status) → warning; malformed condition trigger (kind outside the open vocabulary or missing target) → warning; time form: last_run beyond the schedule period with active → warning (projection-lost signal)
+  - Semantic (attached audit deferred): per-form drift between readable execution-side lists (scheduler / system tasks / conditional-executor watches, best-effort) and the declaration page set → warning; unreadable executor → info

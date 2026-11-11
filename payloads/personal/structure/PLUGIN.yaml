@@ -1,0 +1,18 @@
+id: structure
+schema_version: 1
+version: 0.5
+depends:
+  - vault
+  - wiki
+updated: 2026-11-12
+attachment:
+  - "wiki/structure.md — structure declaration page (the vault layout declaration proper: frontmatter structure block mapping + body preset notes)"
+  - "scripts/check.py — attached audit (declaration diff / territory placement / declaration-page existence)"
+fields: {}
+inject: "vault layout declaration `wiki/structure.md` (directory → one-line semantics + presets): read it before placing assets and place by position (absent = flat tolerance); sync it after the human reorganizes vault; details PLUGIN.md"
+usage:
+  - How to declare: frontmatter `structure` block mapping (key = top-level directory name with trailing slash, value = one-line semantics); the body records preset choices and nesting-rule notes
+  - Agent placing assets into vault: read the declaration page first and place by position; with no fitting position, use the flat slot or create a directory then supplement the declaration; if the page is absent, place flat in the root directory
+  - The human adjusts structure freely (vault belongs to the human); after adjusting, sync the declaration; drift is flagged mechanically by the attached audit
+checks:
+  - Mechanical items (attached-audit script `scripts/check.py`, executed on audit discovery): declaration diff — vault top-level directory undeclared → warning, declaration key pointing to a nonexistent directory → warning; type: structure landing outside `wiki/structure.md` → error; declaration page absent → info (flat tolerance)

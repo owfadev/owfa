@@ -1,0 +1,23 @@
+id: todo
+schema_version: 1
+version: 0.6
+bridge: 按需
+depends:
+  - wiki
+  - log
+updated: 2026-11-12
+attachment:
+  - "wiki/todo.md — temporary memory page (cross-session delegation queue)"
+  - "scripts/check.py — attached audit (territory placement / entry contract / overdue list)"
+fields: {}
+inject: "Temporary memory `wiki/todo.md`: read first at session start (before hot; absent → create empty), raise due entries; entry = trigger (date/context) + one sentence + by/at; settle with [x] + log line, settled ≤20; details PLUGIN.md"
+usage:
+  - Append upon delegation: `- [ ] <date YYYY-MM-DD or context phrase>: one sentence (by: <actor>, at: <date>)`; date entries are mechanically scannable, context entries are semantically activated
+  - Read this page first at the start of a new session (before hot; if absent, create an empty page): entries with now ≥ trigger day are proactively raised with the user; overdue and unsettled entries keep being raised, marked overdue
+  - Settlement = `[ ]`→`[x]` + a log line (type todo, one sentence covering content and delegation date) — events recorded as they happen, history goes to log
+  - Cleanup: settled entries capped at 20, silently delete the oldest beyond the cap (log already holds the settlement record, deletion is not an event); valuable content is distilled via save upon completion; this page keeps no history
+  - Self-create the page upon first delegation (frontmatter: type: todo + generated), independent of any initialization mechanism
+checks:
+  - Mechanical (attached-audit script `scripts/check.py`, executed on audit discovery): entry missing trigger condition or by/at → warning; type: todo landing outside `wiki/todo.md` → error
+  - Mechanical (info-level, attached audit): date-triggered, overdue and unsettled entries (the mechanical basis for new-session reminders); page absent (the no-delegation norm)
+  - Semantic (check command): open entries > 50 → warning (bloat triage: do what should be done, distill what should be distilled via save, confirm with the user what should be dropped)

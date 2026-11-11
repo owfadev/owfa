@@ -1,0 +1,21 @@
+id: device
+schema_version: 1
+version: 0.5
+depends:
+  - wiki
+updated: 2026-11-09
+attachment:
+  - "wiki/notes/ — home of device profile pages (one page per device, type: entity suggested, device block mapping registering serial/purchase/warranty)"
+  - "scripts/check.py — attached audit (warranty_until within 30 days of expiry / already expired → warning list)"
+fields:
+  device: block mapping (device profile page in notes) — serial (serial number) / purchased (purchase date YYYY-MM-DD) / warranty_until (warranty or coverage end date YYYY-MM-DD, the attached-audit scan item), a three-key minimal set; remaining keys open (model, vendor, etc.; the architecture does not enumerate)
+inject: "Device profiles: one page per device in `wiki/notes/` (`device` block serial/purchased/warranty_until; `## Tool Environment` connector/runtime registry, synced on (un)install); audit warns 30 days before warranty ends; details PLUGIN.md"
+usage:
+  - Registration: natural-language editing in conversation suffices (no command) — one page per device in `wiki/notes/`, type: entity (suggested form); page name free, same names disambiguated by suffix; `device` block mapping minimal keys serial / purchased / warranty_until, remaining keys open
+  - Tool environment: the device page body's `## Tool Environment` summary section — records connector presence (lark-cli, bb-cli, etc.), runtimes (python, node), channels (ssh, web entries) and the device's purpose; only presence-level, never exact versions (look up live); sync this section when software is (un)installed; no full software inventory; this section is the cross-device lookup registry — the AGENTS shell reaches only this machine, device pages cover all relevant devices, the shell pointing to the device pages
+  - Asset linking: invoice, photo, and screenshot assets are materialized in vault and linked to the device page via wikilink; cross-plugin references establish no dependency
+  - Trust: optional — human registration naturally carries human evidence; static facts get no stale_after (not pulled artifacts, no TTL semantics); the tool-environment section is presence-level and likewise carries none
+  - Expiry disposal: the attached audit presents the nearing-expiry list (warranty_until within 30 days or already expired) → reported in session → after user confirmation a todo line is appended as a delegation (trigger condition = expiry date + one sentence + by/at); never written automatically
+  - Retrieval: via the query channel as usual; notes territory rules apply in full (tags applied normally, append-only)
+checks:
+  - Mechanical (attached-audit script `scripts/check.py`, executed discovery-style by audit): device block mapping's warranty_until within ≤30 days of today → warning nearing expiry; already expired → warning expired; invalid date → warning

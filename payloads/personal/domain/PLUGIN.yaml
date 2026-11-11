@@ -1,0 +1,8 @@
+id: domain
+schema_version: 1
+version: 0.3
+depends: []
+updated: 2026-11-11
+attachment: []
+fields: {}
+inject: "Domains: wiki knows inner/outer; each domain declares its adapter contract, members inherit. Blocks are routing pointers — read `.owfa/plugins/**/<id>/PLUGIN.md` before acting. Core skills are owfa-* (prefer); connectors: fit wins, official is default."

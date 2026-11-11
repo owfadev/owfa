@@ -12,7 +12,7 @@ REPO="owfadev/owfa-personal"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$ROOT/payloads/personal"
 
-TAG="$(git ls-remote --tags --sort=-v:refname "https://github.com/${REPO}.git" 'v*' 'v[0-9]*' 2>/dev/null \
+TAG="$(git ls-remote --tags --sort=-v:refname "https://github.com/${REPO}.git" 'personal-v[0-9]*' 2>/dev/null \
   | awk 'index($2, "^{}") == 0 {sub(/^refs\/tags\//, "", $2); print $2; exit}')"
 if [ -z "$TAG" ]; then
   echo "sync-blessed: no version tags found in $REPO (the suite repo must tag releases)" >&2
