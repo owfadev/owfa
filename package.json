@@ -31,6 +31,7 @@
     ".owfa",
     ".agents",
     "bin",
+    "payloads",
     "templates"
   ],
   "engines": {

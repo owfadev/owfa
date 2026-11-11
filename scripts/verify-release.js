@@ -46,6 +46,9 @@ if (process.env.GITHUB_REF_TYPE === "tag" && tag !== `v${pkg.version}`) {
   problems.push(`release tag ${tag} does not match package version v${pkg.version}`);
 }
 
+// payloads/personal/ must ship: the two-stage init installs this embedded copy
+// offline; a channel tarball without it cannot bootstrap a usable instance once
+// core stops shipping (refuse the release, not the user's init).
 const REQUIRED = [
   "package.json",
   "README.md",
@@ -57,9 +60,11 @@ const REQUIRED = [
   ".owfa/docs/quickstart.md",
   ".agents/skills/owfa-map/SKILL.md",
   "bin/owfa.js",
+  "payloads/personal/PKG.yaml",
+  "payloads/personal/README.md",
   "templates/AGENTS.template.md",
 ];
-const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "templates/", "package.json", "README.md",
+const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "payloads/", "templates/", "package.json", "README.md",
   "README.zh-CN.md", "LICENSE"];
 const FORBIDDEN = [/__pycache__/, /\.pyc$/, /(^|\/)test-repo\//, /^test\//, /^scripts\//, /^\.github\//, /pending\.json$/, /kernel-journal\.log$/, /registry-cache\.yaml$/, /^CONTRIBUTING\.md$/];
 

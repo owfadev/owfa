@@ -68,9 +68,13 @@ try {
       fs.readFileSync(path.join(empty, ".gitignore"), "utf8").includes(".meta"),
       "shim not gitignored on fresh init"
     );
-    for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault", ".agents/skills/owfa-map"]) {
+    // v0.4 de-parasitization: the channel no longer hardcodes skeleton dirs —
+    // compat-period init (core still ships in-tree) creates none; packages
+    // declare them (PKG.yaml skeleton:, asserted in the suite-channel cases below)
+    for (const d of [".agents/skills/owfa-map"]) {
       assert.ok(fs.existsSync(path.join(empty, d)), `missing ${d}`);
     }
+    assert.ok(!fs.existsSync(path.join(empty, "vault")), "hardcoded skeleton vault/ must not be created anymore");
     const agents = fs.readFileSync(path.join(empty, "AGENTS.md"), "utf8");
     assert.ok(agents.includes("# smoke-vault"), "name not substituted");
     assert.ok(agents.includes("<!-- wiki-inject:start -->") && agents.includes("<!-- wiki-inject:end -->"));
@@ -317,6 +321,7 @@ try {
   });
 
   step("init --force preserves kernel state and instance data", () => {
+    fs.mkdirSync(path.join(empty, "vault"), { recursive: true });
     fs.writeFileSync(path.join(empty, "vault", "keep.txt"), "asset\n", "utf8");
     const r = run(["init", empty, "--force"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
@@ -361,6 +366,148 @@ try {
     const r = run(["upgrade", empty, "--check"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
     assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), "0.2");
+  });
+
+  // -------------------------------------------------------------------------
+  // v0.4 de-parasitization: the two-stage bootstrap and the core->personal
+  // conversion, exercised against a future-shape channel tree (core stopped
+  // shipping; core-owned command masters moved out with it). The scratch copy
+  // is throwaway — the fake suite plugin lives only inside it, never in the
+  // repo's payloads/ (which stays README + placeholder PKG.yaml).
+  // -------------------------------------------------------------------------
+  // framework commands whose owner/consumes bind to core plugins — in the
+  // future shape they ride with the suite, not with the kernel-only channel
+  const CORE_OWNED = ["owfa-map", "owfa-profile", "owfa-query", "owfa-save"];
+  function makeSuiteChannel(dst) {
+    fs.cpSync(ROOT, dst, {
+      recursive: true,
+      filter: (src) => {
+        const rel = path.relative(ROOT, src);
+        if (!rel) return true;
+        const parts = rel.split(path.sep);
+        if (parts[0] === ".git" || parts[0] === "node_modules" || parts[0] === "test" || parts[0] === "scripts") return false;
+        if (parts[0] === ".owfa" && parts[1] === "plugins" && parts[2] === "core") return false;
+        if (parts[0] === ".owfa" && parts[1] === "command" && CORE_OWNED.includes(parts[2])) return false;
+        if (parts[0] === ".agents" && parts[1] === "skills" && CORE_OWNED.includes(parts[2])) return false;
+        return true;
+      },
+    });
+    return dst;
+  }
+  function seedFakeSuite(chan) {
+    // populate the embedded blessed copy with a minimal-but-valid package:
+    // one family root declaring the classic skeleton + teardown anchors
+    const p = path.join(chan, "payloads", "personal");
+    fs.rmSync(p, { recursive: true, force: true });
+    fs.mkdirSync(path.join(p, "personal"), { recursive: true });
+    fs.writeFileSync(
+      path.join(p, "PKG.yaml"),
+      [
+        "id: personal", "version: 0.1.0", 'compat: ">= 0.4"',
+        "members:", "  - personal",
+        "skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]",
+        "uninstall:", "  anchors: [wiki/profile.md, wiki/language.md, wiki/calendar.md, wiki/todo.md, wiki/cron/]",
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(p, "personal", "PLUGIN.yaml"),
+      [
+        "id: personal", "schema_version: 1", "version: 0.1", "depends: []",
+        "updated: 2026-11-12", "attachment: []", "fields: {}",
+        'inject: "personal suite (smoke fixture) — blessed-embedded family root; skeleton + anchors declared in PKG.yaml"',
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    fs.writeFileSync(path.join(p, "personal", "PLUGIN.md"), "# personal\n\nsmoke fixture suite root\n", "utf8");
+  }
+
+  step("two-stage init: embedded blessed suite installs offline, skeleton comes from the package", () => {
+    const chan = makeSuiteChannel(path.join(tmpRoot, "suitechan"));
+    seedFakeSuite(chan);
+    const inst = path.join(tmpRoot, "suite-inst");
+    const r = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "init", inst, "--name", "suite"], { cwd: tmpRoot, encoding: "utf8" });
+    assert.strictEqual(r.status, 0, r.stderr + r.stdout);
+    assert.ok(/personal suite installed \(embedded blessed copy\)/.test(r.stdout), r.stdout);
+    // stage ② landed the package via kernel install --path
+    const dom = path.join(inst, ".owfa", "plugins", "domains", "personal");
+    assert.ok(fs.existsSync(path.join(dom, "PKG.yaml")), "suite package master missing");
+    assert.ok(!fs.existsSync(path.join(inst, ".owfa", "plugins", "core")), "channel without core must not plant plugins/core");
+    // skeleton dirs are the package's declaration — not channel hardcode
+    for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault"]) {
+      assert.ok(fs.existsSync(path.join(inst, d)), `package-declared skeleton ${d} missing`);
+    }
+    assert.ok(fs.readFileSync(path.join(inst, "AGENTS.md"), "utf8").includes("<!-- plugin:personal"), "suite root not injected");
+    const d = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "doctor", inst], { cwd: tmpRoot, encoding: "utf8" });
+    assert.strictEqual(d.status, 0, "suite instance fails doctor: " + d.stdout);
+  });
+
+  step("init --core none skips the suite and says so loudly", () => {
+    const chan = makeSuiteChannel(path.join(tmpRoot, "nonechan"));
+    seedFakeSuite(chan);
+    const inst = path.join(tmpRoot, "none-inst");
+    const r = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "init", inst, "--core", "none"], { cwd: tmpRoot, encoding: "utf8" });
+    assert.strictEqual(r.status, 0, r.stderr + r.stdout);
+    assert.ok(
+      /no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed/.test(r.stdout),
+      "the explicit no-suite warning is missing: " + r.stdout
+    );
+    assert.ok(!fs.existsSync(path.join(inst, ".owfa", "plugins", "domains", "personal")), "--core none must not install the suite");
+    assert.ok(!fs.existsSync(path.join(inst, "vault")), "--core none creates no skeleton");
+    const d = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "doctor", inst], { cwd: tmpRoot, encoding: "utf8" });
+    assert.strictEqual(d.status, 0, "bare instance fails doctor: " + d.stdout);
+  });
+
+  step("compat channel (core in tree) skips the suite stage and refuses --core <pkg>", () => {
+    const r = run(["init", path.join(tmpRoot, "compat-inst"), "--core", "personal"], tmpRoot);
+    assert.notStrictEqual(r.status, 0, "--core <pkg-id> must be refused while the channel ships core");
+    assert.ok(/still ships the core suite/.test(r.stderr + r.stdout), r.stderr + r.stdout);
+  });
+
+  step("upgrade converts in-tree core into the personal suite when the channel stops shipping core", () => {
+    const chan = makeSuiteChannel(path.join(tmpRoot, "convchan"));
+    const inst = path.join(tmpRoot, "conv-inst");
+    // a pre-0.4 instance: built by the REAL tree (core shipped in-tree)
+    const r0 = run(["init", inst, "--name", "conv"], tmpRoot);
+    assert.strictEqual(r0.status, 0, r0.stderr + r0.stdout);
+    assert.ok(fs.existsSync(path.join(inst, ".owfa", "plugins", "core")), "fixture instance lacks in-tree core");
+    fs.mkdirSync(path.join(inst, "vault"), { recursive: true });
+    fs.writeFileSync(path.join(inst, "vault", "keep.txt"), "asset\n", "utf8");
+    fs.writeFileSync(path.join(inst, ".owfa", "VERSION"), "0.3.9", "utf8"); // force the replace
+    const r = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "upgrade", inst], { cwd: tmpRoot, encoding: "utf8" });
+    assert.strictEqual(r.status, 0, "converting upgrade failed: " + r.stdout + r.stderr);
+    assert.ok(/convert: core suite/.test(r.stdout), "conversion banner missing: " + r.stdout);
+    const dom = path.join(inst, ".owfa", "plugins", "domains", "personal");
+    assert.ok(fs.existsSync(path.join(dom, "PKG.yaml")), "converted PKG.yaml missing");
+    assert.ok(!fs.existsSync(path.join(inst, ".owfa", "plugins", "core")), "old plugins/core/ must not survive");
+    assert.ok(fs.existsSync(path.join(dom, "personal", "PLUGIN.yaml")), "synthesized family root missing");
+    for (const m of ["domain", "instance-git", "wiki", "vault", "log"]) {
+      assert.ok(fs.existsSync(path.join(dom, m, "PLUGIN.yaml")), `rescued member ${m} missing`);
+    }
+    const pkgYaml = fs.readFileSync(path.join(dom, "PKG.yaml"), "utf8");
+    for (const m of ["domain", "instance-git", "wiki", "vault", "calendar", "cron", "todo", "user-profile"]) {
+      assert.ok(new RegExp(`^  - ${m}$`, "m").test(pkgYaml), `PKG.yaml members missing ${m}`);
+    }
+    assert.ok(/skeleton: \[vault\/, wiki\/notes\/, wiki\/sessions\/, wiki\/vault\/\]/.test(pkgYaml), "skeleton declaration missing");
+    assert.ok(/anchors: \[wiki\/profile\.md/.test(pkgYaml), "teardown anchors declaration missing");
+    // family-root rewiring: the rescued dependency roots adopt personal
+    for (const m of ["domain", "instance-git", "wiki"]) {
+      const t = fs.readFileSync(path.join(dom, m, "PLUGIN.yaml"), "utf8");
+      assert.ok(/- personal/.test(t), `${m} did not adopt the personal family root`);
+    }
+    // instance data + skeleton survive; projections converge
+    assert.strictEqual(fs.readFileSync(path.join(inst, "vault", "keep.txt"), "utf8"), "asset\n");
+    for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault"]) {
+      assert.ok(fs.existsSync(path.join(inst, d)), `skeleton ${d} lost in conversion`);
+    }
+    const agents = fs.readFileSync(path.join(inst, "AGENTS.md"), "utf8");
+    assert.ok(agents.includes("<!-- plugin:personal"), "converted family root not injected");
+    assert.ok(countPluginBlocks(agents) >= 22, `expected 22 plugin blocks after conversion, got ${countPluginBlocks(agents)}`);
+    const d = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "doctor", inst], { cwd: tmpRoot, encoding: "utf8" });
+    assert.strictEqual(d.status, 0, "converted instance fails doctor: " + d.stdout);
+    assert.ok(!fs.existsSync(path.join(inst, ".owfa-migrate")), "conversion scratch not cleaned");
   });
 
   console.log(`\nsmoke: ${failures ? failures + " failure(s)" : "all green"} (owfa ${PKG.version}, framework ${FW})`);

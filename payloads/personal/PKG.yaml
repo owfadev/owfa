@@ -1,0 +1,9 @@
+# placeholder — real content syncs from owfadev/owfa-personal via scripts/sync-blessed.sh
+# (init only consumes this copy once it carries plugin masters; see README.md)
+id: personal
+version: 0.0.0
+compat: ">= 0.4"
+members: []
+skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]
+uninstall:
+  anchors: [wiki/profile.md, wiki/language.md, wiki/calendar.md, wiki/todo.md, wiki/cron/]

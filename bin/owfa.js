@@ -29,7 +29,12 @@ const FRAMEWORK_VERSION = readVersion(CLI_ROOT) || "?";
 const INJECT_START = "<!-- wiki-inject:start -->";
 const INJECT_END = "<!-- wiki-inject:end -->";
 const PAYLOAD = [".owfa", ".agents"];
-const INSTANCE_DIRS = ["vault", path.join("wiki", "notes"), path.join("wiki", "sessions"), path.join("wiki", "vault")];
+// v0.4 de-parasitization: the channel no longer hardcodes instance skeleton dirs.
+// Packages declare their own (`skeleton:` in PKG.yaml; the kernel mkdirs them on
+// install), and the blessed suite copy embedded at payloads/personal/ is what a
+// fresh init installs by default (offline, --path channel). Compat period: while
+// this channel still ships .owfa/plugins/core/, init skips the suite stage.
+const BLESSED_SUITE = path.join(CLI_ROOT, "payloads", "personal");
 // 0.3 instances carry the framework in .meta/; upgrade migrates them to .owfa/
 // and leaves a .meta shim (symlink/junction) so old absolute paths keep working.
 const LEGACY_META = ".meta";
@@ -70,7 +75,7 @@ function rel(root, p) {
   return path.relative(root, p) || ".";
 }
 
-const FLAG_VALUE = ["name", "packages", "without", "from", "path"];
+const FLAG_VALUE = ["name", "packages", "without", "from", "path", "core"];
 
 function parseArgs(argv) {
   const args = { _: [], flags: new Set(), used: new Set() };
@@ -250,6 +255,7 @@ function replacePayloadTree(target, entry, skip) {
     fs.renameSync(parkedFrom, attic); // same volume — atomic enough for a directory swap
     fs.cpSync(path.join(CLI_ROOT, entry), dst, { recursive: true, force: true, filter: skip });
     carryOverEntry(target, entry, attic);
+    if (entry === ".owfa") rescueCoreForConversion(target, attic, dst);
   } catch (e) {
     try {
       fs.rmSync(dst, { recursive: true, force: true }); // partial fresh copy
@@ -264,6 +270,135 @@ function replacePayloadTree(target, entry, skip) {
   }
   fs.rmSync(path.join(target, MIGRATE_SCRATCH, "replace"), { recursive: true, force: true });
 }
+
+// v0.4 core de-parasitization, rescue half: when the parked tree carries
+// .owfa/plugins/core/ but the incoming channel tree does not (core stopped
+// shipping), the parked masters are the only copy — move them out of the attic
+// before it is deleted. The conversion itself (below) runs once the whole
+// payload replace has finished, so it converges against the complete fresh tree.
+// Inside the replace try-block: a failure here rolls the whole swap back.
+function rescueCoreForConversion(target, attic, freshOwfa) {
+  const parkedCore = path.join(attic, "plugins", "core");
+  if (!fs.existsSync(parkedCore)) return;
+  if (fs.existsSync(path.join(freshOwfa, "plugins", "core"))) return; // compat: channel still ships core — nothing to convert
+  const hold = path.join(target, MIGRATE_SCRATCH, "convert", "core");
+  if (fs.existsSync(hold)) return; // a previous failed attempt kept the rescued masters — the convert step will rerun
+  fs.mkdirSync(path.dirname(hold), { recursive: true });
+  fs.renameSync(parkedCore, hold);
+  out("rescued: .owfa/plugins/core/ parked at " + rel(target, hold) + " — converting it into the personal suite package below");
+}
+
+// v0.4 core de-parasitization, convert half: mechanically adopt the rescued
+// core masters as the `personal` suite package (a fact-accomplished conversion —
+// the plugins are already in daily use in this instance, the package shape is
+// new). Stages a synthetic package under .owfa-migrate/convert/personal/ (NOT
+// directly under domains/ — `kernel install --path` owns that landing) and runs
+// `kernel install --path ... --yes` for sweep symmetry + projection convergence
+// (--yes is legitimate here: the channel itself is converting its own former
+// payload, a mechanical adoption, not a trust decision).
+//
+// Family closure (kernel D5 invariant): every member must reach the family root
+// through depends. The rescued set's own dependency roots (members whose depends
+// has no edge into the rescued set — today: domain, instance-git, wiki) get a
+// synthetic `- personal` edge in the STAGING copies only, so the adopted roster
+// validates. When the real owfa-personal suite later replaces this package via
+// `kernel upgrade`, the canonical manifests take over. The conversion stages no
+// semantic migration (no migrations/ dir: nothing semantic changes — plugin
+// bodies and projections are byte-identical), so there is nothing to verify-clear.
+function convertCoreToPersonal(target) {
+  const hold = path.join(target, MIGRATE_SCRATCH, "convert", "core");
+  if (!fs.existsSync(hold)) return;
+  const pkgDir = path.join(target, ".owfa", "plugins", "domains", "personal");
+  if (fs.existsSync(pkgDir)) {
+    out("convert: domains/personal already present — rescued core treated as already converted, holding tree discarded");
+    return;
+  }
+  const members = fs
+    .readdirSync(hold)
+    .filter((d) => fs.existsSync(path.join(hold, d, "PLUGIN.yaml")))
+    .sort();
+  if (!members.length) fail("convert: rescued .owfa/plugins/core/ carries no plugin masters — nothing to convert");
+  const staging = path.join(target, MIGRATE_SCRATCH, "convert", "personal");
+  fs.mkdirSync(staging, { recursive: true });
+  for (const m of members) fs.cpSync(path.join(hold, m), path.join(staging, m), { recursive: true });
+
+  // family-root edge: dependency roots of the rescued set adopt `personal`
+  const memberSet = new Set(members);
+  for (const m of members) {
+    const mf = path.join(staging, m, "PLUGIN.yaml");
+    let text = fs.readFileSync(mf, "utf8");
+    const depMatch = text.match(/^depends:\s*(.*)$/m);
+    const deps = depMatch
+      ? depMatch[1].replace(/^\[|\]$/g, "").split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean)
+      : [];
+    if (deps.some((d) => memberSet.has(d) || d === "personal")) continue; // reaches the family through the set already
+    if (depMatch && depMatch[1].trim() === "[]") {
+      text = text.replace(/^depends:\s*\[\]\s*$/m, "depends:\n  - personal");
+    } else if (depMatch) {
+      text = text.replace(/^depends:.*$/m, (line) => line + "\n  - personal");
+    } else {
+      text = text.replace(/^(id:.*)$/m, "$1\ndepends:\n  - personal");
+    }
+    fs.writeFileSync(mf, text, "utf8");
+  }
+
+  // synthesize the family root plugin
+  const root = path.join(staging, "personal");
+  fs.mkdirSync(root, { recursive: true });
+  const today = new Date().toISOString().slice(0, 10);
+  fs.writeFileSync(
+    path.join(root, "PLUGIN.yaml"),
+    [
+      `# synthesized by the owfa channel: v0.4 core de-parasitization conversion (upgrade)`,
+      `# adopts the framework-shipped core masters as a package; replaced by the`,
+      `# canonical owfa-personal suite on the next \`kernel upgrade personal\`.`,
+      `id: personal`,
+      `schema_version: 1`,
+      `version: 0.1`,
+      `depends: []`,
+      `updated: ${today}`,
+      `attachment: []`,
+      `fields: {}`,
+      `inject: ${JSON.stringify("personal suite (converted from framework core by the 0.4 channel upgrade) — family identity anchor; members, skeleton and teardown anchors are declared in PKG.yaml; canonical source: owfadev/owfa-personal")}`,
+      ``,
+    ].join("\n"),
+    "utf8"
+  );
+  fs.writeFileSync(path.join(root, "PLUGIN.md"), "# personal\n\nSynthesized family root for the converted core suite (0.4 channel upgrade).\nSee PKG.yaml for members, skeleton and teardown anchors.\n", "utf8");
+
+  // synthesize PKG.yaml — skeleton and anchors preserve the pre-0.4 channel
+  // contract mechanically (INSTANCE_DIRS and the kernel's former teardown
+  // anchor surface), so the adopted instance behaves exactly as before
+  const anchors = ["wiki/profile.md", "wiki/language.md", "wiki/calendar.md", "wiki/todo.md", "wiki/cron/"];
+  const lines = [
+    `# synthesized by the owfa channel: v0.4 core de-parasitization conversion (upgrade)`,
+    `id: personal`,
+    `version: 0.1.0`,
+    `compat: ">= 0.4"`,
+    `members:`,
+    `  - personal`,
+    ...members.map((m) => `  - ${m}`),
+    `skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]`,
+    `uninstall:`,
+    `  anchors: [${anchors.join(", ")}]`,
+    ``,
+  ];
+  fs.writeFileSync(path.join(staging, "PKG.yaml"), lines.join("\n"), "utf8");
+
+  out("");
+  out(`convert: core suite (${members.length} members) -> package personal (kernel install --path, --yes: mechanical adoption)`);
+  if (kernel(target, ["install", "personal", "--path", staging, "--yes"]) !== 0) {
+    fail(
+      `core -> personal conversion failed — the rescued masters are preserved at ${rel(target, hold)}; ` +
+        `fix the error above and rerun \`owfa upgrade\` (the conversion resumes from the hold)`
+    );
+  }
+  // success: drop the conversion scratch (and the migrate root if now empty)
+  fs.rmSync(path.join(target, MIGRATE_SCRATCH, "convert"), { recursive: true, force: true });
+  const scratchRoot = path.join(target, MIGRATE_SCRATCH);
+  if (fs.existsSync(scratchRoot) && fs.readdirSync(scratchRoot).length === 0) fs.rmdirSync(scratchRoot);
+}
+
 
 // The 0.4 layout shim: 0.3-era absolute paths (.meta/...) keep working through a
 // directory shim. POSIX symlink; Windows junction (no admin rights needed).
@@ -325,10 +460,6 @@ function ensureGitignore(target, line) {
   const glue = text && !text.endsWith("\n") ? "\n" : "";
   fs.writeFileSync(p, `${text}${glue}# 0.4 layout shim (retires in 0.5)\n${line}\n`, "utf8");
   return true;
-}
-
-function ensureDirs(target) {
-  for (const d of INSTANCE_DIRS) fs.mkdirSync(path.join(target, d), { recursive: true });
 }
 
 function ensureAgents(target, name) {
@@ -461,13 +592,29 @@ function cmdInit(args) {
   const name = args.name || path.basename(target) || "workspace";
   fs.mkdirSync(target, { recursive: true });
 
+  // two-stage bootstrap (v0.4 core de-parasitization). Stage ①: the kernel
+  // payload. Stage ② (after convergence): the core suite — by default the
+  // blessed copy embedded in this channel tarball (offline, --path channel);
+  // `--core none` skips it; `--core <pkg-id>` takes the suite from the registry.
+  // Compat period: while this channel still ships .owfa/plugins/core/, the suite
+  // already lives in the framework tree — stage ② is skipped and saying otherwise
+  // is refused up front.
+  const coreShipped =
+    fs.existsSync(path.join(CLI_ROOT, ".owfa", "plugins", "core")) ||
+    fs.existsSync(path.join(CLI_ROOT, ".meta", "plugins", "core"));
+  if (coreShipped && args.core && args.core !== "none") {
+    fail(
+      `--core ${args.core}: this channel still ships the core suite inside the framework tree ` +
+        `(compat period) — suite install is unavailable until the channel stops shipping core`
+    );
+  }
+
   out(`OWFA init — framework ${FRAMEWORK_VERSION} → ${target}`);
   if (!hasOwfa && fs.existsSync(path.join(target, ".agents", "skills"))) {
     out("note: .agents/skills/ exists — framework skill copies are updated in place, other skills stay untouched");
   }
   if (hasOwfa) out("warning: --force replaces the framework trees; instance vault/ and wiki/ are untouched");
   copyPayload(target, { replace: hasOwfa });
-  ensureDirs(target);
   // P1 (review): the shim is part of the 0.4 layout for EVERY instance shape —
   // released 0.3 packages (cuhksz/lark/github) still instruct .meta/ paths,
   // fresh instances included.
@@ -486,6 +633,49 @@ function cmdInit(args) {
     fail("kernel convergence failed — the framework tree is incomplete; nothing was deleted, fix and rerun");
   }
 
+  // ---- stage ②: the core suite ----
+  let suiteNote;
+  if (coreShipped) {
+    suiteNote = "core suite ships inside the framework tree (compat)";
+    out(`suite: ${suiteNote} — no separate suite package is installed`);
+  } else if (args.core === "none") {
+    suiteNote = "no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed";
+    out(`suite: ${suiteNote}`);
+  } else if (args.core) {
+    out("");
+    out(`installing core suite ${args.core} from the registry (no --yes — the trust gate stays interactive)`);
+    if (kernel(target, ["install", args.core]) !== 0) {
+      fail(`suite package ${args.core} failed to install — the framework itself is in place; run \`owfa doctor\``);
+    }
+    suiteNote = `suite ${args.core} installed from the registry`;
+    if (reportPending(target)) {
+      fail(`framework and suite ${args.core} are installed, but the workspace is not converged until the semantic migration above is cleared`);
+    }
+  } else {
+    // default: the embedded blessed copy — 100% offline, local --path trust.
+    // A copy without plugin masters is the placeholder state (suite repo not yet
+    // synced into the channel): report it exactly like --core none.
+    const hasMasters =
+      fs.existsSync(path.join(BLESSED_SUITE, "PKG.yaml")) &&
+      fs.readdirSync(BLESSED_SUITE, { withFileTypes: true }).some(
+        (d) => d.isDirectory() && fs.existsSync(path.join(BLESSED_SUITE, d.name, "PLUGIN.yaml"))
+      );
+    if (hasMasters) {
+      out("");
+      out("installing the blessed personal suite (embedded copy — offline)");
+      if (kernel(target, ["install", "personal", "--path", BLESSED_SUITE]) !== 0) {
+        fail("the embedded personal suite failed to install — the channel tarball is inconsistent; report this (the framework itself is in place)");
+      }
+      suiteNote = "personal suite installed (embedded blessed copy)";
+      if (reportPending(target)) {
+        fail("framework and suite are installed, but the workspace is not converged until the semantic migration above is cleared");
+      }
+    } else {
+      suiteNote = "no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed (this channel build carries no populated embedded suite)";
+      out(`suite: ${suiteNote}`);
+    }
+  }
+
   let installed = 0;
   if (args.packages) {
     for (const pkg of String(args.packages)
@@ -494,7 +684,9 @@ function cmdInit(args) {
       .filter(Boolean)) {
       out("");
       out(`installing package ${pkg} from the registry`);
-      const installArgs = ["install", pkg, "--yes"];
+      // no --yes forwarding (v0.4): auto-installable trust levels pass on their
+      // own; anything else must go through the kernel's interactive trust gate
+      const installArgs = ["install", pkg];
       if (args.without) installArgs.push("--without", String(args.without));
       if (kernel(target, installArgs) !== 0) fail(`package ${pkg} failed to install (earlier packages stay installed)`);
       installed++;
@@ -503,12 +695,12 @@ function cmdInit(args) {
   }
 
   out("");
-  out(`done — framework ${FRAMEWORK_VERSION}${installed ? ` + ${installed} package(s)` : ""} in ${target}`);
+  out(`done — framework ${FRAMEWORK_VERSION}${installed ? ` + ${installed} package(s)` : ""}; ${suiteNote} in ${target}`);
   out("");
   out("next:");
   out(`  cd ${target}`);
   out("  git init && git add -A && git commit -m \"init: OWFA workspace\"   # recommended: instance snapshots");
-  out("  put any file into vault/, open your agent here, say \"map\"");
+  out("  skeleton dirs (vault/, wiki/...) are declared by installed packages — kernel install creates them");
   out("  owfa doctor        # anytime: python, framework, kernel validate");
   return 0;
 }
@@ -551,6 +743,10 @@ function cmdUpgrade(args) {
 
   out(`warning: local edits under ${PAYLOAD.join("/, ")}/ are replaced by the channel's tree — keep instance hotfixes in git`);
   copyPayload(target, { replace: true });
+  // v0.4 core de-parasitization: if the replace rescued a parked core/ (the
+  // channel stopped shipping it), convert it into the personal suite package
+  // BEFORE converging — the conversion's own install converges the adopted set.
+  convertCoreToPersonal(target);
   // P2 (review): self-heal a stale shim here too — instance dirs get renamed and
   // copied, and Windows junction targets are absolute. The .gitignore sweep hint
   // covers the "tracked twice" half only the user's git can perform.
@@ -689,10 +885,14 @@ function usage() {
 the owfa framework's install and upgrade channel
 
 usage:
-  owfa init [dir] [--name NAME] [--packages a,b] [--force]
-      deploy a fresh workspace (framework ${FRAMEWORK_VERSION}); additive to existing content
+  owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--force]
+      deploy a fresh workspace (framework ${FRAMEWORK_VERSION}); additive to existing content;
+      two-stage: kernel payload, then the core suite (default: embedded blessed copy,
+      offline; --core none skips it; --core <pkg-id> installs from the registry)
   owfa upgrade [dir] [--check] [--backup] [--force]
-      replace the framework trees with this channel's version and converge
+      replace the framework trees with this channel's version and converge;
+      if this channel stopped shipping core, the instance's core plugins are
+      converted into the personal suite package (mechanical adoption)
   owfa doctor [dir]     python / framework / AGENTS.md / kernel validate
   owfa add <pkg> [--yes] [--without a,b]
       install a domain package from the registry, then converge
@@ -705,15 +905,20 @@ notes:
   - python 3.9+ is required to run the framework; node is only the installer
   - \`init\` never deletes instance data; \`upgrade\` preserves the kernel's
     migration ledger, journal and registry cache
+  - skeleton dirs (vault/, wiki/...) come from package declarations (PKG.yaml
+    \`skeleton:\`), created on install — the channel hardcodes no instance layout
   - no install/postinstall scripts: npm install executes nothing
 `);
 }
 
 const COMMAND_HELP = {
-  init: "usage: owfa init [dir] [--name NAME] [--packages a,b] [--without m,n] [--force]\n\n" +
+  init: "usage: owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--without m,n] [--force]\n\n" +
         "deploy a fresh workspace (additive: existing files and AGENTS.md are preserved).\n" +
         "python 3.9+ required for the framework; node 16.7+ runs this installer only.\n" +
-        "--packages installs registry packages; --without prunes members from them (dependency-closed subsets only).\n" +
+        "two-stage bootstrap: ① kernel payload ② core suite — default the blessed copy embedded\n" +
+        "in the channel tarball (offline); --core none skips stage ②; --core <pkg-id> installs\n" +
+        "the suite from the registry (online; the kernel's trust gate stays interactive).\n" +
+        "--packages installs further registry packages; --without prunes members (dependency-closed subsets only).\n" +
         "--force re-copies the framework trees over an existing instance (instance data is never touched).",
   upgrade: "usage: owfa upgrade [dir] [--check] [--backup] [--force]\n\n" +
         "replace the framework trees with this channel's version and converge.\n" +
