@@ -24,6 +24,7 @@
 
 ## Changelog
 
+- 0.5 2026-11-12: attached-audit fix — declaration keys written without the trailing slash no longer double-report as drift (undeclared + nonexistent); the directory name is the semantics, the slash is form
 - 0.4 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.3 2026-09-22: domain-ization — the first paragraph gained in-domain governance positioning, transitively belonging to the vault domain, governance page inside and target outside; depends unchanged, transitivity means membership
 - 0.2 2026-09-14: territory moved into wiki — declaration page `wiki/structure.md`, frontmatter structure block mapping machine-readable; drift detection upgraded from a semantic item to the attached-audit script, i.e. the declaration diff; depends gained wiki; the shell's natural-language declaration retired
