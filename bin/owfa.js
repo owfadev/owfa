@@ -220,17 +220,56 @@ function replacePayloadTree(target, entry, skip) {
 
 // The 0.4 layout shim: 0.3-era absolute paths (.meta/...) keep working through a
 // directory shim. POSIX symlink; Windows junction (no admin rights needed).
-function writeLegacyShim(target) {
+// Idempotent and self-healing (review P1/P2 on this PR):
+// - written on fresh init too — released 0.3 packages (cuhksz/lark/github) still
+//   instruct .meta/ paths, so EVERY instance shape gets the shim until 0.5;
+// - on upgrade a stale shim (instance dir renamed or copied — Windows junctions
+//   are absolute) is detected via realpath and re-created;
+// - a real .meta directory (0.3 layout that never migrated) is never touched.
+function ensureMetaShim(target) {
   const metaPath = path.join(target, LEGACY_META);
-  if (fs.existsSync(metaPath)) return false; // already shimmed (or stray) — leave it
+  const owfa = path.join(target, ".owfa");
+  if (!fs.existsSync(owfa)) return "absent";
+  let kind = "missing";
+  if (fs.existsSync(metaPath)) {
+    if (!fs.lstatSync(metaPath).isSymbolicLink()) return "real-dir";
+    kind = "link";
+    let stale = true;
+    try {
+      stale = fs.realpathSync(metaPath) !== fs.realpathSync(owfa);
+    } catch {
+      stale = true; // dangling link
+    }
+    if (!stale) {
+      ensureGitignore(target, LEGACY_META);
+      return "ok";
+    }
+    fs.rmSync(metaPath, { force: true }); // symlink/junction only — never a real dir
+  }
   try {
     fs.symlinkSync(".owfa", metaPath, process.platform === "win32" ? "junction" : "dir");
-    return true;
   } catch (e) {
     out(`warning: could not create the .meta shim (${e.message}) — 0.3-era scripts calling .meta/... will not resolve`);
-    out("  pre-0.4 packages keep working via their own updates; remove the stray .meta path if it is a real directory");
-    return false;
+    return "failed";
   }
+  ensureGitignore(target, LEGACY_META);
+  return kind === "link" ? "recreated" : "created";
+}
+
+// Windows: core.symlinks=false makes git traverse the junction as a plain
+// directory, so without this line the framework is tracked twice (.owfa/ plus
+// every .meta/* entry) and the 0.5 shim retirement reads as a mass deletion.
+// Instance-git contract: adding an ignore sweeps tracked matches out — the CLI
+// writes the line, and upgrade tells the user the one-time sweep command.
+function ensureGitignore(target, line) {
+  const p = path.join(target, ".gitignore");
+  let text = "";
+  if (fs.existsSync(p)) text = fs.readFileSync(p, "utf8");
+  const hit = new RegExp(`^${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m");
+  if (hit.test(text)) return false;
+  const glue = text && !text.endsWith("\n") ? "\n" : "";
+  fs.writeFileSync(p, `${text}${glue}# 0.4 layout shim (retires in 0.5)\n${line}\n`, "utf8");
+  return true;
 }
 
 function ensureDirs(target) {
@@ -374,6 +413,12 @@ function cmdInit(args) {
   if (hasOwfa) out("warning: --force replaces the framework trees; instance vault/ and wiki/ are untouched");
   copyPayload(target, { replace: hasOwfa });
   ensureDirs(target);
+  // P1 (review): the shim is part of the 0.4 layout for EVERY instance shape —
+  // released 0.3 packages (cuhksz/lark/github) still instruct .meta/ paths,
+  // fresh instances included.
+  if (ensureMetaShim(target) === "created") {
+    out("shim: .meta → .owfa written — 0.3-era package paths keep working (retires in 0.5)");
+  }
   out(`agents.md: ${ensureAgents(target, name)}`);
 
   out("");
@@ -451,8 +496,17 @@ function cmdUpgrade(args) {
 
   out(`warning: local edits under ${PAYLOAD.join("/, ")}/ are replaced by the channel's tree — keep instance hotfixes in git`);
   copyPayload(target, { replace: true });
-  if (legacyLayout && writeLegacyShim(target)) {
-    out("shim: .meta → .owfa created — 0.3-era paths keep resolving until the shim retires (0.5)");
+  // P2 (review): self-heal a stale shim here too — instance dirs get renamed and
+  // copied, and Windows junction targets are absolute. The .gitignore sweep hint
+  // covers the "tracked twice" half only the user's git can perform.
+  const shimState = ensureMetaShim(target);
+  if (legacyLayout) {
+    if (shimState === "created" || shimState === "recreated") {
+      out(`shim: .meta → .owfa ${shimState} — 0.3-era paths keep resolving until the shim retires (0.5)`);
+    }
+    if (shimState !== "failed") {
+      out("instance git: if .meta/ was tracked before 0.4, sweep it once — git rm -r --cached .meta");
+    }
   }
 
   out("");
@@ -486,6 +540,31 @@ function cmdDoctor(args) {
   if (!local) fail("not an OWFA instance (no .owfa/VERSION) — run `owfa init` first");
   out(`instance framework ${local}`);
   const problems = []; // required conditions — any hit fails doctor (review P2, PR #53)
+  // layout-shim health (review P2 on the layout PR): a renamed/copied instance
+  // leaves the Windows junction pointing at the old absolute path; a real .meta
+  // directory means the 0.3 layout was never migrated. doctor reports; upgrade heals.
+  const owfaDir = path.join(target, ".owfa");
+  const metaPath = path.join(target, LEGACY_META);
+  if (fs.existsSync(owfaDir) && fs.existsSync(metaPath)) {
+    const st = fs.lstatSync(metaPath);
+    if (!st.isSymbolicLink()) {
+      out(".meta: real directory — 0.3 layout never migrated; run `owfa upgrade`");
+      problems.push(".meta is not the layout shim");
+    } else {
+      let same = false;
+      try {
+        same = fs.realpathSync(metaPath) === fs.realpathSync(owfaDir);
+      } catch {
+        same = false; // dangling
+      }
+      if (!same) {
+        out(".meta: shim resolves outside this instance — run `owfa upgrade` to re-create it");
+        problems.push(".meta shim target is stale");
+      } else {
+        out(".meta shim: ok (resolves into this instance)");
+      }
+    }
+  }
   const agents = path.join(target, "AGENTS.md");
   if (!fs.existsSync(agents)) {
     out("AGENTS.md: MISSING — the agent will not see the structural contract");
