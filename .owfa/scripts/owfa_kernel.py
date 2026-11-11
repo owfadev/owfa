@@ -29,6 +29,14 @@ The manifest is a minimal YAML subset: top-level `key: value`, `key: []`, block 
 (`  - item`), one-level field dicts (`  name: description`); double-quoted values are
 unquoted; inline comments (starting with ` #`) are stripped.
 
+PKG.yaml (v0.4 de-parasitization) may additionally declare:
+- `skeleton: [vault/, wiki/notes/]` — instance dirs the package needs; install
+  mkdirs them mechanically (the kernel itself no longer hardcodes any layout)
+- `uninstall: {anchors: [wiki/profile.md, wiki/cron/]}` — teardown anchor surfaces
+  added to the kernel floor (AGENTS.md handwritten region) for the residual scan;
+  additive only, a directory anchor expands to the .md files inside it, and a
+  PKG.yaml without the key contributes nothing (backward compatible)
+
 Dependencies and injection order:
 - depends declares behavioral or semantic dependencies (a bridging piece depending on the
   concept plugins at both ends is a semantic dependency); validate checks existence and acyclicity
@@ -937,17 +945,43 @@ def do_pkg_ls(pkgs, plugins):
     print(f"core (framework): {len(core)}: {', '.join(core)}")
 
 
-def _residual_hits(pkg_id, pkg):
-    """Anchor-surface reference scan -> hit list (the default teardown gate)."""
+def _anchor_files(pkgs):
+    """De-parasitized anchor surface (v0.4): the kernel floor (AGENTS.md, whose inject
+    region is skipped — the handwritten region is never deleted) plus the union of
+    `uninstall.anchors` declared by every loaded package. Declarations are additive
+    only; a PKG.yaml without the key contributes nothing (backward compatible).
+    An anchor path that is a directory (e.g. wiki/cron/) expands to the .md files
+    inside it — the mechanical form of the old hardcoded cron special case.
+    """
+    files, seen = [], set()
+
+    def add(p):
+        if p not in seen:
+            seen.add(p)
+            files.append(p)
+
+    add(AGENTS_MD)
+    for pid in sorted(pkgs):
+        un = pkgs[pid].get("uninstall")
+        for a in ((un.get("anchors") if isinstance(un, dict) else None) or []):
+            p = os.path.join(ROOT, str(a))
+            if os.path.isdir(p):
+                for f in sorted(os.listdir(p)):
+                    if f.endswith(".md"):
+                        add(os.path.join(p, f))
+            else:
+                add(p)
+    return files
+
+
+def _residual_hits(pkg_id, pkg, pkgs=None):
+    """Anchor-surface reference scan -> hit list (the default teardown gate).
+
+    pkgs (optional) widens the anchor surface to the union over all installed
+    packages; the default {pkg_id: pkg} keeps single-package callers honest for
+    a package that is no longer installed (teardown gate)."""
     tokens = [pkg_id] + [t for t in (pkg.get("members") or []) if t != pkg_id]
-    anchors = [AGENTS_MD,
-               os.path.join(ROOT, "wiki", "profile.md"),
-               os.path.join(ROOT, "wiki", "language.md"),
-               os.path.join(ROOT, "wiki", "calendar.md"),
-               os.path.join(ROOT, "wiki", "todo.md")]
-    crondir = os.path.join(ROOT, "wiki", "cron")
-    if os.path.isdir(crondir):
-        anchors += [os.path.join(crondir, f) for f in sorted(os.listdir(crondir)) if f.endswith(".md")]
+    anchors = _anchor_files(pkgs if pkgs is not None else {pkg_id: pkg})
     hits = []
     for path in anchors:
         if not os.path.exists(path):
@@ -981,11 +1015,11 @@ def do_residual(pkg_id, pkgs):
     if pkg is None:
         print(f"[error] residual: no such package {pkg_id} (see: kernel pkg)")
         return 1
-    hits = _residual_hits(pkg_id, pkg)
+    hits = _residual_hits(pkg_id, pkg, pkgs)
     for h in hits:
         print(f"[residual] {h}")
     if hits:
-        print(f"[residual] {len(hits)} reference(s) on semantic anchor surfaces (handwritten AGENTS region / profile / language / calendar / todo / cron) — semantic cleanup before/after uninstall, per PKG uninstall.bridges")
+        print(f"[residual] {len(hits)} reference(s) on anchor surfaces (AGENTS.md handwritten region ∪ uninstall.anchors declared by installed packages) — semantic cleanup before/after uninstall, per PKG uninstall.bridges")
     else:
         print("[residual] clean — no member references on semantic anchor surfaces")
     return 0
@@ -994,7 +1028,7 @@ def do_residual(pkg_id, pkgs):
 # ---------- process round: install / uninstall / list-remote / upgrade (issue #20 流程轮) ----------
 
 INDEX_FILENAME = "INDEX.yaml"
-INDEX_REMOTE = "https://raw.githubusercontent.com/owfadev/registry/master/INDEX.yaml"
+INDEX_REMOTE = "https://raw.githubusercontent.com/owfadev/owfa-registry/master/INDEX.yaml"
 FW_VERSION_REMOTE = "https://raw.githubusercontent.com/owfadev/owfa/master/.owfa/VERSION"
 
 
@@ -1286,9 +1320,25 @@ def do_install(spec, args, prev_version=None):
                 shutil.copyfile(os.path.join(tsrc, f), os.path.join(MIGRATIONS_DIR, pid, f))
     if not path:
         shutil.rmtree(src, ignore_errors=True)
+    # de-parasitization (v0.4): the package declares its own skeleton dirs (flow list,
+    # e.g. `skeleton: [vault/, wiki/notes/]`) — install mkdirs them mechanically; the
+    # kernel no longer hardcodes any instance layout. Path-escape guard only: the
+    # kernel does not judge the semantics of a declared skeleton.
+    skeleton = [str(s).strip() for s in (pkgm.get("skeleton") or []) if str(s).strip()]
+    for d in skeleton:
+        if d.startswith(("/", "~")) or os.path.isabs(d) or ".." in d.split(os.sep) or ".." in d.split("/"):
+            print(f"[error] {pid}: skeleton entry {d!r} escapes the instance — refused")
+            return 1
+        os.makedirs(os.path.join(ROOT, d), exist_ok=True)
+    _un = pkgm.get("uninstall")
+    _anchors = (_un.get("anchors") if isinstance(_un, dict) else None) or []
     print(f"[install] {pid}: masters -> .owfa/plugins/domains/{pid}/"
+          + (f"; skeleton: {', '.join(skeleton)}" if skeleton else "")
           + (f"; connectors: {', '.join(copied_conn)}" if copied_conn else "")
           + (f"; commands: {', '.join(copied_cmd)}" if copied_cmd else ""))
+    if _anchors:
+        # teardown disclosure: declared anchor surfaces are additive and never deleted by the kernel
+        print(f"[install] {pid} teardown anchors (declared, kernel never deletes them): {', '.join(str(a) for a in _anchors)}")
     _journal("install", f"{pid} v{pkgm.get('version')}" + (f" subset(-{','.join(sorted(pruned))})" if pruned else "") + (f" staged={','.join(staged)}" if staged else ""))
     converged = converge("install")
     if staged:
@@ -1371,7 +1421,10 @@ def do_uninstall(pkg, args):
           + (f"; connectors: {', '.join(removed_conn)}" if removed_conn else ""))
     _journal("uninstall", f"{pkg} v{pkgm.get('version', '?')}")
     converge("uninstall")
-    do_residual(pkg, {pkg: pkgm})
+    _errs = []  # anchor surface = kernel floor ∪ installed packages' declarations ∪ this package's own
+    _all = load_packages(_errs)
+    _all.setdefault(pkg, pkgm)
+    do_residual(pkg, _all)
     un = pkgm.get("uninstall") or {}
     if un.get("retains"):
         print(f"[uninstall] retains (never touched): {', '.join(un['retains'])}")
@@ -1712,9 +1765,12 @@ def do_migrate(pkg, args):
                 elif ent.get("kind") == "teardown":
                     pk = os.path.join(pdir, "PKG.yaml")  # default gate: show what the residual scan still sees
                     pkgm2 = parse_pkg(pk) if os.path.exists(pk) else {"members": [pkg]}
-                    for h in _residual_hits(pkg, pkgm2)[:8]:
+                    _errs = []
+                    _all = load_packages(_errs)  # anchor surface includes installed packages' declared anchors
+                    _all.setdefault(pkg, pkgm2)
+                    for h in _residual_hits(pkg, pkgm2, _all)[:8]:
                         print(f"[migrate] residual: {h}")
-                    if not _residual_hits(pkg, pkgm2):
+                    if not _residual_hits(pkg, pkgm2, _all):
                         print("[migrate] residual gate: clean — ready to clear (--clear)")
         return 0
     # --clear: verify-gated (explicit assertion only via --force when no script)
@@ -1737,7 +1793,10 @@ def do_migrate(pkg, args):
         if ent.get("kind") == "teardown":
             pk = os.path.join(pdir, "PKG.yaml")
             pkgm2 = parse_pkg(pk) if os.path.exists(pk) else {"members": [pkg]}
-            hits = _residual_hits(pkg, pkgm2)
+            _errs = []
+            _all = load_packages(_errs)
+            _all.setdefault(pkg, pkgm2)
+            hits = _residual_hits(pkg, pkgm2, _all)
             if hits:
                 print(f"[error] teardown incomplete — residual references on anchor surfaces: {hits[:5]}")
                 return 1
