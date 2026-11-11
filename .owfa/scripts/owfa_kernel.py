@@ -191,7 +191,9 @@ def ordered_plugins(plugins):
 
 
 def strip_quotes(s):
-    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+    # both quote kinds: single-quoted values (e.g. INDEX rows) used to keep their
+    # quote edges and silently fail every downstream fullmatch — stripped uniformly
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
         return s[1:-1]
     return s
 
@@ -1075,8 +1077,15 @@ INDEX_REMOTE = "https://raw.githubusercontent.com/owfadev/owfa-registry/master/I
 FW_VERSION_REMOTE = "https://raw.githubusercontent.com/owfadev/owfa/master/.owfa/VERSION"
 
 
-def load_index(errors, quiet=False):
-    """Resolve the package index: local ROOT/INDEX.yaml first, then a short-TTL cache, else remote (cached on success; stale cache as fallback)."""
+def load_index(errors, quiet=False, local_only=False):
+    """Resolve the package index: local ROOT/INDEX.yaml first, then a short-TTL cache, else remote (cached on success; stale cache as fallback).
+
+    local_only=True never touches the network: local INDEX.yaml, else any cache file
+    regardless of age (a read-only trust view for validate/`kernel provides`).
+    Row fields (v0.4): needs / provides are '/'-separated capability lists (the
+    members precedent — a comma terminates the value in the INDEX line grammar and
+    would silently truncate a list); commit is an optional SHA pin (supply-chain
+    content anchor, checked after clone). Absent fields are empty sets / no pin."""
     import urllib.request
     import time
     raw, src = None, None
@@ -1084,6 +1093,11 @@ def load_index(errors, quiet=False):
     cache = os.path.join(ROOT, ".owfa", "registry-cache.yaml")
     if os.path.exists(local):
         raw, src = open(local, encoding="utf-8").read(), local
+    elif local_only:
+        if os.path.exists(cache):
+            raw, src = open(cache, encoding="utf-8").read(), cache + " (local view)"
+        else:
+            return {}, None
     else:
         fetched = False
         if os.path.exists(cache) and time.time() - os.path.getmtime(cache) < 600:
@@ -1115,7 +1129,11 @@ def load_index(errors, quiet=False):
 
 
 def _clone_package(entry, pkg, tag, errors):
-    """git clone the package repo (git is the declared prerequisite); returns the clone dir or None."""
+    """git clone the package repo (git is the declared prerequisite); returns the clone dir or None.
+
+    Supply-chain content anchor (v0.4): an INDEX row carrying `commit: <sha>` pins the
+    expected HEAD — after the clone the actual HEAD SHA must equal the pin, else the
+    clone is refused (tag/path drift between review and fetch)."""
     import subprocess
     import tempfile
     url = entry.get("repo")
@@ -1131,6 +1149,13 @@ def _clone_package(entry, pkg, tag, errors):
         shutil.rmtree(tmp, ignore_errors=True)
         errors.append(f"[error] clone {url}@{ref} failed: {(r.stderr or '').strip()[:200]}")
         return None
+    pin = str(entry.get("commit") or "").strip()
+    if pin:
+        head = subprocess.run(["git", "-C", tmp, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        if not head or head.lower() != pin.lower():
+            shutil.rmtree(tmp, ignore_errors=True)
+            errors.append(f"[error] commit pin mismatch for {pkg}: index pins {pin}, clone HEAD is {head or '?'} — supply-chain content anchor refused (registry row and fetched content disagree)")
+            return None
     return tmp
 
 
