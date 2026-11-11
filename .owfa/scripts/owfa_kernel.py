@@ -861,12 +861,18 @@ def load_packages(errors):
 
 
 def framework_version():
-    """Framework version anchor (.owfa/VERSION, 'X.Y' — #20 D2); None when absent."""
+    """Framework release version (.owfa/VERSION, 'X.Y.Z' — legacy 'X.Y' tolerated); None when absent.
+
+    Returns the full tuple: compat floors ('>= X.Y') compare against it with plain
+    tuple-prefix semantics, which keeps architecture floors correct across patch
+    releases (versioning scheme, 0.4 — the anchor carries the full release)."""
     vpath = os.path.join(ROOT, ".owfa", "VERSION")
     if not os.path.exists(vpath):
         return None
-    m = re.fullmatch(r"\s*(\d+)\.(\d+)\s*", open(vpath, encoding="utf-8").read())
-    return (int(m.group(1)), int(m.group(2))) if m else None
+    m = re.fullmatch(r"\s*(\d+)\.(\d+)(?:\.(\d+))?\s*", open(vpath, encoding="utf-8").read())
+    if not m:
+        return None
+    return tuple(int(g) for g in m.groups() if g is not None)
 
 
 def validate_packages(plugins, pkgs, errors, warnings):
@@ -1492,9 +1498,9 @@ def do_upgrade(pkg, args=None):
     try:
         import urllib.request
         rfw = urllib.request.urlopen(FW_VERSION_REMOTE, timeout=10).read().decode("utf-8").strip()
-        m = re.fullmatch(r"(\d+)\.(\d+)", rfw)
+        m = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?", rfw)
         if m:
-            rt = (int(m.group(1)), int(m.group(2)))
+            rt = tuple(int(g) for g in m.groups() if g is not None)
             if fw and rt > fw:
                 fw_note = f" — remote v{rfw} available (run `npx owfa upgrade`, or manual sync: template diff → selective copy → kernel all, see CONTRIBUTING)"
             elif fw:
@@ -1524,6 +1530,12 @@ def do_upgrade(pkg, args=None):
 
 def _vt(x):
     return tuple(int(i) for i in str(x).split("."))
+
+
+def _vline(x):
+    """The B-line (major.minor) of a version — migrations and compat live on lines;
+    releases carry the patch (versioning scheme, 0.4)."""
+    return _vt(x)[:2]
 
 
 def _journal(op, detail):
@@ -1579,9 +1591,12 @@ def _stage_migrations(migsrc, pid, prev_version, new_version):
         cands = [("init", "init.md")] if os.path.exists(os.path.join(migsrc, "init.md")) else []
     else:
         cands = []
+        prev_line, new_line = _vline(prev_version), _vline(new_version)
         for f in sorted(os.listdir(migsrc)):
             m = re.fullmatch(r"(\d+\.\d+)-to-(\d+\.\d+)\.md", f)
-            if m and _vt(m.group(1)) >= _vt(prev_version):
+            # stage every line-crossing this upgrade makes: [prev_line, new_line) —
+            # same-line C updates stage nothing (versioning scheme, 0.4)
+            if m and prev_line <= _vt(m.group(1)) < new_line:
                 cands.append((f[:-3], f))
     for label, f in cands:
         shutil.copyfile(os.path.join(migsrc, f), os.path.join(MIGRATIONS_DIR, pid, f))

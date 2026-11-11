@@ -37,11 +37,8 @@ const fw = (() => {
   }
 })();
 if (!fw) problems.push(".owfa/VERSION is missing — the framework anchor must ship");
-else {
-  const anchor = fw.split(".").slice(0, 2).join(".");
-  if (!pkg.version.startsWith(anchor + ".")) {
-    problems.push(`package version ${pkg.version} does not ride framework ${fw} (expected ${anchor}.x)`);
-  }
+else if (pkg.version !== fw) {
+  problems.push(`package version ${pkg.version} does not equal the framework release version ${fw} (VERSION carries the full release A.B.C — the architecture line is derived, not stored)`);
 }
 
 const tag = process.env.GITHUB_REF_NAME || "";
@@ -95,4 +92,4 @@ if (problems.length) {
   for (const p of [...new Set(problems)]) console.error("  - " + p);
   process.exit(1);
 }
-console.log(`release gate ok — owfa ${pkg.version} rides framework ${fw}${tag ? ` (tag ${tag})` : ""}`);
+console.log(`release gate ok — owfa ${pkg.version} (framework release ${fw})${tag ? ` (tag ${tag})` : ""}`);

@@ -72,7 +72,24 @@ uninstall:              # declaration, never executable hooks
 
 ## Versions (D2)
 
-`.owfa/VERSION` anchors the framework (`0.2`, git tag `v0.2`); the kernel contract changes (manifest fields, projection rules) are what bump it. Package versions are release ordinals riding their own tags; **member plugins keep their own changelog versions and the two levels never lockstep** — a package is a distribution unit, not a semantic one.
+Versioning is **five layers under one principle**: a layer carries release semantics (`A.B.C`) only when a tag or the registry addresses it — the other layers are ordinals or anchors answering *how much has this changed*, not *which release is this*.
+
+| Layer | Version | Semantics | Mechanically consumed by |
+|---|---|---|---|
+| framework / channel | `A.B.C` — `.owfa/VERSION` == `package.json` == tag `vA.B.C` == npm | **A** project status (`0` = alpha) · **B** architecture line (schema / contract / layout — the language `compat` floors speak) · **C** in-line updates | release gate, `upgrade` decision, compat floors |
+| core plugins | `X.Y` | organ revision ordinals — bump on contract or behavior change; shipped in lockstep with the framework, no release granularity of their own | format check (`X.Y`), injection headers |
+| packages | `A.B.C` | the domain's own release semantics, independent of the framework (never lockstep) | tags `{pkg}-vA.B.C`, registry rows, migrations |
+| member plugins | `X.Y` | organ revision ordinals, same as core plugins; bump only the members that changed | format check, injection headers |
+| connectors | repo-internal anchors | engineering changelog — never enters registry / tags / PKG version semantics (the kernel never reads it) | none |
+
+**Bump rules** (packages; the framework follows the same semantics):
+
+- **A** moves only at graduation — the owner's call, when a domain's contract (landing strategy / write model / trust model) has survived real use without structural change. Kernel-forced adaptation is **not** an A event: the kernel-generation coupling lives in the `compat` floor (machine-checked), and the forced change classifies as B or C by what it did to the package's own contract.
+- **B** = the domain contract changed: member roster, disclosure / manifest schema, **data or page shape**, trust model, compat floor. B is the only carrier of semantic migrations — migration files are named by B-line pairs (`0.2-to-0.3`) and stage when the upgrade crosses lines (`prev_line <= from_line < new_line`).
+- **C** = updates inside a stable architecture: connector behavior fixes, skill copy, query-side additions. C never carries migrations — **a change that moves data or page shape is B, not C** (the honesty line that keeps C cheap). C is unbounded: `0.3.11`, `0.3.100` — numeric, no letters.
+- The `X.Y` layers keep `X` at `0` while the project is alpha.
+
+**Sync duties**: framework side — `.owfa/VERSION` == `package.json` == `v`tag == npm == GitHub release notes (the release gate refuses drift). Package side — `PKG.yaml` version == `{pkg}-v`tag == registry row (the kernel refuses drift at install / upgrade), migrations staged by the version pair.
 
 ## Kernel surface
 

@@ -1,6 +1,6 @@
 {
   "name": "owfadev",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "OWFA — One Workspace For All (agents). Install, initialize and upgrade the owfa agent workspace framework.",
   "keywords": [
     "owfa",
