@@ -8,7 +8,7 @@
 
 ```
 .owfa/plugins/
-├── core/            # 20 framework plugins (the two roots + cross-cutting pieces)
+├── core/            # 21 framework plugins (the two roots + cross-cutting pieces)
 │   ├── wiki/ …
 └── domains/         # one directory per package = the install unit
     ├── cuhksz/      #   PKG.yaml + 8 plugin masters
@@ -20,7 +20,7 @@ The **directory boundary == tier boundary == package boundary** — the same str
 
 | Unit | Members | Connectors | Depends |
 |---|---|---|---|
-| framework (core) | 20, incl. the explicit vault/mapping/structure exception — the default domain is constitutional infrastructure, the mapping proxy layer belongs to the wiki body | — | — |
+| framework (core) | 21, incl. the explicit vault/mapping/structure exception — the default domain is constitutional infrastructure, the mapping proxy layer belongs to the wiki body | — | — |
 | cuhksz | cuhksz · bb · bb-map · bb-track · bb-teach · bb-quiz · sis · registry | bb-cli, sis-cli | framework |
 | lark | lark · lark-docs · lark-im · lark-calendar | lark-cli (external) | framework |
 | email | email | mail-cli | framework |
@@ -77,7 +77,7 @@ Versioning is **five layers under one principle**: a layer carries release seman
 | Layer | Version | Semantics | Mechanically consumed by |
 |---|---|---|---|
 | framework / channel | `A.B.C` — `.owfa/VERSION` == `package.json` == tag `vA.B.C` == npm | **A** project status (`0` = alpha) · **B** architecture line (schema / contract / layout — the language `compat` floors speak) · **C** in-line updates | release gate, `upgrade` decision, compat floors |
-| core plugins | `X.Y` | organ revision ordinals — bump on contract or behavior change; shipped in lockstep with the framework, no release granularity of their own | format check (`X.Y`), injection headers |
+| core plugins | `X.Y` | organ revision ordinals — bump on contract or behavior change; with the v0.4 split they are members of the **owfa-personal** package: no release granularity of their own, they ship with the package's `A.B.C` and are addressed by its `personal-vA.B.C` tags | format check (`X.Y`), injection headers, the owfa-personal registry row |
 | packages | `A.B.C` | the domain's own release semantics, independent of the framework (never lockstep) | tags `{pkg}-vA.B.C`, registry rows, migrations |
 | member plugins | `X.Y` | organ revision ordinals, same as core plugins; bump only the members that changed | format check, injection headers |
 | connectors | repo-internal anchors | engineering changelog — never enters registry / tags / PKG version semantics (the kernel never reads it) | none |
@@ -88,7 +88,7 @@ Versioning is **five layers under one principle**: a layer carries release seman
 - **B** = the domain contract changed: member roster, disclosure / manifest schema, **data or page shape**, trust model, compat floor. B is the only carrier of semantic migrations — migration files are named by B-line pairs (`0.2-to-0.3`) and stage when the upgrade crosses lines (`prev_line <= from_line < new_line`).
 - **C** = updates inside a stable architecture: connector behavior fixes, skill copy, query-side additions. C never carries migrations — **a change that moves data or page shape is B, not C** (the honesty line that keeps C cheap). C is unbounded: `0.3.11`, `0.3.100` — numeric, no letters.
 - The `X.Y` layers keep `X` at `0` while the project is alpha.
-- **C counts releases, not organ changes**: any shipped payload change requires a new release number (a changed tree under an unchanged number is the anchor-equal bug this scheme kills), but organ revisions batch freely — three core plugins changing is one C bump, not three. Release cadence is the maintainer's choice; the only invariant is changed-tree ⇒ new-number.
+- **C counts releases, not organ changes**: any shipped payload change requires a new release number (a changed tree under an unchanged number is the anchor-equal bug this scheme kills), but organ revisions batch freely — three member plugins of a package changing is one C bump of the owning package, not three. Release cadence is the maintainer's choice; the only invariant is changed-tree ⇒ new-number.
 
 **Sync duties**: framework side — `.owfa/VERSION` == `package.json` == `v`tag == npm == GitHub release notes (the release gate refuses drift). Package side — `PKG.yaml` version == `{pkg}-v`tag == registry row (the kernel refuses drift at install / upgrade), migrations staged by the version pair.
 
@@ -98,9 +98,9 @@ Versioning is **five layers under one principle**: a layer carries release seman
 |---|---|
 | `validate` | full graph + package reconciliation (closure diff, presence, flat graph, compat vs VERSION) |
 | `validate --scope <pkg>` | single-package tolerant mode (D3): deps absent outside the package degrade to warnings — the CI shape for package repos post-split, run with a framework checkout alongside |
-| `pkg` | package inventory: members, connectors, implicit core remainder |
+| `pkg` | package inventory: members, connectors, plugins unclaimed by any package (after the core split there is no implicit core remainder — the mechanism remains for loose plugins) |
 | `residual <pkg>` | D6 residual scan: greps handwritten AGENTS region + profile/language/calendar/todo/cron anchors for member references (the kernel-managed injection region is skipped — it is cleaned mechanically) |
-| `install <pkg>[@tag]` | resolve the [registry](https://github.com/owfadev/registry) index (members reconciled against PKG.yaml) → trust gate → clone → prospective manifest/budget preflight → copy masters/connectors/commands → converge. `install <owner/repo> --yes` installs an unindexed repository (trust: unknown); `--path <dir>` installs a local one (channel C) |
+| `install <pkg>[@tag]` | resolve the [registry](https://github.com/owfadev/owfa-registry) index (members reconciled against PKG.yaml) → trust gate → clone → prospective manifest/budget preflight → copy masters/connectors/commands → converge. `install <owner/repo> --yes` installs an unindexed repository (trust: unknown); `--path <dir>` installs a local one (channel C) |
 | `uninstall <pkg> --yes` | D6 four-clear (masters/commands/connectors/skills) + convergence + residual scan + retains/credentials reminders — data never touched |
 | `list-remote` | index table with installed marks |
 | `plan <pkg>` | dependency disclosure before a package lands |
@@ -184,3 +184,22 @@ carrying a `transport:` field → warning (unhealthy-but-usable; the domain's sk
 degrades to guidance). Guarantee semantics: **undeclared = guarantee absent** — the
 agent-side discipline is the floor, transport-side enforcement is hardening on top.
 Registry rows may mirror `provides:` / `harness:` for cross-package discovery.
+
+### Contract id grammar
+
+Every contract id follows **`<namespace>.<capability>.v<ordinal>`** — e.g.
+`qq.transport.v1`, `owfa.org.v1`. The namespace is either the declaring package's
+id or the framework-reserved prefix `owfa.`:
+
+- **prefix = declaring package** (mechanically checked): a contract id whose
+  prefix is not `owfa.*` must have its namespace equal the declaring package's
+  id — `validate` rejects anything else;
+- **`owfa.*` is framework-defined**: those names are defined only in the
+  framework repository; the registry review gate enforces this ownership when
+  index PRs are judged;
+- **immutability once published**: a contract name never changes meaning —
+  refining means adding a new name, consolidating means bumping the `v` ordinal
+  (consumers pinned to the old name keep working);
+- **capability matching is exact name equality**: `needs: owfa.org.v1` is
+  satisfied only by `provides: owfa.org.v1` — never by a sibling capability or a
+  different ordinal.
