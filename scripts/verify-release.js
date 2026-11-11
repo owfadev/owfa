@@ -58,7 +58,7 @@ const REQUIRED = [
   ".owfa/scripts/owfa_kernel.py",
   ".owfa/docs/deployment.md",
   ".owfa/docs/quickstart.md",
-  ".agents/skills/map/SKILL.md",
+  ".agents/skills/owfa-map/SKILL.md",
   "bin/owfa.js",
   "templates/AGENTS.template.md",
 ];

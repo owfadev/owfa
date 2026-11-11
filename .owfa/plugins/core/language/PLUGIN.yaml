@@ -11,7 +11,7 @@ fields:
   language: block mapping (declaration page) — canonical key → one-sentence rule (open vocabulary, e.g. default/teaching/annotation/register); output language and writing baseline — register = the writing register (audience reading level, default first/second-year undergraduates), consumed by bb-teach, bb-quiz and save
   terms: block mapping (declaration page) — term original → unified translation (single-line value); the cross-session translation-consistency lookup piece
 usage_routes:
-  - save
+  - owfa-save
 inject: "Writing declaration `wiki/language.md`: read it before writing artifacts — `language` keys → one-sentence rules (e.g. register), `terms` → unified translations; page/key absent → session language; domain source-alignment wins; details PLUGIN.md"
 usage:
   - Register discipline: follow the language.register audience reading level when writing saved artifacts; absent register uses the program baseline (first/second-year undergraduates), while explicit user audience requirements and domain source-alignment rules take precedence

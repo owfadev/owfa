@@ -60,7 +60,7 @@ try {
     const r = run(["init", empty, "--name", "smoke-vault"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
     assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), FW);
-    for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault", ".agents/skills/map"]) {
+    for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault", ".agents/skills/owfa-map"]) {
       assert.ok(fs.existsSync(path.join(empty, d)), `missing ${d}`);
     }
     const agents = fs.readFileSync(path.join(empty, "AGENTS.md"), "utf8");
@@ -183,7 +183,7 @@ try {
     assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), "utf8"), '{"demo":{}}\n');
     assert.ok(fs.existsSync(path.join(empty, ".agents", "skills", "custom-user", "SKILL.md")), "standalone skill lost");
     // fresh framework skills must not be shadowed by the carry-over
-    assert.ok(fs.existsSync(path.join(empty, ".agents", "skills", "map", "SKILL.md")), "framework skill lost");
+    assert.ok(fs.existsSync(path.join(empty, ".agents", "skills", "owfa-map", "SKILL.md")), "framework skill lost");
     // with the migration cleared, the same instance converges green and the
     // package command re-deploys (deploy rides after validate in `kernel all`)
     fs.writeFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), "{}\n", "utf8");

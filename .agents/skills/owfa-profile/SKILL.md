@@ -1,11 +1,11 @@
 ---
-name: profile
+name: owfa-profile
 owner: user-profile
 consumes: [user-profile, trust, index, hot, log]
 description: "Maintain the user profile wiki/profile.md: recognize self-description and behavioral signals, update assertions convergently (new values replace old, changes leave traces in the body, evidence wikilinks); construction and consolidation go through a whole-page rewrite preview. Triggers on: profile, 更新画像, 画像更新, update profile."
 ---
 
-# profile: profile update
+# owfa-profile: profile update
 
 Write the continuing cognition about the user into a checkable page: assertions carry evidence, preferences expire, updates leave traces. The direction is "inner → user cognition" — orthogonal to map (outer → inner translation) and save (sessions landing on disk); convergent across sessions, not a transactional one-shot. Write-side contracts (signal criteria, layered placement, assertion format, convergence traces) are in the injection region.
 

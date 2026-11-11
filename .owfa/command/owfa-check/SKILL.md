@@ -1,10 +1,10 @@
 ---
-name: check
+name: owfa-check
 owner: framework
 description: "Audit the repository's health: hard-structure checks on the foundation and plugins + semantic checks on plugins and pages. Triggers on: check, 健康检查, 检查插件, lint."
 ---
 
-# check: repository health audit
+# owfa-check: repository health audit
 
 This is an audit, not a guardrail. It outputs a graded report: error = structural breakage requiring action; warning = a suggested to-do. Check rules come from two places: the foundation part of this file (protocol level) + the injection region below (a mechanical projection by owfa-kernel from each plugin manifest's checks list; presence means registration).
 

@@ -40,5 +40,6 @@ Where the entropy goes: cross-domain semantic disambiguation is completed at ada
 
 ## Changelog
 
+- 0.3 2026-11-11: the pointer line now carries the dual-track skill preference rule (v0.4 A4, work order #56) — core skills are `owfa-*` and preferred over same-type foreign skills (correctness: the framework defines what they mean); connectors pick the registered/best-fitting transport, the official one is only the default recommendation (capability fit wins). Core command skills renamed with the 0.4 layout batch (`owfa-check/docs/map/plugin/profile/query/save/kernel`); natural-language triggers keep the old words so muscle memory still fires.
 - 0.2 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.1 2026-09-22: established — distilled from the 2026-09-19 domain problem report and four rounds of discussion; the three instances vault, lark, and project brought into compliance first

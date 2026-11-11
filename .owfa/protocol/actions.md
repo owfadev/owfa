@@ -28,7 +28,7 @@ The criterion: touching "plugin-owned fields or regenerable pages" → mechanica
 
 > In this framework git is process-layer infrastructure (version control / audit evidence / lockfile), not a plugin; this section gives the commit rules for data-zone writes—for the engineering side see constitution principle 8; the two domains do not encroach on each other.
 
-- **One write operation = one commit**: one map / save / profile / check fix, together with all its derived products (pages + index / tags / hot / log + new vault assets), enters the commit atomically; commit only after verify passes—what is committed is what has been self-attested; no commit when nothing changed
+- **One write operation = one commit**: one owfa-map / owfa-save / owfa-profile / owfa-check fix, together with all its derived products (pages + index / tags / hot / log + new vault assets), enters the commit atomically; commit only after verify passes—what is committed is what has been self-attested; no commit when nothing changed
 - **Message format `module: summary`** (isomorphic with the engineering side; module word + half-width colon): the data-zone module vocabulary is taken from the commands, defined at this single point and not re-copied into command docs—`map: <asset name>`, `save: <page title>`, `profile: <one-liner>`, `check: <conclusion>`, `query: <topic>`
 - **The agent only adds paths it has written; `git add -A` is forbidden**: commit rights over human hand edits (vault deletions/changes, manual wiki edits) belong to the human—the agent only reports; committing on someone's behalf requires explicit user instruction
 - No pushing; history rewriting is forbidden (constitution principle 8, globally applicable)

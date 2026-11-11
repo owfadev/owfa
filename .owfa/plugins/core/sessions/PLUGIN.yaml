@@ -9,7 +9,7 @@ attachment:
 fields:
   participants: "YAML list, actor convention (human:name / process:flow name / agent/model id), the multi-agent collaboration extension point"
 commands:
-  - save
+  - owfa-save
 inject: "Native sessions `wiki/sessions/`: session backbone pages (`type: session`, `participants` required, named YYYY-MM-DD-<topic>); high-value topics promoted to `wiki/notes/` with a back-link; commands append, never modify"
 usage:
   - Landing spot `wiki/sessions/YYYY-MM-DD-<topic>.md` (default naming), type: session, participants required (actor list)

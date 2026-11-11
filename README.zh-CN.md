@@ -69,7 +69,7 @@
 
 前提：Python 3.9+，纯标准库，框架本身免安装（连接器自带依赖）；仅 npm 通道要 Node 16.7+；推荐 git（实例快照）；一个会读 AGENTS.md 与 skills 的 agent 环境，如 ZCode；Obsidian 可选，仅查看器。
 
-在仓库根开一个 agent 会话。AGENTS.md 是章程，含插件注入区；十三个命令经自然语言触发：**map / save / profile / query / check / plugin / lark-map / bb-map / asset-read / 内核参考 / teach / quiz / track**——map、save、profile、query、check、plugin、lark-map、bb-map、asset-read、owfa-kernel、bb-teach、bb-quiz、bb-track；母本在 `.owfa/command/`。丢一个文件进 `vault/`，对 agent 说「map」——这就是第一次使用。
+在仓库根开一个 agent 会话。AGENTS.md 是章程，含插件注入区；十三个命令经自然语言触发：**owfa-map / owfa-save / owfa-profile / owfa-query / owfa-check / owfa-plugin / lark-map / bb-map / asset-read / 内核参考 / teach / quiz / track**——owfa-map、owfa-save、owfa-profile、owfa-query、owfa-check、owfa-plugin、lark-map、bb-map、asset-read、owfa-kernel、bb-teach、bb-quiz、bb-track；母本在 `.owfa/command/`。丢一个文件进 `vault/`，对 agent 说「owfa-map」——这就是第一次使用。
 
 ## 部署
 
