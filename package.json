@@ -28,7 +28,7 @@
     "owfadev": "bin/owfa.js"
   },
   "files": [
-    ".meta",
+    ".owfa",
     ".agents",
     "bin",
     "templates"

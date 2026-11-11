@@ -13,12 +13,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const FRAMEWORK_TREES = [".meta", ".agents"];
+const FRAMEWORK_TREES = [".owfa", ".agents"];
 const STATE = [
-  ".meta/migrations/pending.json",
-  ".meta/kernel-journal.log",
-  ".meta/registry-cache.yaml",
-  ".meta/smoke-tmp",
+  ".owfa/migrations/pending.json",
+  ".owfa/kernel-journal.log",
+  ".owfa/registry-cache.yaml",
+  ".owfa/smoke-tmp",
 ];
 
 function walk(dir, hit) {

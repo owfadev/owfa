@@ -1,10 +1,10 @@
 # {{name}}
 
-This is an OWFA workspace — a `vault/` of real assets plus a `wiki/` the agent can re-enter without being re-introduced. `vault/` holds files in any format, `wiki/` holds the markdown pages the agent reads and writes, and `.meta/` + `.agents/skills/` are the framework body. Rewrite this paragraph freely: everything outside the injection region is yours, and the agent never edits it.
+This is an OWFA workspace — a `vault/` of real assets plus a `wiki/` the agent can re-enter without being re-introduced. `vault/` holds files in any format, `wiki/` holds the markdown pages the agent reads and writes, and `.owfa/` + `.agents/skills/` are the framework body. Rewrite this paragraph freely: everything outside the injection region is yours, and the agent never edits it.
 
 ## Layout
 
-`vault/` real assets · `wiki/` the md world · `.meta/` + `.agents/skills/` the framework body (domain packages under `.meta/plugins/domains/`).
+`vault/` real assets · `wiki/` the md world · `.owfa/` + `.agents/skills/` the framework body (domain packages under `.owfa/plugins/domains/`).
 
 ## Git
 

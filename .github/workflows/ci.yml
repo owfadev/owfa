@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # full history: the smoke's real-0.3 migration case seeds from the
+          # released master commit via git archive — shallow clones skip it
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -25,4 +29,7 @@ jobs:
         run: node test/smoke.js
 
       - name: Kernel structural validation
-        run: python3 .meta/scripts/wiki_plugin_kernel.py validate
+        run: python3 .owfa/scripts/owfa_kernel.py validate
+
+      - name: Kernel unit tests (unittest discover, both suites)
+        run: python3 -m unittest discover -s .owfa/tests -p "test_*.py"

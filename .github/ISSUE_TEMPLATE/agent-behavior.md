@@ -1,6 +1,6 @@
 ---
 name: Agent behavior analysis (agent-behavior)
-about: Standardized agent behavior analysis attached to plugin-improvement issues (#34 ruling — mandatory, the evidence base for any change; protocol in .meta/docs/agent-behavior.md)
+about: Standardized agent behavior analysis attached to plugin-improvement issues (#34 ruling — mandatory, the evidence base for any change; protocol in .owfa/docs/agent-behavior.md)
 labels: agent-behavior
 ---
 

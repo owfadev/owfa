@@ -6,7 +6,7 @@
  * things the framework itself cannot own: fetching a complete framework tree,
  * initializing a directory without hand-copying it, and replacing that tree
  * on upgrade. Everything semantic stays in the Python kernel
- * (.meta/scripts/wiki_plugin_kernel.py) — this file only orchestrates.
+ * (.owfa/scripts/owfa_kernel.py) — this file only orchestrates.
  *
  * Design rules:
  * - zero runtime dependencies; Node is needed to install, not to use
@@ -28,13 +28,18 @@ const PKG = JSON.parse(fs.readFileSync(path.join(CLI_ROOT, "package.json"), "utf
 const FRAMEWORK_VERSION = readVersion(CLI_ROOT) || "?";
 const INJECT_START = "<!-- wiki-inject:start -->";
 const INJECT_END = "<!-- wiki-inject:end -->";
-const PAYLOAD = [".meta", ".agents"];
+const PAYLOAD = [".owfa", ".agents"];
 const INSTANCE_DIRS = ["vault", path.join("wiki", "notes"), path.join("wiki", "sessions"), path.join("wiki", "vault")];
+// 0.3 instances carry the framework in .meta/; upgrade migrates them to .owfa/
+// and leaves a .meta shim (symlink/junction) so old absolute paths keep working.
+const LEGACY_META = ".meta";
+const MIGRATE_SCRATCH = ".owfa-migrate"; // transient replace/ parking (was .owfa — the name now belongs to the framework tree)
+const BACKUP_DIR = ".owfa-backup";       // durable opt-in upgrade snapshots (was .owfa/backup)
 // Kernel state that belongs to the instance, not to the framework tree.
 const PRESERVED = [
-  path.join(".meta", "migrations", "pending.json"),
-  path.join(".meta", "kernel-journal.log"),
-  path.join(".meta", "registry-cache.yaml"),
+  path.join(".owfa", "migrations", "pending.json"),
+  path.join(".owfa", "kernel-journal.log"),
+  path.join(".owfa", "registry-cache.yaml"),
 ];
 
 // ---------------------------------------------------------------------------
@@ -42,11 +47,14 @@ const PRESERVED = [
 // ---------------------------------------------------------------------------
 
 function readVersion(root) {
-  try {
-    return fs.readFileSync(path.join(root, ".meta", "VERSION"), "utf8").trim();
-  } catch {
-    return null;
+  // ".meta" is the frozen 0.3 layout — a historical constant, safe to inline
+  // here (LEGACY_META is declared later and readVersion runs at module init).
+  for (const dir of [".owfa", ".meta"]) {
+    try {
+      return fs.readFileSync(path.join(root, dir, "VERSION"), "utf8").trim();
+    } catch {}
   }
+  return null;
 }
 
 function out(line = "") {
@@ -92,6 +100,35 @@ function parseArgs(argv) {
   return args;
 }
 
+// 0.3 quirk (review P1 round 3): the 0.3 channel wrote `upgrade --backup`
+// snapshots to .owfa/backup/ even though its framework lived in .meta/. On
+// migration that stray .owfa made replacePayloadTree park-and-delete the
+// user's only pre-upgrade snapshots AND left .meta unparked (legacySwap never
+// fired: no shim, no journal carry). Rescue the snapshots into the 0.4 backup
+// home first; an emptied leftover .owfa is removed so the legacy swap takes
+// over. A real 0.4 framework tree (.owfa/VERSION present) is never touched.
+function rescueLegacyBackup(target) {
+  const owfa = path.join(target, ".owfa");
+  const meta = path.join(target, LEGACY_META);
+  if (!fs.existsSync(owfa) || fs.existsSync(path.join(owfa, "VERSION"))) return;
+  if (!fs.existsSync(path.join(meta, "VERSION"))) return; // no legacy framework — not the 0.3 shape
+  const stray = path.join(owfa, "backup");
+  if (fs.existsSync(stray)) {
+    const home = path.join(target, BACKUP_DIR);
+    fs.mkdirSync(home, { recursive: true });
+    for (const d of fs.readdirSync(stray)) {
+      if (fs.existsSync(path.join(home, d))) {
+        out(`warning: backup snapshot ${d} left in .owfa/backup/ — ${BACKUP_DIR}/${d} already exists`);
+        continue;
+      }
+      fs.renameSync(path.join(stray, d), path.join(home, d));
+    }
+    fs.rmSync(stray, { recursive: true, force: true });
+    out(`rescued: 0.3-era upgrade snapshots moved to ${BACKUP_DIR}/`);
+  }
+  if (fs.readdirSync(owfa).length === 0) fs.rmSync(owfa, { recursive: true });
+}
+
 function copyPayload(target, { replace = false } = {}) {
   const skip = (src) => {
     const base = path.basename(src);
@@ -104,7 +141,12 @@ function copyPayload(target, { replace = false } = {}) {
     const dst = path.join(target, entry);
     if (!fs.existsSync(src)) fail(`package is missing ${entry}/ — the npm tarball is incomplete`);
     if (replace) {
-      if (fs.existsSync(dst)) replacePayloadTree(target, entry, skip);
+      // 0.3 → 0.4 migration: the incoming .owfa/ has no counterpart on disk yet,
+      // but the legacy .meta/ tree must go through the same park-and-carry swap.
+      if (entry === ".owfa") rescueLegacyBackup(target);
+      const legacySwap =
+        entry === ".owfa" && !fs.existsSync(dst) && fs.existsSync(path.join(target, LEGACY_META));
+      if (fs.existsSync(dst) || legacySwap) replacePayloadTree(target, entry, skip);
     } else {
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.cpSync(src, dst, { recursive: true, force: true, filter: skip });
@@ -116,19 +158,36 @@ function copyPayload(target, { replace = false } = {}) {
 // files (review P1, PR #53): installed package masters (kernel install), migration
 // state (ledger / pending / dormant teardown), and skill copies the incoming tree
 // does not ship (package connector skills, user standalone skills). Everything else
-// under .meta/ and .agents/ is framework-owned and replaced by the channel.
+// under .owfa/ and .agents/ is framework-owned and replaced by the channel.
 const META_MERGE_DIRS = [path.join("plugins", "domains"), "migrations"];
 
-// .meta/command/ is mixed-ownership: framework commands ship in the fresh tree,
+// v0.4 renames the framework command/skill masters to owfa-* (review P1, PR #57
+// round 2): a real 0.3 tree carries the retired names, and the difference-based
+// carry-over would otherwise treat them as package-owned state and resurrect
+// them beside their successors — 8 duplicate masters, `kernel all` blocked by
+// one-sided owner-mapping errors. Retired framework names never carry; the map
+// documents where each one lives now.
+const RETIRED_MASTERS = new Map([
+  ["check", "owfa-check"],
+  ["docs", "owfa-docs"],
+  ["map", "owfa-map"],
+  ["plugin", "owfa-plugin"],
+  ["profile", "owfa-profile"],
+  ["query", "owfa-query"],
+  ["save", "owfa-save"],
+  ["wiki_plugin_kernel", "owfa-kernel"],
+]);
+
+// .owfa/command/ is mixed-ownership: framework commands ship in the fresh tree,
 // package commands (kernel install) and anything the channel no longer ships are
 // carried over by difference — the fresh copy wins for shared names.
 function carryOverCommands(target, metaAttic) {
   const oldDir = path.join(metaAttic, "command");
   if (!fs.existsSync(oldDir)) return;
-  const freshDir = path.join(target, ".meta", "command");
+  const freshDir = path.join(target, ".owfa", "command");
   const fresh = new Set(fs.existsSync(freshDir) ? fs.readdirSync(freshDir) : []);
   for (const d of fs.readdirSync(oldDir)) {
-    if (fresh.has(d)) continue;
+    if (fresh.has(d) || RETIRED_MASTERS.has(d)) continue;
     fs.cpSync(path.join(oldDir, d), path.join(freshDir, d), { recursive: true, force: true });
   }
 }
@@ -139,11 +198,11 @@ function mergeTree(src, dst) {
 }
 
 function carryOverEntry(target, entry, attic) {
-  if (entry === ".meta") {
-    for (const d of META_MERGE_DIRS) mergeTree(path.join(attic, d), path.join(target, ".meta", d));
+  if (entry === ".owfa") {
+    for (const d of META_MERGE_DIRS) mergeTree(path.join(attic, d), path.join(target, ".owfa", d));
     carryOverCommands(target, attic);
     for (const p of PRESERVED) {
-      const s = path.join(attic, path.relative(".meta", p)); // PRESERVED is target-relative; attic IS the old .meta
+      const s = path.join(attic, path.relative(".owfa", p)); // PRESERVED is target-relative; attic IS the old framework tree
       if (fs.existsSync(s)) {
         const d = path.join(target, p);
         fs.mkdirSync(path.dirname(d), { recursive: true });
@@ -156,44 +215,116 @@ function carryOverEntry(target, entry, attic) {
     const freshDir = path.join(target, ".agents", "skills");
     const fresh = new Set(fs.existsSync(freshDir) ? fs.readdirSync(freshDir) : []);
     for (const d of fs.readdirSync(oldSkills)) {
-      if (fresh.has(d)) continue; // framework-shipped skill — the fresh copy wins
+      if (fresh.has(d) || RETIRED_MASTERS.has(d)) continue; // framework-shipped / retired-via-rename — the fresh copy wins
       fs.cpSync(path.join(oldSkills, d), path.join(freshDir, d), { recursive: true, force: true });
     }
   }
 }
 
-// Review round 2 (PR #53): the parked tree under .owfa/replace/ holds the only
+// Review round 2 (PR #53): the parked tree under .owfa-migrate/replace/ holds the only
 // copy of the instance state between set-aside and carry-over. An interrupted
 // swap (Windows: rename of a tree with an open file) must therefore never be
 // implicitly cleaned by a retry, and a failure must roll the parked tree back.
 function replacePayloadTree(target, entry, skip) {
   const dst = path.join(target, entry);
-  const attic = path.join(target, ".owfa", "replace", entry === ".meta" ? "meta" : "agents");
+  // 0.3 → 0.4 layout migration: an instance whose framework still lives in
+  // .meta/ parks that tree the same way, so crash semantics and carry-over
+  // are identical to a normal same-layout swap.
+  const parkedFrom =
+    fs.existsSync(dst)
+      ? dst
+      : entry === ".owfa" && fs.existsSync(path.join(target, LEGACY_META))
+        ? path.join(target, LEGACY_META)
+        : null;
+  const attic = path.join(target, MIGRATE_SCRATCH, "replace", path.basename(entry).replace(/^\./, ""));
   if (fs.existsSync(attic)) {
     fail(
       `interrupted replace detected: instance state is parked at ${attic} — ` +
       `do NOT simply rerun. Restore it manually (delete the fresh ${entry}/, ` +
-      `rename the parked tree back to ${entry}/), then rerun.`
+      `rename the parked tree back to ${parkedFrom || entry}/), then rerun.`
     );
   }
+  if (!parkedFrom) return; // fresh init into a tree that never existed — nothing to replace
   fs.mkdirSync(path.dirname(attic), { recursive: true });
   try {
-    fs.renameSync(dst, attic); // same volume — atomic enough for a directory swap
+    fs.renameSync(parkedFrom, attic); // same volume — atomic enough for a directory swap
     fs.cpSync(path.join(CLI_ROOT, entry), dst, { recursive: true, force: true, filter: skip });
     carryOverEntry(target, entry, attic);
   } catch (e) {
     try {
       fs.rmSync(dst, { recursive: true, force: true }); // partial fresh copy
-      fs.renameSync(attic, dst); // parked tree back in place
-      fail(`replace failed (${e.message}) — rolled back: ${entry}/ restored from the parked tree; fix the underlying error before rerunning`);
+      fs.renameSync(attic, parkedFrom); // parked tree back in place
+      fail(`replace failed (${e.message}) — rolled back: ${parkedFrom} restored from the parked tree; fix the underlying error before rerunning`);
     } catch (e2) {
       fail(
         `replace failed (${e.message}) AND rollback failed (${e2.message}) — the previous tree ` +
-        `is parked at ${attic}; do NOT rerun until it is restored to ${entry}/`
+        `is parked at ${attic}; do NOT rerun until it is restored to ${parkedFrom}`
       );
     }
   }
-  fs.rmSync(path.join(target, ".owfa", "replace"), { recursive: true, force: true });
+  fs.rmSync(path.join(target, MIGRATE_SCRATCH, "replace"), { recursive: true, force: true });
+}
+
+// The 0.4 layout shim: 0.3-era absolute paths (.meta/...) keep working through a
+// directory shim. POSIX symlink; Windows junction (no admin rights needed).
+// Idempotent and self-healing (review P1/P2 on this PR):
+// - written on fresh init too — released 0.3 packages (cuhksz/lark/github) still
+//   instruct .meta/ paths, so EVERY instance shape gets the shim until 0.5;
+// - on upgrade a stale shim (instance dir renamed or copied — Windows junctions
+//   are absolute) is detected via realpath and re-created;
+// - a real .meta directory (0.3 layout that never migrated) is never touched.
+function ensureMetaShim(target) {
+  const metaPath = path.join(target, LEGACY_META);
+  const owfa = path.join(target, ".owfa");
+  if (!fs.existsSync(owfa)) return "absent";
+  let kind = "missing";
+  // lstat, not existsSync: a dangling shim (instance dir moved — review P2 round 2)
+  // makes existsSync false, which would skip the stale branch and hit EEXIST below.
+  let mst = null;
+  try {
+    mst = fs.lstatSync(metaPath);
+  } catch {
+    mst = null; // genuinely absent
+  }
+  if (mst) {
+    if (!mst.isSymbolicLink()) return "real-dir";
+    kind = "link";
+    let stale = true;
+    try {
+      stale = fs.realpathSync(metaPath) !== fs.realpathSync(owfa);
+    } catch {
+      stale = true; // dangling link
+    }
+    if (!stale) {
+      ensureGitignore(target, LEGACY_META);
+      return "ok";
+    }
+    fs.rmSync(metaPath, { force: true }); // symlink/junction only — never a real dir
+  }
+  try {
+    fs.symlinkSync(".owfa", metaPath, process.platform === "win32" ? "junction" : "dir");
+  } catch (e) {
+    out(`warning: could not create the .meta shim (${e.message}) — 0.3-era scripts calling .meta/... will not resolve`);
+    return "failed";
+  }
+  ensureGitignore(target, LEGACY_META);
+  return kind === "link" ? "recreated" : "created";
+}
+
+// Windows: core.symlinks=false makes git traverse the junction as a plain
+// directory, so without this line the framework is tracked twice (.owfa/ plus
+// every .meta/* entry) and the 0.5 shim retirement reads as a mass deletion.
+// Instance-git contract: adding an ignore sweeps tracked matches out — the CLI
+// writes the line, and upgrade tells the user the one-time sweep command.
+function ensureGitignore(target, line) {
+  const p = path.join(target, ".gitignore");
+  let text = "";
+  if (fs.existsSync(p)) text = fs.readFileSync(p, "utf8");
+  const hit = new RegExp(`^${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m");
+  if (hit.test(text)) return false;
+  const glue = text && !text.endsWith("\n") ? "\n" : "";
+  fs.writeFileSync(p, `${text}${glue}# 0.4 layout shim (retires in 0.5)\n${line}\n`, "utf8");
+  return true;
 }
 
 function ensureDirs(target) {
@@ -253,7 +384,7 @@ function pythonOrFail() {
 
 function kernel(target, kernelArgs) {
   const py = pythonOrFail();
-  const script = path.join(target, ".meta", "scripts", "wiki_plugin_kernel.py");
+  const script = path.join(target, ".owfa", "scripts", "owfa_kernel.py");
   if (!fs.existsSync(script)) fail(`no kernel at ${rel(target, script)} — is this an OWFA instance?`);
   const res = spawnSync(py.cmd, [...py.args, script, ...kernelArgs], {
     cwd: target,
@@ -288,11 +419,12 @@ function timestamp() {
 
 
 function pendingPackages(target) {
-  try {
-    return Object.keys(JSON.parse(fs.readFileSync(path.join(target, ".meta", "migrations", "pending.json"), "utf8")));
-  } catch {
-    return [];
+  for (const dir of [".owfa", LEGACY_META]) {
+    try {
+      return Object.keys(JSON.parse(fs.readFileSync(path.join(target, dir, "migrations", "pending.json"), "utf8")));
+    } catch {}
   }
+  return [];
 }
 
 function reportPending(target) {
@@ -300,7 +432,7 @@ function reportPending(target) {
   if (!pending.length) return false;
   out("");
   out(`semantic migration pending: ${pending.join(", ")} — the package is installed, but its first-run step is an agent act, not a mechanical one.`);
-  out(`  run: python .meta/scripts/wiki_plugin_kernel.py migrate ${pending[0]}`);
+  out(`  run: python .owfa/scripts/owfa_kernel.py migrate ${pending[0]}`);
   out("  (read the printed page, perform the step, then rerun with --clear)");
   return true;
 }
@@ -312,10 +444,17 @@ function reportPending(target) {
 function cmdInit(args) {
   const target = path.resolve(args._[0] || ".");
   const force = args.flags.has("force");
-  const hasMeta = fs.existsSync(path.join(target, ".meta"));
-  if (hasMeta && !force) {
+  const hasOwfa = fs.existsSync(path.join(target, ".owfa"));
+  const hasLegacyMeta = fs.existsSync(path.join(target, LEGACY_META));
+  if (hasLegacyMeta && !hasOwfa) {
     fail(
-      `${target} already contains .meta/ — refusing to overwrite. Use \`owfa upgrade\` to update the framework, ` +
+      `${target} uses the 0.3 layout (.meta/) — run \`owfa upgrade\` to migrate to the .owfa layout ` +
+        `(the upgrade preserves all instance state and leaves a .meta shim for old paths).`
+    );
+  }
+  if (hasOwfa && !force) {
+    fail(
+      `${target} already contains .owfa/ — refusing to overwrite. Use \`owfa upgrade\` to update the framework, ` +
         `or pass --force to re-copy the framework trees (instance data is never touched either way).`
     );
   }
@@ -323,20 +462,26 @@ function cmdInit(args) {
   fs.mkdirSync(target, { recursive: true });
 
   out(`OWFA init — framework ${FRAMEWORK_VERSION} → ${target}`);
-  if (!hasMeta && fs.existsSync(path.join(target, ".agents", "skills"))) {
+  if (!hasOwfa && fs.existsSync(path.join(target, ".agents", "skills"))) {
     out("note: .agents/skills/ exists — framework skill copies are updated in place, other skills stay untouched");
   }
-  if (hasMeta) out("warning: --force replaces the framework trees; instance vault/ and wiki/ are untouched");
-  copyPayload(target, { replace: hasMeta });
+  if (hasOwfa) out("warning: --force replaces the framework trees; instance vault/ and wiki/ are untouched");
+  copyPayload(target, { replace: hasOwfa });
   ensureDirs(target);
+  // P1 (review): the shim is part of the 0.4 layout for EVERY instance shape —
+  // released 0.3 packages (cuhksz/lark/github) still instruct .meta/ paths,
+  // fresh instances included.
+  if (ensureMetaShim(target) === "created") {
+    out("shim: .meta → .owfa written — 0.3-era package paths keep working (retires in 0.5)");
+  }
   out(`agents.md: ${ensureAgents(target, name)}`);
 
   out("");
-  out("converging projections (python .meta/scripts/wiki_plugin_kernel.py all)");
+  out("converging projections (python .owfa/scripts/owfa_kernel.py all)");
   if (kernel(target, ["all"]) !== 0) {
     const pending = pendingPackages(target);
     if (pending.length) {
-      fail(`convergence blocked by pending semantic migrations (${pending.join(", ")}) — clear them with \`python .meta/scripts/wiki_plugin_kernel.py migrate <pkg>\``);
+      fail(`convergence blocked by pending semantic migrations (${pending.join(", ")}) — clear them with \`python .owfa/scripts/owfa_kernel.py migrate <pkg>\``);
     }
     fail("kernel convergence failed — the framework tree is incomplete; nothing was deleted, fix and rerun");
   }
@@ -371,44 +516,60 @@ function cmdInit(args) {
 function cmdUpgrade(args) {
   const target = path.resolve(args._[0] || ".");
   const local = readVersion(target);
-  if (!local) fail(`${target} is not an OWFA instance (no .meta/VERSION) — run \`owfa init\` first`);
+  if (!local) fail(`${target} is not an OWFA instance (no .owfa/VERSION or .meta/VERSION) — run \`owfa init\` first`);
+  const legacyLayout = !fs.existsSync(path.join(target, ".owfa", "VERSION"));
   const incoming = FRAMEWORK_VERSION;
   const cmp = cmpVersion(local, incoming);
   const frozen = args.flags.has("check") || args.flags.has("dry-run");
   const force = args.flags.has("force");
 
   out(`OWFA upgrade — instance ${local} → channel ${incoming} (CLI ${PKG.version})`);
+  if (legacyLayout) {
+    out(`layout migration: 0.3 instance (.meta/) → 0.4 layout (.owfa/ + .meta shim for old paths)`);
+  }
   if (cmp > 0) {
     if (!force) fail(`instance framework ${local} is newer than this CLI's ${incoming} — run \`npx owfa@latest upgrade\``);
     out(`warning: downgrading framework ${local} → ${incoming} (--force)`);
   }
-  if (cmp === 0 && !force) {
+  if (cmp === 0 && !force && !legacyLayout) {
     out("already at this framework version — nothing to do (pass --force to re-sync the trees)");
     return 0;
   }
   if (frozen) {
-    out(`would replace ${PAYLOAD.join(" + ")} and rerun kernel all (dry run)`);
+    out(`would replace ${PAYLOAD.join(" + ")}${legacyLayout ? " (migrating .meta/ → .owfa/)" : ""} and rerun kernel all (dry run)`);
     return 0;
   }
 
   if (args.flags.has("backup")) {
-    const dir = path.join(target, ".owfa", "backup", `${local}-${timestamp()}`);
+    const dir = path.join(target, BACKUP_DIR, `${local}-${timestamp()}`);
     for (const entry of PAYLOAD) {
-      const src = path.join(target, entry);
+      const src = path.join(target, entry === ".owfa" && legacyLayout ? LEGACY_META : entry);
       if (fs.existsSync(src)) fs.cpSync(src, path.join(dir, entry), { recursive: true, force: true });
     }
-    out(`backup: ${rel(target, dir)} (add .owfa/ to the instance .gitignore if you do not want it tracked)`);
+    out(`backup: ${rel(target, dir)} (add .owfa-backup/ to the instance .gitignore if you do not want it tracked)`);
   }
 
   out(`warning: local edits under ${PAYLOAD.join("/, ")}/ are replaced by the channel's tree — keep instance hotfixes in git`);
   copyPayload(target, { replace: true });
+  // P2 (review): self-heal a stale shim here too — instance dirs get renamed and
+  // copied, and Windows junction targets are absolute. The .gitignore sweep hint
+  // covers the "tracked twice" half only the user's git can perform.
+  const shimState = ensureMetaShim(target);
+  if (legacyLayout) {
+    if (shimState === "created" || shimState === "recreated") {
+      out(`shim: .meta → .owfa ${shimState} — 0.3-era paths keep resolving until the shim retires (0.5)`);
+    }
+    if (shimState !== "failed") {
+      out("instance git: if .meta/ was tracked before 0.4, sweep it once — git rm -r --cached .meta");
+    }
+  }
 
   out("");
-  out("converging projections (python .meta/scripts/wiki_plugin_kernel.py all)");
+  out("converging projections (python .owfa/scripts/owfa_kernel.py all)");
   if (kernel(target, ["all"]) !== 0) {
     const pending = pendingPackages(target);
     if (pending.length) {
-      fail(`trees replaced, but convergence is blocked by pending semantic migrations (${pending.join(", ")}) — run \`python .meta/scripts/wiki_plugin_kernel.py migrate <pkg>\``);
+      fail(`trees replaced, but convergence is blocked by pending semantic migrations (${pending.join(", ")}) — run \`python .owfa/scripts/owfa_kernel.py migrate <pkg>\``);
     }
     fail("kernel convergence failed after the tree replacement — the instance git snapshot is your rollback");
   }
@@ -416,10 +577,10 @@ function cmdUpgrade(args) {
   const pending = pendingPackages(target);
   if (pending.length) {
     out("");
-    out(`pending semantic migrations: ${pending.join(", ")} — run \`python .meta/scripts/wiki_plugin_kernel.py migrate <pkg>\` and follow the page`);
+    out(`pending semantic migrations: ${pending.join(", ")} — run \`python .owfa/scripts/owfa_kernel.py migrate <pkg>\` and follow the page`);
   }
   out("");
-  out(`done — framework ${local} → ${incoming}`);
+  out(`done — framework ${local} → ${incoming}${legacyLayout ? " (layout migrated to .owfa/)" : ""}`);
   return 0;
 }
 
@@ -431,9 +592,44 @@ function cmdDoctor(args) {
   out(`node ${process.version}`);
   out(`python ${py ? py.version || `${py.cmd} ${py.args.join(" ")}` : "NOT FOUND"}`);
   out(`target ${target}`);
-  if (!local) fail("not an OWFA instance (no .meta/VERSION) — run `owfa init` first");
+  if (!local) fail("not an OWFA instance (no .owfa/VERSION) — run `owfa init` first");
   out(`instance framework ${local}`);
   const problems = []; // required conditions — any hit fails doctor (review P2, PR #53)
+  // layout-shim health (review P2 on the layout PR): a renamed/copied instance
+  // leaves the Windows junction pointing at the old absolute path; a real .meta
+  // directory means the 0.3 layout was never migrated. doctor reports; upgrade heals.
+  const owfaDir = path.join(target, ".owfa");
+  const metaPath = path.join(target, LEGACY_META);
+  if (fs.existsSync(owfaDir)) {
+    // lstat, not existsSync: a dangling shim must reach the stale branch, not
+    // silently skip the whole check (review P2, PR #57 round 2).
+    let mst = null;
+    try {
+      mst = fs.lstatSync(metaPath);
+    } catch {
+      mst = null;
+    }
+    if (!mst) {
+      out(".meta: shim missing — 0.3-era .meta/... paths will not resolve; run `owfa upgrade` to re-create it");
+      problems.push(".meta shim is missing");
+    } else if (!mst.isSymbolicLink()) {
+      out(".meta: real directory — 0.3 layout never migrated; run `owfa upgrade`");
+      problems.push(".meta is not the layout shim");
+    } else {
+      let same = false;
+      try {
+        same = fs.realpathSync(metaPath) === fs.realpathSync(owfaDir);
+      } catch {
+        same = false; // dangling
+      }
+      if (!same) {
+        out(".meta: shim resolves outside this instance — run `owfa upgrade` to re-create it");
+        problems.push(".meta shim target is stale");
+      } else {
+        out(".meta shim: ok (resolves into this instance)");
+      }
+    }
+  }
   const agents = path.join(target, "AGENTS.md");
   if (!fs.existsSync(agents)) {
     out("AGENTS.md: MISSING — the agent will not see the structural contract");
@@ -521,7 +717,7 @@ const COMMAND_HELP = {
         "--force re-copies the framework trees over an existing instance (instance data is never touched).",
   upgrade: "usage: owfa upgrade [dir] [--check] [--backup] [--force]\n\n" +
         "replace the framework trees with this channel's version and converge.\n" +
-        "--check (alias --dry-run) is read-only; --backup snapshots the current trees to .owfa/backup/.\n" +
+        "--check (alias --dry-run) is read-only; --backup snapshots the current trees to .owfa-backup/.\n" +
         "instance data, installed packages, pending migrations and standalone skills are preserved.",
   doctor: "usage: owfa doctor [dir]\n\n" +
         "health check: python, framework version, AGENTS.md injection markers, kernel validate.\n" +
