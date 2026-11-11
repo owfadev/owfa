@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$ROOT/payloads/personal"
 
 TAG="$(git ls-remote --tags --sort=-v:refname "https://github.com/${REPO}.git" 'v*' 'v[0-9]*' 2>/dev/null \
-  | awk '!/\^{}$/ && NR==1 {sub(/^refs\/tags\//, "", $2); print $2}')"
+  | awk 'index($2, "^{}") == 0 {sub(/^refs\/tags\//, "", $2); print $2; exit}')"
 if [ -z "$TAG" ]; then
   echo "sync-blessed: no version tags found in $REPO (the suite repo must tag releases)" >&2
   exit 1
