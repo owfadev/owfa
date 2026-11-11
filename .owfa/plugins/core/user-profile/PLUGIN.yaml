@@ -1,14 +1,15 @@
 id: user-profile
 schema_version: 1
-version: 0.7
+version: 0.8
 bridge: 按需
 depends:
   - wiki
   - trust
   - sessions
-updated: 2026-11-09
+updated: 2026-11-12
 attachment:
   - "wiki/profile.md — user profile page (a continuing cognition profile of the user)"
+  - "scripts/check.py — attached audit (territory placement / page presence)"
 fields: {}
 commands:
   - owfa-profile
@@ -26,5 +27,5 @@ usage:
   - Cognition bridge registration (a domain-plugin-side action, disclosed on this side): when a domain cognition plugin creates its archive and the profile is present, maintain one line in the profile's `## Domain Cognition` section (domain name + path-form wikilink); if the profile is absent, skip without proxy-creating it (on-demand bridge absence tolerance); multiple courses and archives register via the path-form wildcard (bb: <term>/<course> form)
 checks:
   - Semantic (check command): profile assertion missing an evidence wikilink → warning
-  - Mechanical: a type: profile page landing in `wiki/notes/` or `wiki/vault/` (wrong territory) → error
-  - Mechanical (info-level): profile page absent (the untriggered norm; profile self-creates on first trigger)
+  - Mechanical (attached-audit script `scripts/check.py`, executed on audit discovery): a type: profile page landing in `wiki/notes/` or `wiki/vault/` (wrong territory) → error
+  - Mechanical (info-level, attached audit): profile page absent (the untriggered norm; profile self-creates on first trigger)

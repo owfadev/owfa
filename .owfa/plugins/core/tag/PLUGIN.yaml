@@ -1,9 +1,9 @@
 id: tag
 schema_version: 1
-version: 0.12
+version: 0.13
 depends:
   - wiki
-updated: 2026-11-09
+updated: 2026-11-12
 attachment:
   - "Cross-cutting plugin: owns the frontmatter tags field across all pages plus vocabulary governance"
   - "scripts/check.py — attached audit (>5 per page / restating type / hierarchy depth)"
