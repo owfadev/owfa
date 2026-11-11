@@ -60,6 +60,14 @@ try {
     const r = run(["init", empty, "--name", "smoke-vault"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
     assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), FW);
+    // P1 (review): fresh instances get the .meta shim too — released 0.3 packages
+    // still instruct .meta/ paths (cuhksz/lark/github verified by the reviewer)
+    assert.ok(fs.lstatSync(path.join(empty, ".meta")).isSymbolicLink(), "fresh init missing the .meta shim");
+    assert.ok(fs.existsSync(path.join(empty, ".meta", "scripts", "owfa_kernel.py")), "shim does not resolve the kernel");
+    assert.ok(
+      fs.readFileSync(path.join(empty, ".gitignore"), "utf8").includes(".meta"),
+      "shim not gitignored on fresh init"
+    );
     for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault", ".agents/skills/owfa-map"]) {
       assert.ok(fs.existsSync(path.join(empty, d)), `missing ${d}`);
     }
@@ -119,6 +127,7 @@ try {
     const legacy = path.join(tmpRoot, "legacy");
     const r0 = run(["init", legacy], tmpRoot);
     assert.strictEqual(r0.status, 0, r0.stderr + r0.stdout);
+    fs.rmSync(path.join(legacy, ".meta"), { force: true }); // a real 0.3 instance predates the shim (P1 added it to fresh init)
     fs.renameSync(path.join(legacy, ".owfa"), path.join(legacy, ".meta")); // simulate a 0.3 instance
     fs.writeFileSync(path.join(legacy, ".meta", "kernel-journal.log"), "legacy-journal\n", "utf8");
     const r = run(["upgrade", legacy], tmpRoot);
@@ -132,10 +141,19 @@ try {
     );
     const metaStat = fs.lstatSync(path.join(legacy, ".meta"));
     if (metaStat.isSymbolicLink()) {
-      assert.strictEqual(fs.readlinkSync(path.join(legacy, ".meta")), ".owfa", "shim does not point at .owfa");
+      // P3 (review): junction readlink is absolute on Windows — compare realpaths
+      assert.strictEqual(
+        fs.realpathSync(path.join(legacy, ".meta")),
+        fs.realpathSync(path.join(legacy, ".owfa")),
+        "shim does not resolve into .owfa"
+      );
       assert.ok(
         fs.existsSync(path.join(legacy, ".meta", "scripts", "owfa_kernel.py")),
         "0.3-era absolute path broken through the shim"
+      );
+      assert.ok(
+        fs.readFileSync(path.join(legacy, ".gitignore"), "utf8").includes(".meta"),
+        ".meta shim not gitignored (Windows would track the framework twice)"
       );
     } else {
       assert.ok(/could not create the \.meta shim/.test(r.stdout), "no shim and no warning — silent path breakage");

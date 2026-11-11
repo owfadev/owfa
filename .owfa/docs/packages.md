@@ -150,10 +150,15 @@ transports:
   contract: qq.transport.v1      # capability id (required)
   recommends: qq-cli             # default connector (optional; installed under connectors/<id>)
   declaration: qq/policy.md      # wiki page whose frontmatter `transport:` marks an active third-party transport (optional)
-  providers:                     # known implementations — routing data, never enforcement
-    - {id: qq-cli, harness: universal, guarantees: [allowlist-enforced, passive-only, openid-hashed]}
-    - {id: napcat-bridge, harness: universal, guarantees: [active-send], trust: reviewed-3rd-party}
+  providers: qq-cli, napcat-bridge   # comma-separated scalar (minimal-YAML: nested block lists are silently dropped)
 ```
+
+Per-provider `harness` / `guarantees` do NOT fit the manifest parser (minimal YAML
+subset — no list-of-maps, review blocker on this PR). They live in two places:
+the contract documentation section below, and the registry row's scalar
+`harness:` field (D1). Guarantee semantics are unchanged: **undeclared =
+guarantee absent** — the agent-side discipline is the floor, transport-side
+enforcement is hardening on top.
 
 `validate` checks the block structurally and judges health mechanically: contract
 declared but neither the recommended connector installed nor the declaration page

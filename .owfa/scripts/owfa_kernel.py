@@ -57,9 +57,11 @@ Transport contracts (v0.4 work order #56 / owfa#27, connector-agnostic domains):
   domain declaring a connector-agnostic capability (e.g. qq.transport.v1). contract is the
   capability id; recommends names the default connector (installed under connectors/<id>);
   declaration names a wiki page (relative to wiki/) whose frontmatter `transport:` field
-  marks an active third-party transport; providers lists known implementations with
-  {id, harness (absent = universal), guarantees[]} — data for registry/routing, never
-  enforcement (the kernel stays harness-agnostic)
+  marks an active third-party transport; providers is a comma-separated scalar of
+  connector ids (minimal-YAML: nested block lists inside a block mapping are
+  silently dropped by the parser — per-provider harness / guarantees detail lives
+  in the contract docs and the registry row) — routing data, never enforcement
+  (the kernel stays harness-agnostic)
 - validate checks the block structurally and judges health mechanically: contract declared
   but neither connectors/<recommends> installed nor the declaration page carrying a
   transport field → warning (unhealthy-but-usable, never an error)
@@ -285,7 +287,10 @@ def _check_transports(name, m, errors, warnings):
 
     Health is mechanical and fail-open: contract declared but neither the recommended
     connector installed nor a third-party transport declared in the wiki → warning
-    (unhealthy-but-usable). providers[].harness / guarantees are routing data — the
+    (unhealthy-but-usable). providers is a comma-separated scalar of connector ids —
+    the manifest parser is a minimal YAML subset: nested block lists inside a block
+    mapping are silently DROPPED (empirically, review on this PR), so per-provider
+    harness/guarantees detail lives in the contract docs and the registry row; the
     kernel never enforces them (harness-agnostic by charter).
     """
     t = m.get("transports")
@@ -302,20 +307,17 @@ def _check_transports(name, m, errors, warnings):
         if t.get(key) is not None and not isinstance(t[key], str):
             errors.append(f"[error] {tag}: transports.{key} must be a string")
     providers = t.get("providers")
-    if providers is not None:
-        if not isinstance(providers, list):
-            errors.append(f"[error] {tag}: transports.providers must be a list")
-            providers = []
-        for prov in providers:
-            if not isinstance(prov, dict) or not isinstance(prov.get("id"), str) or not prov.get("id").strip():
-                errors.append(f"[error] {tag}: transports.providers entries need a non-empty id")
-                continue
-            harness = prov.get("harness")
-            if harness is not None and not isinstance(harness, str):
-                errors.append(f"[error] {tag}: provider {prov['id']}: harness must be a string (absent = universal)")
-            guarantees = prov.get("guarantees")
-            if guarantees is not None and not (isinstance(guarantees, list) and all(isinstance(g, str) for g in guarantees)):
-                errors.append(f"[error] {tag}: provider {prov['id']}: guarantees must be a list of strings")
+    if providers is not None and not isinstance(providers, str):
+        errors.append(
+            f"[error] {tag}: transports.providers must be a comma-separated scalar string of connector ids "
+            "(minimal-YAML: block lists inside a block mapping are silently dropped by the parser — review on this PR)"
+        )
+    elif providers == "":
+        errors.append(f"[error] {tag}: transports.providers is empty — a nested block list is silently dropped by the parser; write it as a comma-separated scalar")
+    elif isinstance(providers, str) and providers.strip():
+        bad = [x for x in (i.strip() for i in providers.split(",")) if x and not re.fullmatch(r"[\w.-]+", x)]
+        if bad:
+            errors.append(f"[error] {tag}: transports.providers entries must be bare connector ids, got {bad!r} (flow mappings are not parseable in a manifest)")
     # mechanical health: recommended connector installed, or a third-party transport declared
     recommends = t.get("recommends")
     declaration = t.get("declaration")
