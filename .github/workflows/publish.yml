@@ -1,17 +1,19 @@
 name: publish npm channel
 
-# The framework body ships as the npm package `owfa`. A tag is the release
-# trigger; the gate refuses version/tag drift and any local state in the
-# tarball. Requires the repository secret NPM_TOKEN (publish rights to `owfa`)
-# and a public repository for provenance.
+# The framework body ships as the npm package `owfadev` (bin: owfa + owfadev).
+# A tag is the release trigger; the gate refuses version/tag drift and any local
+# state in the tarball. Requires the repository secret NPM_TOKEN (publish rights
+# to `owfadev`) and a public repository for provenance. The same run creates the
+# GitHub Release for the tag (auto-generated notes as the placeholder body), so
+# the GitHub Release set always matches the npm version set.
 on:
   push:
     tags:
       - "v*"
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write # GitHub Release creation (tag == npm version)
+  id-token: write # npm provenance
 
 jobs:
   publish:
@@ -24,7 +26,7 @@ jobs:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
 
-      - name: Release gate (version rides .owfa/VERSION, tag matches, no local state)
+      - name: Release gate (version rides .owfa/VERSION, tag matches, no local state, embedded suite present)
         run: node scripts/verify-release.js
 
       - name: End-to-end channel smoke (init / doctor / upgrade)
@@ -34,3 +36,16 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: GitHub Release (tag ${{ github.ref_name }} == npm version)
+        uses: softprops/action-gh-release@v2
+        with:
+          # placeholder notes derived from the tag; curated notes live in the
+          # tag/commit message — this step exists to keep Release == npm version
+          generate_release_notes: true
+          body: |
+            npm: [`owfadev@${{ github.ref_name }}`](https://www.npmjs.com/package/owfadev/v/${{ github.ref_name }})
+
+            Notes below are auto-generated from the tag; the release gate
+            (scripts/verify-release.js) verified tag == package version ==
+            framework VERSION before publishing.

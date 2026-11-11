@@ -52,7 +52,7 @@ The first is ownership; the latter two are borrows: the territory belongs to ano
 
 `depends` declares dependencies. validate checks two things: dependencies exist, and there are no cycles — cycles are detected via DFS.
 
-A domain piece is any plugin whose depends chain reaches `domain`. Those connecting to domain directly are domain bases — the five pieces vault, lark, project, email, bb; pieces inside a domain belong to it transitively, without connecting directly. bb-quiz does not connect to domain directly: it arrives via `bb-quiz → bb-track → bb-map → bb → domain`, and is thus a domain piece.
+A domain piece is any plugin whose depends chain reaches `domain`. Those connecting to domain directly are domain bases — the six pieces vault, lark, project, email, bb, bili; pieces inside a domain belong to it transitively, without connecting directly. bb-quiz does not connect to domain directly: it arrives via `bb-quiz → bb-track → bb-map → bb → domain`, and is thus a domain piece.
 
 Injection order = dependency topology plus alphabetical order within a batch: dependees are injected first; same-batch pieces sort by name. Look at the bb family's depends and the real order in the injection region:
 
@@ -105,7 +105,7 @@ Division of labor: the bridge holds validation and declaration — who may attac
 
 ## 6. The Derived Layer
 
-The kernel governs the framework area — plugins and projections; pipeline governs the data area — wiki derived pages. The commands are `python .owfa/scripts/pipeline.py index / tags / hot / log / verify`:
+The kernel governs the mechanisms and projections — the plugin graph, manifest compliance, and everything derived from them (since the v0.4 split, plugin *content* travels with packages; the kernel's authority over it is mechanical, not editorial); pipeline governs the data area — wiki derived pages. The commands are `python .owfa/scripts/pipeline.py index / tags / hot / log / verify`:
 
 - **index / tags**: directory indexes and the tag reverse index. Pure-function rebuilds that only aggregate, never inventing structure; when an index list overflows the window, split the subdirectory into its own index — the cure is more subdirectories, not editing the index
 - **hot**: the recent-change hot cache. At most 25 entries, within 5 days, each entry under 200 characters; agents read it first on entering the vault

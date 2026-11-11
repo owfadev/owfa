@@ -1,0 +1,23 @@
+id: trust
+schema_version: 1
+version: 0.10
+bridge: 必依
+depends:
+  - wiki
+updated: 2026-11-09
+attachment:
+  - "scripts/check.py — attached audit (trust-field contract + stale list + trust-level counts)"
+fields:
+  generated: "block-style mapping by/at (actor convention + YYYY-MM-DD), who generated the page"
+  verified: "event list, items single-line `by: <actor>, at: <date>`, appendable multiple times; the trust level is derived from this"
+  stale_after: "YYYY-MM-DD absolute moment; expiry check = the pure comparison now ≥ stale_after"
+  sources: "source list, items contain id / resource / credibility signals (author, usage_count, last_modified)"
+inject: "Trust fields (optional): `generated` / `verified` (by+at events) / `stale_after` / `sources`; level is derived, never stored — no record = unverified, agent/process only = machine-confirmed, any human = human-reviewed, past stale_after = stale"
+usage:
+  - When writing a page, write `generated` along the way (block style: `by: agent/<current-model>` / `at: <today>`)
+  - When a review action happens, append a `verified` event (single line `by: <actor>, at: <date>`), never fabricated to inflate the level
+  - Reviews are initiated by the user (triggered by human instruction); agents never append verified events on their own
+checks:
+  - Mechanical items (attached-audit script `scripts/check.py`, executed on audit discovery): generated missing by/at or wrong actor format, verified event missing by/at or wrong format, stale_after not YYYY-MM-DD, sources not a list → warning
+  - Mechanical items (info level): stale page list (past stale_after); trust-level counts (human-reviewed / machine-confirmed counts)
+  - Semantic (check command): stale-page disposition triage (refresh the moment / re-verify / deprecate) — human decides

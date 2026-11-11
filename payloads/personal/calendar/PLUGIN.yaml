@@ -1,0 +1,21 @@
+id: calendar
+schema_version: 1
+version: 0.5
+bridge: 按需
+depends:
+  - wiki
+  - trust
+updated: 2026-11-09
+attachment:
+  - "wiki/calendar.md — declaration page (`calendar` block mapping = source key → source declaration; self-created when the first source attaches, manual-only may be absent)"
+  - "wiki/calendar/ — month pages YYYY-MM.md (one page per month, two-section scheme)"
+fields:
+  calendar: "block mapping (declaration page) — source key → source declaration (value syntax belongs to the adapter: lark-calendar uses `lark/<profile> <calendar_id|primary>`); the source key is the end-of-line tag on schedule lines"
+inject: "Time territory: `wiki/calendar.md` (source keys; absent = manual-only) + month pages `wiki/calendar/YYYY-MM.md` (`## Schedule` refreshed wholesale, `## Manual Notes` append-only); calendar = what happens when, todo = what is pending; details PLUGIN.md"
+usage:
+  - Sync (mechanical): read the declaration page's source list → each source pulled for the current and next month by its adapter → wholesale section refresh of each month page's `## Schedule` (lines tagged with the source key) → `pipeline.py verify` + log line + commit (`映射: calendar`)
+  - Daily refresh (unattended session): deployment-side cron triggers the sync session on schedule, fully mechanical, no confirmation needed; failed sources are reported via log and do not block other sources; semantic enhancements (event notes, link completion) are left to interactive sessions
+  - Manual notes: append one line to the current month's `## Manual Notes` (date + one sentence), append-only, never modified
+  - Freezing: month pages are never rewritten once the month is over; changes such as rescheduling are recorded in the new month's page
+checks:
+  - Semantic (v0.1 manual, attached audit deferred): month page file name not YYYY-MM or landing outside wiki/calendar/ → error; traces of rewriting a past month's page → error (git audit); declaration page missing the `calendar` block → info (the manual-only norm)

@@ -39,7 +39,7 @@ plugins:
       note: block mapping (device profile page in notes) — serial (serial number) / purchased (purchase date YYYY-MM-DD) / warranty_until (warranty or coverage end date YYYY-MM-DD, the attached-audit scan item), a three-key minimal set; remaining keys open (model, vendor, etc.; the architecture does not enumerate)
   language:
     language:
-      note: block mapping (declaration page) — canonical key → one-sentence rule (open vocabulary, e.g. default/teaching/annotation/register); output language and writing baseline — register = the writing register (audience reading level, default first/second-year undergraduates), consumed by bb-teach and bb-quiz
+      note: block mapping (declaration page) — canonical key → one-sentence rule (open vocabulary, e.g. default/teaching/annotation/register); output language and writing baseline — register = the writing register (audience reading level, default first/second-year undergraduates), consumed by bb-teach, bb-quiz and save
     terms:
       note: block mapping (declaration page) — term original → unified translation (single-line value); the cross-session translation-consistency lookup piece
   link:

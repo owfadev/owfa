@@ -21,7 +21,9 @@ def check(ctx):
             issues.append({"level": "warning", "message": f"{rel}: tag restates type ({ptype})"})
         for t in tags:
             s = str(t)
-            if "/" in s:
+            if not s.strip():
+                issues.append({"level": "warning", "message": f"{rel}: empty tag (no empty segments)"})
+            elif "/" in s:
                 parts = s.split("/")
                 if len(parts) > 2 or any(not p.strip() for p in parts):
                     issues.append({"level": "warning", "message": f"{rel}: tag hierarchy over limit or empty segment ({s}, parent/child ≤2)"})

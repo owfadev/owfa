@@ -23,11 +23,40 @@ Usage:
   python .owfa/scripts/owfa_kernel.py migrate [<pkg>] [--clear] [--force]  # pending semantic migrations: status / clear (verify- and residual-gated)
   python .owfa/scripts/owfa_kernel.py upgrade [<pkg>]  # compare versions against the registry; apply updates
   python .owfa/scripts/owfa_kernel.py pkg         # installed packages: members, versions, connectors
+  python .owfa/scripts/owfa_kernel.py provides    # installed packages: capability provides + needs satisfaction (offline instance view)
   python .owfa/scripts/owfa_kernel.py residual <pkg>  # anchor-surface reference scan (the default teardown gate)
 
 The manifest is a minimal YAML subset: top-level `key: value`, `key: []`, block lists
 (`  - item`), one-level field dicts (`  name: description`); double-quoted values are
 unquoted; inline comments (starting with ` #`) are stripped.
+
+PKG.yaml (v0.4 de-parasitization) may additionally declare:
+- `skeleton: [vault/, wiki/notes/]` — instance dirs the package needs; install
+  mkdirs them mechanically (the kernel itself no longer hardcodes any layout)
+- `uninstall: {anchors: [wiki/profile.md, wiki/cron/]}` — teardown anchor surfaces
+  added to the kernel floor (AGENTS.md handwritten region) for the residual scan;
+  additive only, a directory anchor expands to the .md files inside it, and a
+  PKG.yaml without the key contributes nothing (backward compatible)
+
+PKG.yaml (v0.4 rootless suites + capabilities) may additionally declare:
+- `kind: suite` — a rootless package: N parallel members, no family root plugin and
+  none required (the owfa-personal shape). Suite packages skip the family-root /
+  closure laws; presence (subset discipline), compat, flat graph and id == dir name
+  still apply. Absent kind = the classic domain-family behavior (default)
+- `needs: [owfa.org.v1]` / `provides: [owfa.org.v1]` — package-scale capabilities
+  (plugin level deliberately unsupported). Grammar
+  ^[a-z][a-z0-9-]*(\\.[a-z0-9-]+)*\\.v\\d+$; a non-owfa.* capability's first name
+  segment must equal the package id (owfa.* is framework-owned, policed at the
+  registry review gate). Matching is exact-name; one provider per capability
+  (exclusive slot); needs count only trust >= reviewed provides (registry INDEX row
+  is the trust source — --path/direct installs are unknown and their provides stay
+  unverified; --yes overrides at install, journaled). Convergence points: install
+  preflight (prospective set — upgrade boards installed − old + new provides),
+  validate (full-graph error, --scope warning), upgrade (prospective). Uninstall is
+  deliberately NOT a point: removing the last provider leaves a red validate while
+  the uninstall itself succeeds (intentional asymmetry)
+- INDEX rows (registry) may carry `needs:` / `provides:` ('/'-separated lists, the
+  members precedent) and `commit:` (SHA pin — a clone whose HEAD != pin is refused)
 
 Dependencies and injection order:
 - depends declares behavioral or semantic dependencies (a bridging piece depending on the
@@ -126,7 +155,7 @@ JOURNAL = os.path.join(ROOT, ".owfa", "kernel-journal.log")    # mechanical even
 REQUIRED_KEYS = ["id", "version", "depends", "updated", "attachment", "fields", "inject"]
 INJECT_START = "<!-- wiki-inject:start -->"
 INJECT_END = "<!-- wiki-inject:end -->"
-CHECK_SKILL = os.path.join(COMMANDS_DIR, "check", "SKILL.md")
+CHECK_SKILL = os.path.join(COMMANDS_DIR, "owfa-check", "SKILL.md")  # v0.4 rename: the check command master is owfa-check/ (owner: framework) — the pre-rename constant silently skipped the check-inject projection
 CHECK_INJECT_START = "<!-- check-inject:start -->"
 CHECK_INJECT_END = "<!-- check-inject:end -->"
 CMD_INJECT_START = "<!-- cmd-inject:start -->"
@@ -163,7 +192,9 @@ def ordered_plugins(plugins):
 
 
 def strip_quotes(s):
-    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+    # both quote kinds: single-quoted values (e.g. INDEX rows) used to keep their
+    # quote edges and silently fail every downstream fullmatch — stripped uniformly
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
         return s[1:-1]
     return s
 
@@ -861,23 +892,41 @@ def load_packages(errors):
 
 
 def framework_version():
-    """Framework version anchor (.owfa/VERSION, 'X.Y' — #20 D2); None when absent."""
+    """Framework release version (.owfa/VERSION, 'X.Y.Z' — legacy 'X.Y' tolerated); None when absent.
+
+    Returns the full tuple: compat floors ('>= X.Y') compare against it with plain
+    tuple-prefix semantics, which keeps architecture floors correct across patch
+    releases (versioning scheme, 0.4 — the anchor carries the full release)."""
     vpath = os.path.join(ROOT, ".owfa", "VERSION")
     if not os.path.exists(vpath):
         return None
-    m = re.fullmatch(r"\s*(\d+)\.(\d+)\s*", open(vpath, encoding="utf-8").read())
-    return (int(m.group(1)), int(m.group(2))) if m else None
+    m = re.fullmatch(r"\s*(\d+)\.(\d+)(?:\.(\d+))?\s*", open(vpath, encoding="utf-8").read())
+    if not m:
+        return None
+    return tuple(int(g) for g in m.groups() if g is not None)
 
 
 def validate_packages(plugins, pkgs, errors, warnings):
     """Package invariants (issue #20 定稿 D1/D2/D5): roster == family closure (authoring side),
     full presence (site side, v1 — subsets land with --without later), flat package graph,
-    compat vs the .owfa/VERSION anchor."""
+    compat vs the .owfa/VERSION anchor.
+
+    kind discriminant (v0.4 rootless suites): `kind: suite` marks a rootless package —
+    N parallel members, no family root plugin, none required (the owfa-personal shape).
+    Suite packages skip the family-root/closure laws entirely (D5 root prunability,
+    roster == closure); presence (subset discipline), compat, flat graph and the
+    id == directory-name consistency still apply. A missing kind defaults to the
+    classic domain-family behavior — fully backward compatible."""
     seen_member = {}
     fw = framework_version()
     if fw is None:
         warnings.append(".owfa/VERSION missing — framework anchor absent, PKG compat unchecked")
     for pid, pkg in sorted(pkgs.items()):
+        kind = str(pkg.get("kind") or "domain-family")
+        if kind not in ("domain-family", "suite"):
+            errors.append(f"[error] PKG {pid}: kind ({kind}) must be 'suite' or 'domain-family' (absent key = domain-family)")
+            continue
+        suite = kind == "suite"
         members = pkg.get("members")
         if not isinstance(members, list) or not members:
             errors.append(f"[error] PKG {pid}: members must be a non-empty list")
@@ -886,25 +935,36 @@ def validate_packages(plugins, pkgs, errors, warnings):
             if mem in seen_member:
                 errors.append(f"[error] PKG {pid}: member {mem} also declared by PKG {seen_member[mem]} (one plugin one package)")
             seen_member[mem] = pid
-        if pid not in members:
+        if not suite and pid not in members:
             errors.append(f"[error] PKG {pid}: family root {pid} must be a member (D5: roots are never prunable)")
-        if all(m in plugins for m in members):  # full presence → authoring invariant (roster == closure); subsets exempt (site invariant above covers them)
+        if not suite and all(m in plugins for m in members):  # full presence → authoring invariant (roster == closure); subsets exempt (site invariant below covers them)
             closure = {pid} | {p for p in plugins if reaches_plugin(plugins, p, pid)}
             for extra in sorted(set(members) - closure):
                 errors.append(f"[error] PKG {pid}: member {extra} declared but outside the family closure (depends chain never reaches {pid})")
             for miss in sorted(closure - set(members)):
                 errors.append(f"[error] PKG {pid}: {miss} is in the family closure but missing from members (roster drift)")
         absent = [mem for mem in members if mem not in plugins]
-        if pid not in plugins:
-            errors.append(f"[error] PKG {pid}: family root {pid} must be installed (D5: roots are never prunable)")
+        if not suite:
+            if pid not in plugins:
+                errors.append(f"[error] PKG {pid}: family root {pid} must be installed (D5: roots are never prunable)")
+            elif absent:
+                closed = all(dep not in members or dep in plugins
+                             for mem in members if mem in plugins
+                             for dep in (plugins[mem].get("depends") or []))
+                if closed:
+                    warnings.append(f"PKG {pid}: subset install — pruned {', '.join(absent)} (D5 legal subset)")
+                else:
+                    errors.append(f"[error] PKG {pid}: installed subset not dependency-closed (structural member pruned while dependents remain — see kernel plan <pkg> --without ...)")
         elif absent:
+            # rootless suite: no root to protect — the presence law is the subset
+            # discipline alone (installed members must not depend on pruned ones)
             closed = all(dep not in members or dep in plugins
                          for mem in members if mem in plugins
                          for dep in (plugins[mem].get("depends") or []))
             if closed:
-                warnings.append(f"PKG {pid}: subset install — pruned {', '.join(absent)} (D5 legal subset)")
+                warnings.append(f"PKG {pid}: suite subset install — pruned {', '.join(absent)}")
             else:
-                errors.append(f"[error] PKG {pid}: installed subset not dependency-closed (structural member pruned while dependents remain — see kernel plan <pkg> --without ...)")
+                errors.append(f"[error] PKG {pid}: installed suite subset not dependency-closed (member pruned while dependents remain)")
         for dep in pkg.get("depends") or []:
             if dep != "framework":
                 errors.append(f"[error] PKG {pid}: package dependency {dep} not allowed in v1 (flat graph — framework only)")
@@ -917,12 +977,125 @@ def validate_packages(plugins, pkgs, errors, warnings):
                 errors.append(f"[error] PKG {pid}: compat {compat} exceeds framework version {'.'.join(map(str, fw))}")
 
 
+# ---------- capabilities (v0.4 needs/provides, work order #56 follow-up) ----------
+# PKG.yaml top-level flow lists: `needs: [owfa.org.v1]` / `provides: [owfa.org.v1]`
+# (plugin level deliberately unsupported — a capability is a package-scale contract).
+# Grammar: ^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*\.v\d+$  (e.g. owfa.org.v1, qq.transport.v1)
+# Prefix rule: a non-`owfa.` capability's first name segment must equal the declaring
+# package id (owfa.* is the framework-owned namespace; its definition right is enforced
+# at the registry review gate, the kernel only checks grammar).
+# Matching is exact-name equality: needs owfa.org.v1 is satisfied only by provides
+# owfa.org.v1 — a v2 provider leaves a v1 need unsatisfied (reported distinctly).
+CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)*\.v\d+$")
+# trust levels whose provides may satisfy needs ("trust >= reviewed"); the registry
+# INDEX row is the trust source — --path / owner-repo direct installs carry no row
+# (trust unknown) and their provides stay unverified
+TRUSTED_PROVIDERS = ("framework-bundled", "reviewed-3rd-party")
+
+
+def _cap_list(value):
+    """Normalize a needs/provides declaration into a list: PKG.yaml flow lists as-is;
+    INDEX-row strings split on '/' (aligning with the members precedent — a comma is a
+    value terminator in the INDEX line grammar and would silently truncate)."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        vals = [str(x).strip() for x in value]
+    else:
+        vals = [x.strip() for x in str(value).replace("/", ",").split(",")]
+    return [v for v in vals if v]
+
+
+def _cap_base(cap):
+    """The name without the trailing .vN version segment (version-variant test)."""
+    return cap.rsplit(".v", 1)[0]
+
+
+def capability_grammar_issues(pid, pkg):
+    """Declaration-level checks (grammar + namespace prefix) for one package; list of messages."""
+    out = []
+    for key in ("needs", "provides"):
+        for cap in _cap_list(pkg.get(key)):
+            if not CAPABILITY_RE.fullmatch(cap):
+                out.append(f"PKG {pid}: {key} entry {cap!r} fails the capability grammar ^[a-z][a-z0-9-]*(\\.[a-z0-9-]+)*\\.v\\d+$ (e.g. owfa.org.v1)")
+            elif not cap.startswith("owfa.") and cap.split(".", 1)[0] != pid:
+                out.append(f"PKG {pid}: {key} entry {cap!r} — the first name segment must equal the package id (non-owfa.* capabilities belong to their declarer; owfa.* is framework-owned)")
+    return out
+
+
+def capability_providers(pkgs):
+    """Provider map {capability: [package ids]} over the given package dict."""
+    providers = {}
+    for pid in sorted(pkgs):
+        for cap in _cap_list(pkgs[pid].get("provides")):
+            providers.setdefault(cap, []).append(pid)
+    return providers
+
+
+def capability_issues(pkgs, trust_map=None, enforce_trust=True):
+    """Graph checks over a package set: exclusive slots + needs satisfaction.
+
+    trust_map: {pkg id: trust level or None}. enforce_trust=False (index unavailable)
+    degrades the trust gate to structural satisfaction only. Returns a list of
+    (kind, message) with kind in {"exclusive", "missing", "version", "trust"}."""
+    issues = []
+    providers = capability_providers(pkgs)
+    for cap, ps in sorted(providers.items()):
+        if len(ps) > 1:
+            issues.append(("exclusive", f"capability {cap} is provided by multiple installed packages ({', '.join(ps)}) — exclusive slot: at most one provider per capability"))
+    provided = set(providers)
+    for pid in sorted(pkgs):
+        for need in _cap_list(pkgs[pid].get("needs")):
+            ps = providers.get(need, [])
+            trusted = [p for p in ps if not enforce_trust or trust_map.get(p) in TRUSTED_PROVIDERS]
+            if trusted:
+                continue
+            if ps:
+                # exact name present but unverified — trust gate (overridable with --yes at install)
+                issues.append(("trust", f"PKG {pid}: needs capability {need} — provided by {', '.join(ps)} at unverified trust (only reviewed provides satisfy needs; the registry INDEX row is the trust source)"))
+                continue
+            variants = sorted(c for c in provided if c != need and _cap_base(c) == _cap_base(need))
+            if variants:
+                issues.append(("version", f"PKG {pid}: needs capability {need} — capability present at different version ({', '.join(variants)}); matching is exact-name, a v2 provider does not satisfy a v1 need"))
+            else:
+                issues.append(("missing", f"PKG {pid}: needs capability {need} — capability missing entirely (no installed package provides it)"))
+    return issues
+
+
+def _trust_map_from_index(index):
+    return {pid: str(e.get("trust") or "") for pid, e in (index or {}).items()}
+
+
+def validate_capabilities(pkgs, errors, warnings, scope=None):
+    """Capability laws at validate time (full-graph: errors; --scope single-package
+    mode: downgraded to warnings, mirroring the dependency-absence tolerance)."""
+    for pid, pkg in sorted(pkgs.items()):
+        for msg in capability_grammar_issues(pid, pkg):
+            if scope:
+                warnings.append(f"{msg} — tolerated in single-package mode (full-graph disciplines run where the full graph lives)")
+            else:
+                errors.append(f"[error] {msg}")
+    if not any(_cap_list(p.get("needs")) or _cap_list(p.get("provides")) for p in pkgs.values()):
+        return  # nobody declares capabilities — nothing to check (pre-0.4 packages)
+    index, _src = load_index([], quiet=True, local_only=True)  # read-only view: local INDEX / cache, never a network fetch
+    enforce_trust = bool(index)
+    if not enforce_trust:
+        warnings.append("registry index unavailable (offline, no cache) — capability trust gate degraded to structural satisfaction")
+    issues = capability_issues(pkgs, _trust_map_from_index(index), enforce_trust)
+    for kind, msg in issues:
+        if scope:
+            warnings.append(f"{msg} — tolerated in single-package mode")
+        else:
+            errors.append(f"[error] {msg}")
+
+
 def do_pkg_ls(pkgs, plugins):
     """Package inventory: PKG table + connectors + the implicit core remainder."""
     claimed = {m for pkg in pkgs.values() for m in (pkg.get("members") or [])}
     for pid, pkg in sorted(pkgs.items()):
         members = pkg.get("members") or []
-        print(f"pkg {pid:<10} v{pkg.get('version','?'):<5} compat {str(pkg.get('compat','?')):<8} {len(members)} members: {', '.join(members)}")
+        kind = " (suite)" if str(pkg.get("kind") or "") == "suite" else ""
+        print(f"pkg {pid:<10} v{pkg.get('version','?'):<5} compat {str(pkg.get('compat','?')):<8} {len(members)} members{kind}: {', '.join(members)}")
         for c in pkg.get("connectors") or []:
             where = c.get("path") or ("external" if c.get("external") else "system" if c.get("system") else "?")
             home = f", home {c['home']}" if c.get("home") else ""
@@ -931,17 +1104,43 @@ def do_pkg_ls(pkgs, plugins):
     print(f"core (framework): {len(core)}: {', '.join(core)}")
 
 
-def _residual_hits(pkg_id, pkg):
-    """Anchor-surface reference scan -> hit list (the default teardown gate)."""
+def _anchor_files(pkgs):
+    """De-parasitized anchor surface (v0.4): the kernel floor (AGENTS.md, whose inject
+    region is skipped — the handwritten region is never deleted) plus the union of
+    `uninstall.anchors` declared by every loaded package. Declarations are additive
+    only; a PKG.yaml without the key contributes nothing (backward compatible).
+    An anchor path that is a directory (e.g. wiki/cron/) expands to the .md files
+    inside it — the mechanical form of the old hardcoded cron special case.
+    """
+    files, seen = [], set()
+
+    def add(p):
+        if p not in seen:
+            seen.add(p)
+            files.append(p)
+
+    add(AGENTS_MD)
+    for pid in sorted(pkgs):
+        un = pkgs[pid].get("uninstall")
+        for a in ((un.get("anchors") if isinstance(un, dict) else None) or []):
+            p = os.path.join(ROOT, str(a))
+            if os.path.isdir(p):
+                for f in sorted(os.listdir(p)):
+                    if f.endswith(".md"):
+                        add(os.path.join(p, f))
+            else:
+                add(p)
+    return files
+
+
+def _residual_hits(pkg_id, pkg, pkgs=None):
+    """Anchor-surface reference scan -> hit list (the default teardown gate).
+
+    pkgs (optional) widens the anchor surface to the union over all installed
+    packages; the default {pkg_id: pkg} keeps single-package callers honest for
+    a package that is no longer installed (teardown gate)."""
     tokens = [pkg_id] + [t for t in (pkg.get("members") or []) if t != pkg_id]
-    anchors = [AGENTS_MD,
-               os.path.join(ROOT, "wiki", "profile.md"),
-               os.path.join(ROOT, "wiki", "language.md"),
-               os.path.join(ROOT, "wiki", "calendar.md"),
-               os.path.join(ROOT, "wiki", "todo.md")]
-    crondir = os.path.join(ROOT, "wiki", "cron")
-    if os.path.isdir(crondir):
-        anchors += [os.path.join(crondir, f) for f in sorted(os.listdir(crondir)) if f.endswith(".md")]
+    anchors = _anchor_files(pkgs if pkgs is not None else {pkg_id: pkg})
     hits = []
     for path in anchors:
         if not os.path.exists(path):
@@ -975,11 +1174,11 @@ def do_residual(pkg_id, pkgs):
     if pkg is None:
         print(f"[error] residual: no such package {pkg_id} (see: kernel pkg)")
         return 1
-    hits = _residual_hits(pkg_id, pkg)
+    hits = _residual_hits(pkg_id, pkg, pkgs)
     for h in hits:
         print(f"[residual] {h}")
     if hits:
-        print(f"[residual] {len(hits)} reference(s) on semantic anchor surfaces (handwritten AGENTS region / profile / language / calendar / todo / cron) — semantic cleanup before/after uninstall, per PKG uninstall.bridges")
+        print(f"[residual] {len(hits)} reference(s) on anchor surfaces (AGENTS.md handwritten region ∪ uninstall.anchors declared by installed packages) — semantic cleanup before/after uninstall, per PKG uninstall.bridges")
     else:
         print("[residual] clean — no member references on semantic anchor surfaces")
     return 0
@@ -988,12 +1187,19 @@ def do_residual(pkg_id, pkgs):
 # ---------- process round: install / uninstall / list-remote / upgrade (issue #20 流程轮) ----------
 
 INDEX_FILENAME = "INDEX.yaml"
-INDEX_REMOTE = "https://raw.githubusercontent.com/owfadev/registry/master/INDEX.yaml"
+INDEX_REMOTE = "https://raw.githubusercontent.com/owfadev/owfa-registry/master/INDEX.yaml"
 FW_VERSION_REMOTE = "https://raw.githubusercontent.com/owfadev/owfa/master/.owfa/VERSION"
 
 
-def load_index(errors, quiet=False):
-    """Resolve the package index: local ROOT/INDEX.yaml first, then a short-TTL cache, else remote (cached on success; stale cache as fallback)."""
+def load_index(errors, quiet=False, local_only=False):
+    """Resolve the package index: local ROOT/INDEX.yaml first, then a short-TTL cache, else remote (cached on success; stale cache as fallback).
+
+    local_only=True never touches the network: local INDEX.yaml, else any cache file
+    regardless of age (a read-only trust view for validate/`kernel provides`).
+    Row fields (v0.4): needs / provides are '/'-separated capability lists (the
+    members precedent — a comma terminates the value in the INDEX line grammar and
+    would silently truncate a list); commit is an optional SHA pin (supply-chain
+    content anchor, checked after clone). Absent fields are empty sets / no pin."""
     import urllib.request
     import time
     raw, src = None, None
@@ -1001,6 +1207,11 @@ def load_index(errors, quiet=False):
     cache = os.path.join(ROOT, ".owfa", "registry-cache.yaml")
     if os.path.exists(local):
         raw, src = open(local, encoding="utf-8").read(), local
+    elif local_only:
+        if os.path.exists(cache):
+            raw, src = open(cache, encoding="utf-8").read(), cache + " (local view)"
+        else:
+            return {}, None
     else:
         fetched = False
         if os.path.exists(cache) and time.time() - os.path.getmtime(cache) < 600:
@@ -1032,7 +1243,11 @@ def load_index(errors, quiet=False):
 
 
 def _clone_package(entry, pkg, tag, errors):
-    """git clone the package repo (git is the declared prerequisite); returns the clone dir or None."""
+    """git clone the package repo (git is the declared prerequisite); returns the clone dir or None.
+
+    Supply-chain content anchor (v0.4): an INDEX row carrying `commit: <sha>` pins the
+    expected HEAD — after the clone the actual HEAD SHA must equal the pin, else the
+    clone is refused (tag/path drift between review and fetch)."""
     import subprocess
     import tempfile
     url = entry.get("repo")
@@ -1048,6 +1263,13 @@ def _clone_package(entry, pkg, tag, errors):
         shutil.rmtree(tmp, ignore_errors=True)
         errors.append(f"[error] clone {url}@{ref} failed: {(r.stderr or '').strip()[:200]}")
         return None
+    pin = str(entry.get("commit") or "").strip()
+    if pin:
+        head = subprocess.run(["git", "-C", tmp, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        if not head or head.lower() != pin.lower():
+            shutil.rmtree(tmp, ignore_errors=True)
+            errors.append(f"[error] commit pin mismatch for {pkg}: index pins {pin}, clone HEAD is {head or '?'} — supply-chain content anchor refused (registry row and fetched content disagree)")
+            return None
     return tmp
 
 
@@ -1061,6 +1283,7 @@ def converge(label):
         validate_bindings(plugins, errors)
         validate_bridges(plugins, errors)
         validate_packages(plugins, pkgs, errors, warns)
+        validate_capabilities(pkgs, errors, warns)
     for w in warns:
         print(f"[warning] {w}")
     for e in errors:
@@ -1114,8 +1337,12 @@ def _preflight_install(src, ignore):
     return True
 
 
-def do_install(spec, args, prev_version=None):
-    """Install a package from the index (or --path <dir> for a local/unregistered one): masters + connectors + commands, then converge."""
+def do_install(spec, args, prev_version=None, prev_pkgm=None):
+    """Install a package from the index (or --path <dir> for a local/unregistered one): masters + connectors + commands, then converge.
+
+    prev_pkgm (upgrade path): the ousted edition's PKG dict — its provides leave the
+    capability preflight's prospective board (upgrade = uninstall→reinstall; the disk
+    is mid-state when the reinstall preflights)."""
     pkg, _, tag = spec.partition("@") if spec else ("", "", "")
     path = None
     if "--path" in args:
@@ -1228,6 +1455,49 @@ def do_install(spec, args, prev_version=None):
         return 1
     ignore = shutil.ignore_patterns(".git", ".meta", ".owfa*", "connectors", "command", "README.md",
                                    "__pycache__", "migrations", *sorted(pruned))
+    # ---- capability preflight (v0.4 needs/provides), prospective set ----
+    # The board is the PROSPECTIVE graph: installed provides − the replaced edition's
+    # old provides (upgrade runs uninstall→reinstall; at this point the disk is already
+    # mid-state and reading it directly would false-refuse upgrading the sole provider
+    # of a needed capability) + the incoming edition's provides. Grammar fails fast;
+    # then exclusive slots and needs satisfaction. The trust gate is the only --yes-
+    # overridable class (journaled); exclusive / missing / version refuse outright.
+    _gram = capability_grammar_issues(pid, pkgm)
+    for msg in _gram:
+        print(f"[error] {msg}")
+    if _gram:
+        if not path:
+            shutil.rmtree(src, ignore_errors=True)
+        return 1
+    if path or direct:
+        caps_index, _ = load_index([], quiet=True, local_only=True)  # trust view of installed providers only; the incoming channel itself is unknown-trust
+    else:
+        caps_index = index  # registry channel: the row IS the trust source (reviewed-3rd-party / framework-bundled pass)
+    _board = load_packages([])
+    if prev_pkgm is not None:
+        _board.pop(pid, None)  # the ousted edition's provides leave the prospective board
+    _board[pid] = pkgm
+    _issues = capability_issues(_board, _trust_map_from_index(caps_index))
+    _hard = [(kd, m) for kd, m in _issues if kd in ("exclusive", "missing", "version")]
+    _soft = [(kd, m) for kd, m in _issues if kd == "trust"]
+    if _hard:
+        for _kd, m in _hard:
+            print(f"[error] {m}")
+        print("[install] capability preflight failed — package files and projections were not changed")
+        if not path:
+            shutil.rmtree(src, ignore_errors=True)
+        return 1
+    if _soft:
+        if "--yes" not in args:
+            for _kd, m in _soft:
+                print(f"[error] {m}")
+            print("[install] capability trust gate refused — only reviewed provides satisfy needs; --yes overrides (journaled)")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
+            return 1
+        _caps = ", ".join(sorted({m.split("needs capability ")[1].split(" —")[0] for _kd, m in _soft if "needs capability " in m}))
+        _journal("trust-override", f"{pid} — needs satisfied by unverified provides: {_caps or '?'} (--yes)")
+        print(f"[warning] {pid}: capability trust gate overridden (--yes) — {_caps or 'unverified provides'} accepted unreviewed; journaled")
     if not _preflight_install(src, ignore):
         if not path:
             shutil.rmtree(src, ignore_errors=True)
@@ -1280,9 +1550,25 @@ def do_install(spec, args, prev_version=None):
                 shutil.copyfile(os.path.join(tsrc, f), os.path.join(MIGRATIONS_DIR, pid, f))
     if not path:
         shutil.rmtree(src, ignore_errors=True)
+    # de-parasitization (v0.4): the package declares its own skeleton dirs (flow list,
+    # e.g. `skeleton: [vault/, wiki/notes/]`) — install mkdirs them mechanically; the
+    # kernel no longer hardcodes any instance layout. Path-escape guard only: the
+    # kernel does not judge the semantics of a declared skeleton.
+    skeleton = [str(s).strip() for s in (pkgm.get("skeleton") or []) if str(s).strip()]
+    for d in skeleton:
+        if d.startswith(("/", "~")) or os.path.isabs(d) or ".." in d.split(os.sep) or ".." in d.split("/"):
+            print(f"[error] {pid}: skeleton entry {d!r} escapes the instance — refused")
+            return 1
+        os.makedirs(os.path.join(ROOT, d), exist_ok=True)
+    _un = pkgm.get("uninstall")
+    _anchors = (_un.get("anchors") if isinstance(_un, dict) else None) or []
     print(f"[install] {pid}: masters -> .owfa/plugins/domains/{pid}/"
+          + (f"; skeleton: {', '.join(skeleton)}" if skeleton else "")
           + (f"; connectors: {', '.join(copied_conn)}" if copied_conn else "")
           + (f"; commands: {', '.join(copied_cmd)}" if copied_cmd else ""))
+    if _anchors:
+        # teardown disclosure: declared anchor surfaces are additive and never deleted by the kernel
+        print(f"[install] {pid} teardown anchors (declared, kernel never deletes them): {', '.join(str(a) for a in _anchors)}")
     _journal("install", f"{pid} v{pkgm.get('version')}" + (f" subset(-{','.join(sorted(pruned))})" if pruned else "") + (f" staged={','.join(staged)}" if staged else ""))
     converged = converge("install")
     if staged:
@@ -1364,8 +1650,15 @@ def do_uninstall(pkg, args):
           + (f"; commands: {', '.join(removed_cmd)}" if removed_cmd else "")
           + (f"; connectors: {', '.join(removed_conn)}" if removed_conn else ""))
     _journal("uninstall", f"{pkg} v{pkgm.get('version', '?')}")
+    # capability note (v0.4, intentional asymmetry): uninstall is NOT a capability
+    # convergence point — removing the last provider of a needed capability leaves a
+    # red validate (the honest report) while the uninstall itself succeeds; the
+    # needs/provides discipline is enforced at install/upgrade/validate, not teardown
     converge("uninstall")
-    do_residual(pkg, {pkg: pkgm})
+    _errs = []  # anchor surface = kernel floor ∪ installed packages' declarations ∪ this package's own
+    _all = load_packages(_errs)
+    _all.setdefault(pkg, pkgm)
+    do_residual(pkg, _all)
     un = pkgm.get("uninstall") or {}
     if un.get("retains"):
         print(f"[uninstall] retains (never touched): {', '.join(un['retains'])}")
@@ -1376,6 +1669,36 @@ def do_uninstall(pkg, args):
     for d in (os.path.join(PLUGINS_DIR, "domains"), CONNECTORS_DIR):
         if os.path.isdir(d) and not os.listdir(d):
             os.rmdir(d)  # empty containers leave no residue
+    return 0
+
+
+def do_provides(pkgs):
+    """Instance view of capabilities (offline, disk-read only — no marketplace view):
+    each installed package's provides, and the satisfaction status of every needs
+    declaration (exact-name matching; trust annotated from the local index view)."""
+    index, _src = load_index([], quiet=True, local_only=True)
+    trust_map = _trust_map_from_index(index)
+    providers = capability_providers(pkgs)
+    if not pkgs:
+        print("(no packages installed — kernel provides reads installed PKG.yaml files)")
+        return 0
+    for pid in sorted(pkgs):
+        provs = _cap_list(pkgs[pid].get("provides"))
+        trust = trust_map.get(pid, "")
+        tmark = f" (trust: {trust})" if provs and trust else (" (trust: unknown — unverified provides)" if provs else "")
+        print(f"pkg {pid}: provides {', '.join(provs) if provs else '—'}{tmark}")
+        for need in _cap_list(pkgs[pid].get("needs")):
+            ps = providers.get(need, [])
+            if ps:
+                tps = [p for p in ps if trust_map.get(p) in TRUSTED_PROVIDERS]
+                state = "satisfied" if tps else "satisfied by UNVERIFIED provides (trust gate: only reviewed provides count)"
+                print(f"  needs {need} — {state}: {', '.join(ps)}")
+            else:
+                variants = sorted(c for c in providers if c != need and _cap_base(c) == _cap_base(need))
+                if variants:
+                    print(f"  needs {need} — NOT satisfied: capability present at different version ({', '.join(variants)}); matching is exact-name")
+                else:
+                    print(f"  needs {need} — NOT satisfied: capability missing entirely")
     return 0
 
 
@@ -1448,11 +1771,14 @@ def _upgrade_action(pkg, args):
         if m and (int(m.group(1)), int(m.group(2))) > fw:
             print(f"[error] upgrade needs framework {'.'.join(map(str, (int(m.group(1)), int(m.group(2)))))} first — run `npx owfa upgrade` (npm channel), or sync the template trees and rerun kernel all")
             return 1
-    # quiet mechanical reinstall (uninstall -> install-from-src with prev_version)
+    # quiet mechanical reinstall (uninstall -> install-from-src with prev_version; the
+    # old PKG rides along as prev_pkgm so the capability preflight boards the PROSPECTIVE
+    # graph — mid-upgrade the disk lacks the package and its provides, and the sole
+    # provider of a needed capability must be upgradable without a false refusal)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         ok1 = do_uninstall(pkg, ["--yes"])
-        ok2 = do_install(pkg + ("" if path else ""), (["--path", path] if path else []), prev_version=old_ver) if ok1 == 0 else 1
+        ok2 = do_install(pkg + ("" if path else ""), (["--path", path] if path else []), prev_version=old_ver, prev_pkgm=old_pkgm) if ok1 == 0 else 1
     if ok2 != 0:
         print(buf.getvalue())
         print("[error] reinstall failed — state may be partial, rerun kernel validate")
@@ -1492,9 +1818,9 @@ def do_upgrade(pkg, args=None):
     try:
         import urllib.request
         rfw = urllib.request.urlopen(FW_VERSION_REMOTE, timeout=10).read().decode("utf-8").strip()
-        m = re.fullmatch(r"(\d+)\.(\d+)", rfw)
+        m = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?", rfw)
         if m:
-            rt = (int(m.group(1)), int(m.group(2)))
+            rt = tuple(int(g) for g in m.groups() if g is not None)
             if fw and rt > fw:
                 fw_note = f" — remote v{rfw} available (run `npx owfa upgrade`, or manual sync: template diff → selective copy → kernel all, see CONTRIBUTING)"
             elif fw:
@@ -1524,6 +1850,12 @@ def do_upgrade(pkg, args=None):
 
 def _vt(x):
     return tuple(int(i) for i in str(x).split("."))
+
+
+def _vline(x):
+    """The B-line (major.minor) of a version — migrations and compat live on lines;
+    releases carry the patch (versioning scheme, 0.4)."""
+    return _vt(x)[:2]
 
 
 def _journal(op, detail):
@@ -1579,9 +1911,12 @@ def _stage_migrations(migsrc, pid, prev_version, new_version):
         cands = [("init", "init.md")] if os.path.exists(os.path.join(migsrc, "init.md")) else []
     else:
         cands = []
+        prev_line, new_line = _vline(prev_version), _vline(new_version)
         for f in sorted(os.listdir(migsrc)):
             m = re.fullmatch(r"(\d+\.\d+)-to-(\d+\.\d+)\.md", f)
-            if m and _vt(m.group(1)) >= _vt(prev_version):
+            # stage every line-crossing this upgrade makes: [prev_line, new_line) —
+            # same-line C updates stage nothing (versioning scheme, 0.4)
+            if m and prev_line <= _vt(m.group(1)) < new_line:
                 cands.append((f[:-3], f))
     for label, f in cands:
         shutil.copyfile(os.path.join(migsrc, f), os.path.join(MIGRATIONS_DIR, pid, f))
@@ -1697,9 +2032,12 @@ def do_migrate(pkg, args):
                 elif ent.get("kind") == "teardown":
                     pk = os.path.join(pdir, "PKG.yaml")  # default gate: show what the residual scan still sees
                     pkgm2 = parse_pkg(pk) if os.path.exists(pk) else {"members": [pkg]}
-                    for h in _residual_hits(pkg, pkgm2)[:8]:
+                    _errs = []
+                    _all = load_packages(_errs)  # anchor surface includes installed packages' declared anchors
+                    _all.setdefault(pkg, pkgm2)
+                    for h in _residual_hits(pkg, pkgm2, _all)[:8]:
                         print(f"[migrate] residual: {h}")
-                    if not _residual_hits(pkg, pkgm2):
+                    if not _residual_hits(pkg, pkgm2, _all):
                         print("[migrate] residual gate: clean — ready to clear (--clear)")
         return 0
     # --clear: verify-gated (explicit assertion only via --force when no script)
@@ -1722,7 +2060,10 @@ def do_migrate(pkg, args):
         if ent.get("kind") == "teardown":
             pk = os.path.join(pdir, "PKG.yaml")
             pkgm2 = parse_pkg(pk) if os.path.exists(pk) else {"members": [pkg]}
-            hits = _residual_hits(pkg, pkgm2)
+            _errs = []
+            _all = load_packages(_errs)
+            _all.setdefault(pkg, pkgm2)
+            hits = _residual_hits(pkg, pkgm2, _all)
             if hits:
                 print(f"[error] teardown incomplete — residual references on anchor surfaces: {hits[:5]}")
                 return 1
@@ -1798,14 +2139,21 @@ def do_plan(spec, args):
         return out
 
     optional = [m for m in members if m != pid]
+    kind = str(pkgm.get("kind") or "domain-family")
     plan = {
         "package": pid,
+        "kind": kind,
         "version": pkgm.get("version"),
         "compat": pkgm.get("compat"),
         "trust": entry.get("trust", "?"),
+        "needs": _cap_list(pkgm.get("needs")),
+        "provides": _cap_list(pkgm.get("provides")),
         "disclosure": pkgm.get("disclosure") or "(no package disclosure declared)",
-        "baseline": [{"id": pid, "summary": menu.get(pid, "")}],
-        "optional": [{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m) - {pid})} for m in optional],
+        # rootless suite: no family root — nothing is baseline-mandatory, every member is optional
+        "baseline": ([] if kind == "suite" else [{"id": pid, "summary": menu.get(pid, "")}]),
+        "optional": ([{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m) - {pid})} for m in optional]
+                     if kind != "suite" else
+                     [{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m))} for m in members]),
         "connectors": [{"name": c.get("name"), "kind": ("external" if c.get("external") else "system" if c.get("system") else "in-repo")}
                        for c in (pkgm.get("connectors") or [])],
         "suggested_command": f"kernel install {pid}" + (" --yes" if direct else ""),
@@ -1828,9 +2176,16 @@ def do_plan(spec, args):
     if "--json" in args:
         print(_json.dumps(plan, ensure_ascii=False, indent=2))
         return 0
-    print(f"[plan] {pid} v{plan['version']} (compat {plan['compat']}) — trust: {plan['trust']}")
+    print(f"[plan] {pid} v{plan['version']} (compat {plan['compat']}) — trust: {plan['trust']}"
+          + ("; kind: suite (rootless — no family root member)" if kind == "suite" else ""))
     print(f"[plan] disclosure: {plan['disclosure']}")
-    print(f"[plan] baseline (always installed): {pid}" + (f" — {menu.get(pid, '')}" if menu.get(pid) else ""))
+    if plan["needs"] or plan["provides"]:
+        print(f"[plan] capabilities — needs: {', '.join(plan['needs']) or '—'}; provides: {', '.join(plan['provides']) or '—'}"
+              + (" (provides count toward needs only at trust >= reviewed — this package's trust: {})".format(plan['trust']) if plan["provides"] else ""))
+    if kind == "suite":
+        print("[plan] baseline: none — rootless suite, every member is prunable via --without")
+    else:
+        print(f"[plan] baseline (always installed): {pid}" + (f" — {menu.get(pid, '')}" if menu.get(pid) else ""))
     for o in plan["optional"]:
         pulls = f" — pulls: {', '.join(o['pulls'])}" if o["pulls"] else ""
         print(f"[plan]   optional: {o['id']}" + (f" — {o['summary']}" if o["summary"] else "") + pulls)
@@ -1911,6 +2266,12 @@ def main():
         return 0
     if cmd == "residual":
         return do_residual(sys.argv[2] if len(sys.argv) > 2 else None, pkgs)
+    if cmd == "provides":
+        if errors:
+            for e in errors:
+                print(e)
+            return 1
+        return do_provides(pkgs)
     if cmd == "ls":
         do_ls(plugins)
         if errors:
@@ -1934,11 +2295,13 @@ def main():
     warns = []
     validate(plugins, errors, scope=scope, warnings=warns)
     if scope:
-        print(f"[scope] bindings/bridges/package checks skipped — single-package mode over {scope} (full-graph disciplines run where the full graph lives)")
+        print(f"[scope] bindings/bridges/package checks skipped; capability checks downgraded to warnings — single-package mode over {scope} (full-graph disciplines run where the full graph lives)")
+        validate_capabilities(pkgs, [], warns, scope=scope)
     else:
         validate_bindings(plugins, errors)
         validate_bridges(plugins, errors)
         validate_packages(plugins, pkgs, errors, warns)
+        validate_capabilities(pkgs, errors, warns)
     for k, v in sorted(_led.items()):
         errors.append(f"[error] pending semantic migration {k} {v.get('from', '?')}->{v.get('to', '?')} — kernel migrate {k} --clear; mechanical blessing withheld (tri-face warning)")
     for w in warns:

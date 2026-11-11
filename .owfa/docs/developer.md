@@ -7,8 +7,8 @@
 | Your plugin is… | It lands… | Trust gate |
 |---|---|---|
 | a **domain member** (depends chain reaches a domain root, e.g. bb-family) | that domain package's repo — PR there. Not a choice: the family closure claims it mechanically (`PKG.members` must include you or validate errors) | package maintainers |
-| a **new domain** of its own | your own repo as a package (`PKG.yaml`, see [packages.md](packages.md)) + a one-line PR to the [registry](https://github.com/owfadev/registry) | the registry PR — the human-review gate (inject text and connectors are the security faces, #12) |
-| **cross-cutting / non-domain** (global piece) | the framework repo's `core/` — PR there | owner review (charter-level, highest bar) |
+| a **new domain** of its own | your own repo as a package (`PKG.yaml`, see [packages.md](packages.md)) + a one-line PR to the [registry](https://github.com/owfadev/owfa-registry) | the registry PR — the human-review gate (inject text and connectors are the security faces, #12) |
+| **cross-cutting / non-domain** (global piece) | the core suite package repo (**owfa-personal**, since the v0.4 split) — PR there | owner review (charter-level, highest bar) |
 
 A single plugin never ships bare — the package is the distribution unit. A lone plugin is a single-member package (12 lines of PKG.yaml, see email/bili/project). Users prune with `--without` (subset grammar), so contributing into a big package never forces users to install all of it.
 

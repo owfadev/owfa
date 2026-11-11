@@ -30,7 +30,7 @@ my-workspace/
 │   ├── notes/  sessions/  vault/
 │   └── index.md  tags.md  hot.md  log.md   # derived, rebuilt by the pipeline
 ├── .owfa/                     # OWFA Core
-│   ├── VERSION                # framework anchor (0.3)
+│   ├── VERSION                # framework anchor (0.4.0)
 │   ├── scripts/               # kernel + pipeline + wikilib
 │   ├── plugins/core/          # 21 framework plugins
 │   ├── plugins/domains/       # installed packages (empty until you add one)
@@ -175,7 +175,7 @@ The daily loops — library keeping, course learning, collaborative development 
 
 ## 7. Packages — finding and installing
 
-Core ships only the framework plugins. External systems arrive as **packages**: one directory `.owfa/plugins/domains/<pkg>/` with a `PKG.yaml` roster, plugin masters, commands and connectors.
+Core itself is two-stage since v0.4: the kernel payload lands first, then `init` installs the embedded **blessed suite** — the former framework plugins, now shipped as the **owfa-personal** package (a vetted copy bundled inside the tarball) — by default (`--core none` skips it, `--core <pkg>` installs a different core package). External systems arrive the same way, as **packages**: one directory `.owfa/plugins/domains/<pkg>/` with a `PKG.yaml` roster, plugin masters, commands and connectors.
 
 ### 7.1 Find what exists
 
@@ -189,7 +189,7 @@ python3 .owfa/scripts/owfa_kernel.py list-remote
 python3 .owfa/scripts/owfa_kernel.py pkg
 ```
 
-The registry is the GitHub index at `owfadev/registry`; before installing, it is also readable directly as `INDEX.yaml` in that repository. Each row shows the package version, the framework compat floor, the member plugins and the trust level.
+The registry is the GitHub index at `owfadev/owfa-registry`; before installing, it is also readable directly as `INDEX.yaml` in that repository. Each row shows the package version, the framework compat floor, the member plugins and the trust level.
 
 ### 7.2 Install a package
 
@@ -248,7 +248,7 @@ npx owfa upgrade --backup   # keep a copy under .owfa/backup/<version>-<timestam
 
 Re-copy `.owfa/` and `.agents/skills/` from the new template revision (review the diff, do not blind-copy over pending migrations), then `kernel all`. The instance git snapshot is the rollback path.
 
-Framework versions are anchored by `.owfa/VERSION` (0.3); a target-side semantic migration can be staged by an upgrade, with the same tri-face warning and `kernel migrate` flow.
+Framework versions are anchored by `.owfa/VERSION` (0.4.0); a target-side semantic migration can be staged by an upgrade, with the same tri-face warning and `kernel migrate` flow.
 
 ## 9. Uninstall
 

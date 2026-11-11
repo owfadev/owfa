@@ -28,6 +28,7 @@ A derivation-destination bridge governing action items: domain plugins one-way d
 
 ## Changelog
 
+- 0.6 2026-11-12: contract-had-no-enforcement fix — mechanical checks (territory placement / entry trigger + by/at contract / overdue info list) landed as the attached-audit script scripts/check.py, closing the gap between the declared checks and execution
 - 0.5 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.4 (2026-10-06) inject line compressed to pointer density (issue #12 layer discipline) — procedural detail lives in usage / PLUGIN.md / skills- 0.3 2026-10-02: global-domain batch two — established the on-demand bridge as the derivation destination; domain-plugin self-descriptions retained with a pointer
 - 0.2 2026-10-02: added 'create on absence' — when a new session's first read finds todo.md absent, it creates an empty page, so the entry discipline never falls through; guideline registration entry revised, empirically verified

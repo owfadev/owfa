@@ -48,7 +48,7 @@ owfa version
 1. copies `.owfa/` and `.agents/skills/` from the tarball
 2. creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`
 3. writes `AGENTS.md` from the template when absent; when one exists, **appends only the injection region** (handwritten content before it is preserved byte-for-byte); refuses if the markers are half-present
-4. runs `python .owfa/scripts/owfa_kernel.py all` (validate, inject, registry, skills)
+4. runs `python .owfa/scripts/owfa_kernel.py all` (validate → inject → registry → deploy)
 5. optionally installs packages from the registry (`--packages cuhksz,lark`)
 
 A package may declare a **first-run semantic migration** (root packages such as `project` do). Installing it stages the migration, and the CLI stops there with the exact `kernel migrate` command — clearing it is an agent act (create the identity/declaration page), not something a mechanical installer may fake. `init --packages` therefore exits non-zero in that state: the workspace is installed but not converged.
@@ -67,11 +67,11 @@ A package may declare a **first-run semantic migration** (root packages such as 
 
 **add** — thin wrapper over `kernel install` plus convergence. Registry trust rules still apply; `--yes` is forwarded. A staged first-run migration stops the command with the exact `migrate` hint (exit non-zero) instead of a false "done".
 
-**list** — `kernel list-remote`: the registry catalog with package versions, framework compat floors, member plugins, trust levels and installed marks. **pkg** — `kernel pkg`: what is installed in this instance (packages, members, connectors, core remainder).
+**list** — `kernel list-remote`: the registry catalog with package versions, framework compat floors, member plugins, trust levels and installed marks. **pkg** — `kernel pkg`: what is installed in this instance (packages, members, connectors, and plugins unclaimed by any package).
 
 ## Version invariant
 
-The npm version rides the framework anchor: `.owfa/VERSION` `0.3` → package `0.3.x`. The release gate refuses a package whose `major.minor` diverges, and refuses a `v*` tag that does not match the package version exactly. `.owfa/VERSION` still tracks the kernel contract, not product maturity (stage labels live in the README); npm patch releases may fix packaging without touching the contract.
+The version equation is exact equality across five carriers: `.owfa/VERSION` == `package.json` == git tag `vA.B.C` == the published npm version == the GitHub Release. `.owfa/VERSION` carries the **full release number** (`A.B.C`, e.g. `0.4.0`) — not a two-segment anchor riding the package's `major.minor`. The release gate (`scripts/verify-release.js`) refuses any drift: a tag that does not match the package version exactly, a `.owfa/VERSION` that diverges from either, or a publish that would break the equation all fail closed. A patch release therefore bumps all five carriers together in one commit. `.owfa/VERSION` still tracks the kernel contract, not product maturity (stage labels live in the README).
 
 Install identification is therefore trivial: `.owfa/VERSION` says which framework a workspace is on; `owfa version` says which channel the CLI is on.
 
@@ -88,8 +88,8 @@ Every release:
 
 ```bash
 # 1. the framework contract and the package version move together
-$EDITOR .owfa/VERSION          # e.g. 0.3 -> 0.4
-$EDITOR package.json           # "version": "0.4.0"
+$EDITOR .owfa/VERSION          # full A.B.C, e.g. 0.3.0 -> 0.4.0 — VERSION carries the full release number
+$EDITOR package.json           # "version": "0.4.0" — must equal .owfa/VERSION exactly
 git commit -am "release: framework 0.4.0"
 git tag v0.4.0 && git push --follow-tags
 ```

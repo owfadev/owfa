@@ -37,11 +37,8 @@ const fw = (() => {
   }
 })();
 if (!fw) problems.push(".owfa/VERSION is missing — the framework anchor must ship");
-else {
-  const anchor = fw.split(".").slice(0, 2).join(".");
-  if (!pkg.version.startsWith(anchor + ".")) {
-    problems.push(`package version ${pkg.version} does not ride framework ${fw} (expected ${anchor}.x)`);
-  }
+else if (pkg.version !== fw) {
+  problems.push(`package version ${pkg.version} does not equal the framework release version ${fw} (VERSION carries the full release A.B.C — the architecture line is derived, not stored)`);
 }
 
 const tag = process.env.GITHUB_REF_NAME || "";
@@ -49,6 +46,9 @@ if (process.env.GITHUB_REF_TYPE === "tag" && tag !== `v${pkg.version}`) {
   problems.push(`release tag ${tag} does not match package version v${pkg.version}`);
 }
 
+// payloads/personal/ must ship: the two-stage init installs this embedded copy
+// offline; a channel tarball without it cannot bootstrap a usable instance once
+// core stops shipping (refuse the release, not the user's init).
 const REQUIRED = [
   "package.json",
   "README.md",
@@ -60,9 +60,11 @@ const REQUIRED = [
   ".owfa/docs/quickstart.md",
   ".agents/skills/owfa-map/SKILL.md",
   "bin/owfa.js",
+  "payloads/personal/PKG.yaml",
+  "payloads/personal/README.md",
   "templates/AGENTS.template.md",
 ];
-const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "templates/", "package.json", "README.md",
+const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "payloads/", "templates/", "package.json", "README.md",
   "README.zh-CN.md", "LICENSE"];
 const FORBIDDEN = [/__pycache__/, /\.pyc$/, /(^|\/)test-repo\//, /^test\//, /^scripts\//, /^\.github\//, /pending\.json$/, /kernel-journal\.log$/, /registry-cache\.yaml$/, /^CONTRIBUTING\.md$/];
 
@@ -95,4 +97,4 @@ if (problems.length) {
   for (const p of [...new Set(problems)]) console.error("  - " + p);
   process.exit(1);
 }
-console.log(`release gate ok — owfa ${pkg.version} rides framework ${fw}${tag ? ` (tag ${tag})` : ""}`);
+console.log(`release gate ok — owfa ${pkg.version} (framework release ${fw})${tag ? ` (tag ${tag})` : ""}`);

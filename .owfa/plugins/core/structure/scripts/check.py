@@ -24,7 +24,7 @@ def check(ctx):
         return issues
     actual = {d + "/" for d in os.listdir(vroot)
               if os.path.isdir(os.path.join(vroot, d)) and not d.startswith(".")}
-    declared = {str(k).strip() for k in decl}
+    declared = {str(k).strip().rstrip("/") + "/" for k in decl}  # the directory name is the semantics; a key without the trailing slash is a form variance, not a drift
     for d in sorted(actual - declared):
         issues.append({"level": "warning", "message": f"vault top-level directory undeclared: {d} (add a declaration or put it in place)"})
     for d in sorted(declared - actual):
