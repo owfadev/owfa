@@ -88,6 +88,7 @@ Versioning is **five layers under one principle**: a layer carries release seman
 - **B** = the domain contract changed: member roster, disclosure / manifest schema, **data or page shape**, trust model, compat floor. B is the only carrier of semantic migrations — migration files are named by B-line pairs (`0.2-to-0.3`) and stage when the upgrade crosses lines (`prev_line <= from_line < new_line`).
 - **C** = updates inside a stable architecture: connector behavior fixes, skill copy, query-side additions. C never carries migrations — **a change that moves data or page shape is B, not C** (the honesty line that keeps C cheap). C is unbounded: `0.3.11`, `0.3.100` — numeric, no letters.
 - The `X.Y` layers keep `X` at `0` while the project is alpha.
+- **C counts releases, not organ changes**: any shipped payload change requires a new release number (a changed tree under an unchanged number is the anchor-equal bug this scheme kills), but organ revisions batch freely — three core plugins changing is one C bump, not three. Release cadence is the maintainer's choice; the only invariant is changed-tree ⇒ new-number.
 
 **Sync duties**: framework side — `.owfa/VERSION` == `package.json` == `v`tag == npm == GitHub release notes (the release gate refuses drift). Package side — `PKG.yaml` version == `{pkg}-v`tag == registry row (the kernel refuses drift at install / upgrade), migrations staged by the version pair.
 
