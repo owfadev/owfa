@@ -138,3 +138,31 @@ Mechanics: the kernel stages declarations into `.owfa/migrations/<pkg>/` (kernel
 | D7 | migrations are declarations closing 0→x→y→0; teardown ships dormant with every install | semantic change rides reviewable files; the x→0 case must be declared *before* the package is gone |
 | D8 | sweep symmetry + dormant PKG.yaml presence marker | ledger truth without a cron; manual `rm -rf` still self-heals (no hooks anywhere) |
 | D9 | teardown gate = residual scan by default, author scripts optional | D6's no-hooks principle extended to deletion *verification* — zero-script packages still get a semantic gate |
+
+## Transport contracts (transports block, optional per plugin)
+
+A domain may declare a connector-agnostic capability so that any conforming
+transport — the first-party connector, a third-party one, or a harness-native
+channel — can serve it (work order #56, owfa#27):
+
+```yaml
+transports:
+  contract: qq.transport.v1      # capability id (required)
+  recommends: qq-cli             # default connector (optional; installed under connectors/<id>)
+  declaration: qq/policy.md      # wiki page whose frontmatter `transport:` marks an active third-party transport (optional)
+  providers: qq-cli, napcat-bridge   # comma-separated scalar (minimal-YAML: nested block lists are silently dropped)
+```
+
+Per-provider `harness` / `guarantees` do NOT fit the manifest parser (minimal YAML
+subset — no list-of-maps, review blocker on this PR). They live in two places:
+the contract documentation section below, and the registry row's scalar
+`harness:` field (D1). Guarantee semantics are unchanged: **undeclared =
+guarantee absent** — the agent-side discipline is the floor, transport-side
+enforcement is hardening on top.
+
+`validate` checks the block structurally and judges health mechanically: contract
+declared but neither the recommended connector installed nor the declaration page
+carrying a `transport:` field → warning (unhealthy-but-usable; the domain's skill
+degrades to guidance). Guarantee semantics: **undeclared = guarantee absent** — the
+agent-side discipline is the floor, transport-side enforcement is hardening on top.
+Registry rows may mirror `provides:` / `harness:` for cross-package discovery.

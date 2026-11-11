@@ -51,6 +51,20 @@ Command-plugin binding (mutual declaration, validate checks consistency):
 - command frontmatter adds owner: plugin id (multiple as an [a, b] list) or framework
   (cross-cutting, explicitly ownerless)
 - plugin manifest adds the optional field commands: list of command names this plugin drives
+
+Transport contracts (v0.4 work order #56 / owfa#27, connector-agnostic domains):
+- optional manifest field transports: {contract, recommends, declaration, providers} — a
+  domain declaring a connector-agnostic capability (e.g. qq.transport.v1). contract is the
+  capability id; recommends names the default connector (installed under connectors/<id>);
+  declaration names a wiki page (relative to wiki/) whose frontmatter `transport:` field
+  marks an active third-party transport; providers is a comma-separated scalar of
+  connector ids (minimal-YAML: nested block lists inside a block mapping are
+  silently dropped by the parser — per-provider harness / guarantees detail lives
+  in the contract docs and the registry row) — routing data, never enforcement
+  (the kernel stays harness-agnostic)
+- validate checks the block structurally and judges health mechanically: contract declared
+  but neither connectors/<recommends> installed nor the declaration page carrying a
+  transport field → warning (unhealthy-but-usable, never an error)
 - error cases: command missing owner, owner pointing at an uninstalled plugin, framework
   combined with other owners, plugin declaring a nonexistent command, one-sided declaration
   on either side (owner not claimed by commands, or the reverse)
@@ -268,6 +282,59 @@ def reaches_plugin(plugins, start, target, seen=None):
     return target in deps or any(reaches_plugin(plugins, d, target, seen) for d in deps)
 
 
+def _check_transports(name, m, errors, warnings):
+    """Structural + health checks for the optional transports block (work order #56 / owfa#27).
+
+    Health is mechanical and fail-open: contract declared but neither the recommended
+    connector installed nor a third-party transport declared in the wiki → warning
+    (unhealthy-but-usable). providers is a comma-separated scalar of connector ids —
+    the manifest parser is a minimal YAML subset: nested block lists inside a block
+    mapping are silently DROPPED (empirically, review on this PR), so per-provider
+    harness/guarantees detail lives in the contract docs and the registry row; the
+    kernel never enforces them (harness-agnostic by charter).
+    """
+    t = m.get("transports")
+    if t is None:
+        return
+    tag = f"{name}/PLUGIN.yaml"
+    if not isinstance(t, dict):
+        errors.append(f"[error] {tag}: transports must be a block mapping")
+        return
+    contract = t.get("contract")
+    if not isinstance(contract, str) or not contract.strip():
+        errors.append(f"[error] {tag}: transports.contract missing — name the capability (e.g. qq.transport.v1)")
+    for key in ("recommends", "declaration"):
+        if t.get(key) is not None and not isinstance(t[key], str):
+            errors.append(f"[error] {tag}: transports.{key} must be a string")
+    providers = t.get("providers")
+    if providers is not None and not isinstance(providers, str):
+        errors.append(
+            f"[error] {tag}: transports.providers must be a comma-separated scalar string of connector ids "
+            "(minimal-YAML: block lists inside a block mapping are silently dropped by the parser — review on this PR)"
+        )
+    elif providers == "":
+        errors.append(f"[error] {tag}: transports.providers is empty — a nested block list is silently dropped by the parser; write it as a comma-separated scalar")
+    elif isinstance(providers, str) and providers.strip():
+        bad = [x for x in (i.strip() for i in providers.split(",")) if x and not re.fullmatch(r"[\w.-]+", x)]
+        if bad:
+            errors.append(f"[error] {tag}: transports.providers entries must be bare connector ids, got {bad!r} (flow mappings are not parseable in a manifest)")
+    # mechanical health: recommended connector installed, or a third-party transport declared
+    recommends = t.get("recommends")
+    declaration = t.get("declaration")
+    installed = bool(recommends) and os.path.isdir(os.path.join(CONNECTORS_DIR, str(recommends)))
+    declared = False
+    if isinstance(declaration, str) and declaration.strip():
+        page = os.path.join(ROOT, "wiki", declaration)
+        if os.path.exists(page):
+            body = open(page, encoding="utf-8").read()
+            declared = bool(re.search(r"(?m)^transport:\s*\S", body))
+    if contract and not installed and not declared:
+        warnings.append(
+            f"{name}/: transport contract '{contract}' has no provider — install connectors/{recommends} "
+            f"or declare an active transport in wiki/{declaration} (the domain degrades to guidance until then)"
+        )
+
+
 def build_inject_blocks(plugins):
     """AGENTS.md injection-region plugin blocks with member-tier exits applied; returns (blocks, exited)."""
     blocks, exited = [], 0
@@ -301,6 +368,7 @@ def validate(plugins, errors, scope=None, warnings=None):
             errors.append(f"[error] {name}/: inject (projection line) empty")
         if m.get("inject_tier") is not None and m["inject_tier"] not in INJECT_TIERS:
             errors.append(f"[error] {name}/: inject_tier ({m['inject_tier']}) must be full or member")
+        _check_transports(name, m, errors, warnings)
         # stray-quote smell (post-parse): a value still carrying a quote edge means unbalanced
         # quoting — the classic artifact of a clipped value (issue #12 post-migration field report)
         if isinstance(m.get("inject"), str) and (m["inject"].startswith('"') or m["inject"].endswith('"')):
