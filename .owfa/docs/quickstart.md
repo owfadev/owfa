@@ -59,7 +59,7 @@ Already have a workspace? `init` refuses if `.owfa/` exists; use `npx owfa upgra
    ```bash
    python .owfa/scripts/owfa_kernel.py all
    ```
-5. **Verify**: drop a file into `vault/`, open an agent at the root, say "map", then "check".
+5. **Verify**: drop a file into `vault/`, open an agent at the root, say "owfa-map", then "owfa-check".
 
 There is no separate kernel install: the kernel is `.owfa/scripts/owfa_kernel.py` inside the tree; Python 3.9+ runs it. On Windows use `py -3` or set `OWFA_PYTHON`.
 

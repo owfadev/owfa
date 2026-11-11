@@ -12,7 +12,7 @@ fields:
   raw_file: "root-relative path, always present on proxy pages"
   raw_sha256: "hexadecimal SHA-256, mechanically recomputable from vault"
 commands:
-  - map
+  - owfa-map
 inject: "Proxy layer `wiki/vault/`: 1:1 mirror of root `vault/` (proxy name = original name + .md), pages always carry raw_file / raw_sha256; the path is the origin proof"
 usage:
   - Mirror locating: proxy path = `wiki/vault/<original-path>.md` (original name + .md, prevents name collisions); md assets also get proxies, no exceptions

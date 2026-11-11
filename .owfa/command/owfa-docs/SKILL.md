@@ -1,10 +1,10 @@
 ---
-name: docs
+name: owfa-docs
 owner: framework
 description: "Docs thin-router: points to the documentation map and the behavior/feedback protocol — no norms live in this skill. Fire when the user reports dissatisfaction with agent behavior (possible plugin/kernel cause), asks where something is documented, or how to file feedback. Triggers on: docs, 查文档, 文档在哪, 框架问题, 行为自检, agent-behavior, 怎么提issue."
 ---
 
-# docs: thin router to the documentation layer
+# owfa-docs: thin router to the documentation layer
 
 S-layer pointer only — the norms live in the documents (L layer). Re-read what you cite; never quote from memory.
 

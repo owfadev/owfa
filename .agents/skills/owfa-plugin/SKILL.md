@@ -1,10 +1,10 @@
 ---
-name: plugin
+name: owfa-plugin
 owner: framework
 description: "Package & plugin lifecycle management: plan (disclosure wizard), install (three channels + --without subsets), uninstall, list-remote, upgrade, pkg, residual. Mechanical steps all go through .owfa/scripts/owfa_kernel.py; the agent runs the consent conversation and the one-shot commands. Triggers on: plugin, 插件, 装插件, 卸插件, 装包, install package, uninstall package."
 ---
 
-# plugin: package lifecycle
+# owfa-plugin: package lifecycle
 
 The framework's self-management command, package era (issue #20). Every mechanical step goes through the kernel script; the agent's job is **consent and choice** — never writing `.owfa/` by hand.
 

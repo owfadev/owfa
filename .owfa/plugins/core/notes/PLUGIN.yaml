@@ -9,7 +9,7 @@ attachment:
   - "wiki/notes/ — native notes zone"
 fields: {}
 commands:
-  - save
+  - owfa-save
 inject: "Native notes `wiki/notes/`: knowledge born in the wiki, open `type` vocabulary (defaults in registry); commands append, never modify; session/profile pages live in their own territories; domain derivations must back-link the source; details PLUGIN.md"
 usage:
   - Landing spot `wiki/notes/<title>.md`, file name free (named by humans); type form vocabulary in registry (open, self-extended by instances), territory values do not land in this zone

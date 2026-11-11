@@ -69,7 +69,7 @@ Two ways in. **Channel (recommended):** `npx owfa init my-workspace` — Node 16
 
 Prerequisites: Python 3.9+, pure stdlib, no install needed for the framework itself (connectors carry their own deps); Node 16.7+ only for the npm channel; git recommended (instance snapshots); an agent environment that reads AGENTS.md and skills, e.g. ZCode; Obsidian optional, viewer only.
 
-Open an agent session at the repository root. AGENTS.md is the constitution, containing the plugin injection region; the thirteen commands trigger by natural language: **map / save / profile / query / check / plugin / lark-map / bb-map / asset-read / kernel reference / teach / quiz / track** — map, save, profile, query, check, plugin, lark-map, bb-map, asset-read, owfa-kernel, bb-teach, bb-quiz, bb-track; masters live in `.owfa/command/`. Put a file into `vault/` and say "map" to the agent — that is the first use.
+Open an agent session at the repository root. AGENTS.md is the constitution, containing the plugin injection region; the thirteen commands trigger by natural language: **owfa-map / owfa-save / owfa-profile / owfa-query / owfa-check / owfa-plugin / lark-map / bb-map / asset-read / kernel reference / teach / quiz / track** — owfa-map, owfa-save, owfa-profile, owfa-query, owfa-check, owfa-plugin, lark-map, bb-map, asset-read, owfa-kernel, bb-teach, bb-quiz, bb-track; masters live in `.owfa/command/`. Put a file into `vault/` and say "owfa-map" to the agent — that is the first use.
 
 ## Deployment
 

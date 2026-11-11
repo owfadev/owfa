@@ -1,11 +1,11 @@
 ---
-name: save
+name: owfa-save
 owner: [notes, sessions]
 consumes: [notes, sessions, trust, index, hot, log]
 description: "Save the current conversation, answers, or insights as wiki native notes. Deduplicate before filing, infer type and title, chunk-extract long sessions, update index/log/hot cache. Triggers on: save this, /save, file this, save to wiki, 保存."
 ---
 
-# save: capture
+# owfa-save: capture
 
 Good answers should not vanish in chat history. Save what was just discussed as permanent wiki pages. The wiki compounds through it — save often.
 

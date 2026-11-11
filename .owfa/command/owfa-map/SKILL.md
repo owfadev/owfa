@@ -1,11 +1,11 @@
 ---
-name: map
+name: owfa-map
 owner: mapping
 consumes: [mapping, trust, tag, index, hot, log]
 description: "Map assets in vault/ into wiki proxy pages: SHA-256, mirror path, frontmatter, index/hot-cache/log linkage. Triggers on: map, 映射, process this source, add this to the wiki."
 ---
 
-# map: mapping
+# owfa-map: mapping
 
 Map assets in `vault/` into `wiki/vault/` proxy pages — mapping and understanding are decoupled: a pure registration action (registration fields, body scale, and other write-side contracts are in the injection region). It targets only assets already in vault and does no vault-side processing (organizing and polishing belong to vault governance, discussed separately).
 
