@@ -925,7 +925,8 @@ def do_pkg_ls(pkgs, plugins):
         print(f"pkg {pid:<10} v{pkg.get('version','?'):<5} compat {str(pkg.get('compat','?')):<8} {len(members)} members: {', '.join(members)}")
         for c in pkg.get("connectors") or []:
             where = c.get("path") or ("external" if c.get("external") else "system" if c.get("system") else "?")
-            print(f"{'':16}connector {c.get('name')} ({where})")
+            home = f", home {c['home']}" if c.get("home") else ""
+            print(f"{'':16}connector {c.get('name')} ({where}{home})")
     core = sorted(p for p in plugins if p not in claimed)
     print(f"core (framework): {len(core)}: {', '.join(core)}")
 
