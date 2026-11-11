@@ -7,6 +7,6 @@ connectors/*/*.egg-info/
 # test-repo：纯本地沙箱（2026-10-13 所有者改裁——整体出跟踪；验证用沙箱按 CONTRIBUTING/sandbox.md 自建）
 test-repo/
 # registry index 缓存（短 TTL 本地产物）
-.meta/registry-cache.yaml
+.owfaregistry-cache.yaml
 # agent 工具本地产物（ZCode 自管，不入库）
 .zcodeignore

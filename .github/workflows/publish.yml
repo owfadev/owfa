@@ -24,7 +24,7 @@ jobs:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
 
-      - name: Release gate (version rides .meta/VERSION, tag matches, no local state)
+      - name: Release gate (version rides .owfa/VERSION, tag matches, no local state)
         run: node scripts/verify-release.js
 
       - name: End-to-end channel smoke (init / doctor / upgrade)

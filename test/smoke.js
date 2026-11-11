@@ -17,7 +17,7 @@ const { spawnSync } = require("node:child_process");
 const ROOT = path.resolve(__dirname, "..");
 const BIN = path.join(ROOT, "bin", "owfa.js");
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-const FW = fs.readFileSync(path.join(ROOT, ".meta", "VERSION"), "utf8").trim();
+const FW = fs.readFileSync(path.join(ROOT, ".owfa", "VERSION"), "utf8").trim();
 
 function run(args, cwd) {
   return spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: "utf8" });
@@ -59,7 +59,7 @@ try {
   step("init on an empty directory", () => {
     const r = run(["init", empty, "--name", "smoke-vault"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "VERSION"), "utf8").trim(), FW);
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), FW);
     for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault", ".agents/skills/map"]) {
       assert.ok(fs.existsSync(path.join(empty, d)), `missing ${d}`);
     }
@@ -85,7 +85,7 @@ try {
   step("second init refuses without --force", () => {
     const r = run(["init", empty], tmpRoot);
     assert.notStrictEqual(r.status, 0);
-    assert.ok(/already contains \.meta/.test(r.stderr), r.stderr);
+    assert.ok(/already contains \.owfa/.test(r.stderr), r.stderr);
   });
 
   step("init preserves an existing AGENTS.md and appends the region", () => {
@@ -101,15 +101,47 @@ try {
   });
 
   step("upgrade replaces the framework and preserves instance kernel state", () => {
-    fs.writeFileSync(path.join(empty, ".meta", "VERSION"), "0.2", "utf8");
-    fs.writeFileSync(path.join(empty, ".meta", "kernel-journal.log"), "keep-me\n", "utf8");
-    fs.mkdirSync(path.join(empty, ".meta", "migrations"), { recursive: true });
-    fs.writeFileSync(path.join(empty, ".meta", "migrations", "pending.json"), "{}\n", "utf8");
+    fs.writeFileSync(path.join(empty, ".owfa", "VERSION"), "0.2", "utf8");
+    fs.writeFileSync(path.join(empty, ".owfa", "kernel-journal.log"), "keep-me\n", "utf8");
+    fs.mkdirSync(path.join(empty, ".owfa", "migrations"), { recursive: true });
+    fs.writeFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), "{}\n", "utf8");
     const r = run(["upgrade", empty], tmpRoot);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "VERSION"), "utf8").trim(), FW);
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "kernel-journal.log"), "utf8"), "keep-me\n");
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "migrations", "pending.json"), "utf8"), "{}\n");
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), FW);
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "kernel-journal.log"), "utf8"), "keep-me\n");
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), "utf8"), "{}\n");
+  });
+
+  // 0.4 layout migration: a 0.3 instance (framework in .meta/) upgrades in place —
+  // the old tree parks the same way, PRESERVED state carries over, and a .meta
+  // shim keeps 0.3-era absolute paths resolving until the shim retires (0.5).
+  step("legacy .meta/ layout migrates to .owfa/ with a shim", () => {
+    const legacy = path.join(tmpRoot, "legacy");
+    const r0 = run(["init", legacy], tmpRoot);
+    assert.strictEqual(r0.status, 0, r0.stderr + r0.stdout);
+    fs.renameSync(path.join(legacy, ".owfa"), path.join(legacy, ".meta")); // simulate a 0.3 instance
+    fs.writeFileSync(path.join(legacy, ".meta", "kernel-journal.log"), "legacy-journal\n", "utf8");
+    const r = run(["upgrade", legacy], tmpRoot);
+    assert.strictEqual(r.status, 0, r.stderr + r.stdout);
+    assert.ok(/layout migration/.test(r.stdout), "migration banner missing: " + r.stdout);
+    assert.ok(fs.existsSync(path.join(legacy, ".owfa", "VERSION")), ".owfa tree missing after migration");
+    assert.strictEqual(
+      fs.readFileSync(path.join(legacy, ".owfa", "kernel-journal.log"), "utf8"),
+      "legacy-journal\n",
+      "journal did not carry across the layout migration"
+    );
+    const metaStat = fs.lstatSync(path.join(legacy, ".meta"));
+    if (metaStat.isSymbolicLink()) {
+      assert.strictEqual(fs.readlinkSync(path.join(legacy, ".meta")), ".owfa", "shim does not point at .owfa");
+      assert.ok(
+        fs.existsSync(path.join(legacy, ".meta", "scripts", "owfa_kernel.py")),
+        "0.3-era absolute path broken through the shim"
+      );
+    } else {
+      assert.ok(/could not create the \.meta shim/.test(r.stdout), "no shim and no warning — silent path breakage");
+    }
+    const d = run(["doctor", legacy], tmpRoot);
+    assert.strictEqual(d.status, 0, "migrated instance fails doctor: " + d.stdout);
   });
 
   // Review P1 (PR #53): a replace must carry instance-owned state across —
@@ -126,17 +158,17 @@ try {
   ].join("\n") + "\n";
 
   step("upgrade preserves installed package, package command, pending migration and standalone skill", () => {
-    fs.writeFileSync(path.join(empty, ".meta", "VERSION"), "0.2", "utf8"); // stale again
+    fs.writeFileSync(path.join(empty, ".owfa", "VERSION"), "0.2", "utf8"); // stale again
     const blocksBefore = countPluginBlocks(fs.readFileSync(path.join(empty, "AGENTS.md"), "utf8"));
-    const dom = path.join(empty, ".meta", "plugins", "domains", "demo");
+    const dom = path.join(empty, ".owfa", "plugins", "domains", "demo");
     fs.mkdirSync(dom, { recursive: true });
     fs.writeFileSync(path.join(dom, "PLUGIN.yaml"), DEMO_PLUGIN, "utf8");
     fs.writeFileSync(path.join(dom, "PLUGIN.md"), "# demo\n\nsmoke fixture package\n", "utf8");
-    fs.mkdirSync(path.join(empty, ".meta", "command", "demo-cmd"), { recursive: true });
-    fs.writeFileSync(path.join(empty, ".meta", "command", "demo-cmd", "SKILL.md"), DEMO_CMD, "utf8");
-    fs.mkdirSync(path.join(empty, ".meta", "migrations", "demo"), { recursive: true });
-    fs.writeFileSync(path.join(empty, ".meta", "migrations", "demo", "init.md"), "pending migration fixture\n", "utf8");
-    fs.writeFileSync(path.join(empty, ".meta", "migrations", "pending.json"), '{"demo":{}}\n', "utf8");
+    fs.mkdirSync(path.join(empty, ".owfa", "command", "demo-cmd"), { recursive: true });
+    fs.writeFileSync(path.join(empty, ".owfa", "command", "demo-cmd", "SKILL.md"), DEMO_CMD, "utf8");
+    fs.mkdirSync(path.join(empty, ".owfa", "migrations", "demo"), { recursive: true });
+    fs.writeFileSync(path.join(empty, ".owfa", "migrations", "demo", "init.md"), "pending migration fixture\n", "utf8");
+    fs.writeFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), '{"demo":{}}\n', "utf8");
     fs.mkdirSync(path.join(empty, ".agents", "skills", "custom-user"), { recursive: true });
     fs.writeFileSync(path.join(empty, ".agents", "skills", "custom-user", "SKILL.md"), "# custom-user\n\nkeep me\n", "utf8");
     // pending semantic migrations keep validate red by design (tri-face warning):
@@ -144,17 +176,17 @@ try {
     const r = run(["upgrade", empty], tmpRoot);
     assert.notStrictEqual(r.status, 0, "upgrade should report the pending-migration block");
     assert.ok(/pending semantic migrations/.test(r.stdout + r.stderr), r.stdout + r.stderr);
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "VERSION"), "utf8").trim(), FW, "trees not replaced");
-    assert.ok(fs.existsSync(path.join(empty, ".meta", "plugins", "domains", "demo", "PLUGIN.yaml")), "package master lost");
-    assert.ok(fs.existsSync(path.join(empty, ".meta", "command", "demo-cmd", "SKILL.md")), "package command lost");
-    assert.ok(fs.existsSync(path.join(empty, ".meta", "migrations", "demo", "init.md")), "pending migration material lost");
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "migrations", "pending.json"), "utf8"), '{"demo":{}}\n');
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), FW, "trees not replaced");
+    assert.ok(fs.existsSync(path.join(empty, ".owfa", "plugins", "domains", "demo", "PLUGIN.yaml")), "package master lost");
+    assert.ok(fs.existsSync(path.join(empty, ".owfa", "command", "demo-cmd", "SKILL.md")), "package command lost");
+    assert.ok(fs.existsSync(path.join(empty, ".owfa", "migrations", "demo", "init.md")), "pending migration material lost");
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), "utf8"), '{"demo":{}}\n');
     assert.ok(fs.existsSync(path.join(empty, ".agents", "skills", "custom-user", "SKILL.md")), "standalone skill lost");
     // fresh framework skills must not be shadowed by the carry-over
     assert.ok(fs.existsSync(path.join(empty, ".agents", "skills", "map", "SKILL.md")), "framework skill lost");
     // with the migration cleared, the same instance converges green and the
     // package command re-deploys (deploy rides after validate in `kernel all`)
-    fs.writeFileSync(path.join(empty, ".meta", "migrations", "pending.json"), "{}\n", "utf8");
+    fs.writeFileSync(path.join(empty, ".owfa", "migrations", "pending.json"), "{}\n", "utf8");
     const r2 = run(["upgrade", empty, "--force"], tmpRoot);
     assert.strictEqual(r2.status, 0, "re-sync after clearing pending failed: " + r2.stdout + r2.stderr);
     assert.ok(fs.existsSync(path.join(empty, ".agents", "skills", "demo-cmd", "SKILL.md")), "package command not re-deployed");
@@ -166,25 +198,25 @@ try {
     assert.strictEqual(blocksAfter, blocksBefore + 1, "carried package not injected (or a framework plugin dropped)");
     assert.ok(fs.readFileSync(path.join(empty, "AGENTS.md"), "utf8").includes("<!-- plugin:demo"), "demo block missing");
     // scrub the fixture so later steps start from a clean instance
-    fs.rmSync(path.join(empty, ".meta", "plugins", "domains", "demo"), { recursive: true, force: true });
-    fs.rmSync(path.join(empty, ".meta", "command", "demo-cmd"), { recursive: true, force: true });
+    fs.rmSync(path.join(empty, ".owfa", "plugins", "domains", "demo"), { recursive: true, force: true });
+    fs.rmSync(path.join(empty, ".owfa", "command", "demo-cmd"), { recursive: true, force: true });
     fs.rmSync(path.join(empty, ".agents", "skills", "custom-user"), { recursive: true, force: true });
     fs.rmSync(path.join(empty, ".agents", "skills", "demo-cmd"), { recursive: true, force: true });
-    fs.rmSync(path.join(empty, ".meta", "migrations", "demo"), { recursive: true, force: true });
+    fs.rmSync(path.join(empty, ".owfa", "migrations", "demo"), { recursive: true, force: true });
   });
 
   // Review round 2 (PR #53): a parked attic from an interrupted replace holds the
   // only copy of instance state — a rerun must refuse, never delete it.
   step("interrupted replace protects the parked attic", () => {
-    fs.writeFileSync(path.join(empty, ".meta", "VERSION"), "0.2", "utf8");
-    const attic = path.join(empty, ".owfa", "replace", "meta");
+    fs.writeFileSync(path.join(empty, ".owfa", "VERSION"), "0.2", "utf8");
+    const attic = path.join(empty, ".owfa-migrate", "replace", "owfa");
     fs.mkdirSync(attic, { recursive: true });
     fs.writeFileSync(path.join(attic, "kernel-journal.log"), "only-copy\n", "utf8");
     const r = run(["upgrade", empty, "--force"], tmpRoot);
     assert.notStrictEqual(r.status, 0, "upgrade ran over a parked attic");
     assert.ok(/interrupted replace/.test(r.stdout + r.stderr), r.stdout + r.stderr);
     assert.strictEqual(fs.readFileSync(path.join(attic, "kernel-journal.log"), "utf8"), "only-copy\n", "parked attic was deleted");
-    fs.rmSync(path.join(empty, ".owfa"), { recursive: true, force: true }); // scrub fixture
+    fs.rmSync(path.join(empty, ".owfa-migrate"), { recursive: true, force: true }); // scrub fixture
   });
 
   // Review P2 (PR #53): doctor fails when a required condition is missing.
@@ -214,7 +246,7 @@ try {
     const r = run(["init", empty, "--force"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
     assert.strictEqual(fs.readFileSync(path.join(empty, "vault", "keep.txt"), "utf8"), "asset\n");
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "kernel-journal.log"), "utf8"), "keep-me\n");
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "kernel-journal.log"), "utf8"), "keep-me\n");
   });
 
   step("init --packages forwards --without to the kernel install", () => {
@@ -224,7 +256,7 @@ try {
     // successful install — that is the designed tri-face, not a forwarding failure
     assert.notStrictEqual(r.status, 0, "pending migration should surface");
     assert.ok(/semantic migration/i.test(r.stdout + r.stderr), r.stdout + r.stderr);
-    const dom = path.join(sub, ".meta", "plugins", "domains", "cuhksz");
+    const dom = path.join(sub, ".owfa", "plugins", "domains", "cuhksz");
     assert.ok(fs.existsSync(path.join(dom, "cuhksz", "PLUGIN.md")), "family root missing");
     assert.ok(fs.existsSync(path.join(dom, "bb", "PLUGIN.md")), "kept member missing");
     assert.ok(!fs.existsSync(path.join(dom, "sis", "PLUGIN.md")), "pruned member masters landed");
@@ -250,10 +282,10 @@ try {
   });
 
   step("upgrade --check is read-only", () => {
-    fs.writeFileSync(path.join(empty, ".meta", "VERSION"), "0.2", "utf8");
+    fs.writeFileSync(path.join(empty, ".owfa", "VERSION"), "0.2", "utf8");
     const r = run(["upgrade", empty, "--check"]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
-    assert.strictEqual(fs.readFileSync(path.join(empty, ".meta", "VERSION"), "utf8").trim(), "0.2");
+    assert.strictEqual(fs.readFileSync(path.join(empty, ".owfa", "VERSION"), "utf8").trim(), "0.2");
   });
 
   console.log(`\nsmoke: ${failures ? failures + " failure(s)" : "all green"} (owfa ${PKG.version}, framework ${FW})`);

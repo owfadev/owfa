@@ -31,12 +31,12 @@ for (const hook of ["preinstall", "install", "postinstall"]) {
 
 const fw = (() => {
   try {
-    return fs.readFileSync(path.join(root, ".meta", "VERSION"), "utf8").trim();
+    return fs.readFileSync(path.join(root, ".owfa", "VERSION"), "utf8").trim();
   } catch {
     return null;
   }
 })();
-if (!fw) problems.push(".meta/VERSION is missing — the framework anchor must ship");
+if (!fw) problems.push(".owfa/VERSION is missing — the framework anchor must ship");
 else {
   const anchor = fw.split(".").slice(0, 2).join(".");
   if (!pkg.version.startsWith(anchor + ".")) {
@@ -54,15 +54,15 @@ const REQUIRED = [
   "README.md",
   "README.zh-CN.md",
   "LICENSE",
-  ".meta/VERSION",
-  ".meta/scripts/wiki_plugin_kernel.py",
-  ".meta/docs/deployment.md",
-  ".meta/docs/quickstart.md",
+  ".owfa/VERSION",
+  ".owfa/scripts/owfa_kernel.py",
+  ".owfa/docs/deployment.md",
+  ".owfa/docs/quickstart.md",
   ".agents/skills/map/SKILL.md",
   "bin/owfa.js",
   "templates/AGENTS.template.md",
 ];
-const ALLOWED_TOP = [".meta/", ".agents/", "bin/", "templates/", "package.json", "README.md",
+const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "templates/", "package.json", "README.md",
   "README.zh-CN.md", "LICENSE"];
 const FORBIDDEN = [/__pycache__/, /\.pyc$/, /(^|\/)test-repo\//, /^test\//, /^scripts\//, /^\.github\//, /pending\.json$/, /kernel-journal\.log$/, /registry-cache\.yaml$/, /^CONTRIBUTING\.md$/];
 

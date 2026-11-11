@@ -6,7 +6,7 @@
 
 **OWFA**（One Workspace For All agents）是一个开源的 agent 工作区：开箱即用、可持续维护、端到端插件化。一个工作区——你拥有的那个目录，装着 `vault/`（真实资产）、`wiki/`（md 投影与原生笔记）和 `AGENTS.md`（章程）——是你所有 agent 反复进入的常驻上下文，而不是每次会话重新自我介绍。agent 按 SASU-L 披露次序零先验地读写；md 与纯文本文件是地基，Obsidian 等只是可替换的查看器。行为通过一份活的用户画像个性化，新能力以插件落地——每个插件都经 registry 的人工审核门发布，欢迎贡献：为你使用的信息源写一个域插件，向 registry 提一行 PR 即可上架（见[参与贡献](#参与贡献)）。
 
-> 状态：**alpha**——能力面是经六周真实日常使用打磨出的原型（生于 2026-09-08，经两轮实际运营与一次冷启动披露审计检验，bb 课程家族在四门课真实运行）；分发面 v0.3 是首个可安装形态——经一次全新实例验收，尚无外部用户。Beta 门槛：行为契约（#34）落地 · 两位成员真实装机 · 旧实例转换走通 · 验收脚本可重放绿。`.meta/VERSION` 锚定的是内核契约而非产品成熟度——阶段标签在这里与 release notes。2026-10-02 转为团队项目。文档语言 2026-10-06 起切换为英文。2026-10-25：框架本体有了自己的分发通道——npm CLI `owfa`（`init` / `upgrade` / `doctor` / `add`），补上「clone + 拷两棵树 + 手写 AGENTS.md」的缺口（issues #45/#46）；npm 名 `owfa` 因相似性策略冻结，申请中，`owfadev` 为兜底命名空间。
+> 状态：**alpha**——能力面是经六周真实日常使用打磨出的原型（生于 2026-09-08，经两轮实际运营与一次冷启动披露审计检验，bb 课程家族在四门课真实运行）；分发面 v0.3 是首个可安装形态——经一次全新实例验收，尚无外部用户。Beta 门槛：行为契约（#34）落地 · 两位成员真实装机 · 旧实例转换走通 · 验收脚本可重放绿。`.owfa/VERSION` 锚定的是内核契约而非产品成熟度——阶段标签在这里与 release notes。2026-10-02 转为团队项目。文档语言 2026-10-06 起切换为英文。2026-10-25：框架本体有了自己的分发通道——npm CLI `owfa`（`init` / `upgrade` / `doctor` / `add`），补上「clone + 拷两棵树 + 手写 AGENTS.md」的缺口（issues #45/#46）；npm 名 `owfa` 因相似性策略冻结，申请中，`owfadev` 为兜底命名空间。
 ## 为什么是 OWFA
 
 两重便利，一条原则。
@@ -18,7 +18,7 @@
 
 ## 关于命名
 
-**OWFA — One Workspace For All (agents)。** 一个工作区——你拥有的目录，装着 `vault/`、`wiki/`、`AGENTS.md` 与框架本体——你使用的每一个 agent 都重新进入它，而不是每次会话重新认识它。*All* 指的是*你的*所有 agent，不是所有人，也不是托管服务；人始终是所有者与审计锚点。`vault-wiki` 退出公开面：公开文案称 **OWFA**（或 **OWFA Core**），GitHub 家在 **`owfadev/owfa`**，CLI 以 `owfa` 之名发布。npm 地址尚未空闲——npm 以「与 `ow`/`ora` 过于相似」冻结了 `owfa`，申诉进行中，`owfadev` 为兜底包。完整的理据、分层与撞名对策：[`.meta/docs/naming.md`](https://github.com/owfadev/owfa/blob/master/.meta/docs/naming.md)。
+**OWFA — One Workspace For All (agents)。** 一个工作区——你拥有的目录，装着 `vault/`、`wiki/`、`AGENTS.md` 与框架本体——你使用的每一个 agent 都重新进入它，而不是每次会话重新认识它。*All* 指的是*你的*所有 agent，不是所有人，也不是托管服务；人始终是所有者与审计锚点。`vault-wiki` 退出公开面：公开文案称 **OWFA**（或 **OWFA Core**），GitHub 家在 **`owfadev/owfa`**，CLI 以 `owfa` 之名发布。npm 地址尚未空闲——npm 以「与 `ow`/`ora` 过于相似」冻结了 `owfa`，申诉进行中，`owfadev` 为兜底包。完整的理据、分层与撞名对策：[`.owfa/docs/naming.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/naming.md)。
 
 ## 它做什么
 
@@ -47,17 +47,17 @@
 
 | 目录 | 内容 |
 |------|------|
-| `.meta/` | 原型核心，两级插件布局：`plugins/core/`（20 个框架插件——domain 与 wiki 两个概念根、横切件，以及 vault/mapping/structure 的明示章程例外）+ `plugins/domains/<pkg>/`（一包一目录：`PKG.yaml` + 家族母本——cuhksz 8、lark 4、email、bili、project）。目录边界 == 层级边界 == 包边界；`PKG.yaml` 声明名册，内核对账家族闭包；`.meta/VERSION` 锚定框架版本（包 `compat` 下限对它校验）。注入次序 = 依赖拓扑 + 字典序；AGENTS 注入区分层——成员级域件退出注入区（家族名册 + 技能 + 按需 manifest 读取承担曝光），受内核字节预算约束；全局插件可声明桥，必依桥由内核校验。另有 13 个命令母本、协议工件（registry、actions、experiments）与机械脚本 wiki_plugin_kernel、pipeline、wikilib——纯标准库零依赖 |
+| `.owfa/` | 原型核心，两级插件布局：`plugins/core/`（20 个框架插件——domain 与 wiki 两个概念根、横切件，以及 vault/mapping/structure 的明示章程例外）+ `plugins/domains/<pkg>/`（一包一目录：`PKG.yaml` + 家族母本——cuhksz 8、lark 4、email、bili、project）。目录边界 == 层级边界 == 包边界；`PKG.yaml` 声明名册，内核对账家族闭包；`.owfa/VERSION` 锚定框架版本（包 `compat` 下限对它校验）。注入次序 = 依赖拓扑 + 字典序；AGENTS 注入区分层——成员级域件退出注入区（家族名册 + 技能 + 按需 manifest 读取承担曝光），受内核字节预算约束；全局插件可声明桥，必依桥由内核校验。另有 13 个命令母本、协议工件（registry、actions、experiments）与机械脚本 owfa_kernel、pipeline、wikilib——纯标准库零依赖 |
 | `connectors/` | 连接器母本：部署侧 CLI 事实接口 + 技能使用披露。`connectors/*/SKILL.md` 经内核 deploy 落入 `.agents/skills/`；现有 bb-cli、sis-cli、mail-cli、bili-cli。连接器随各自包的 `PKG.yaml` 走 |
 | Packages | 索引在 [registry](https://github.com/owfadev/registry)（Obsidian 模式：包自托管于各自仓，一行 PR 即上架门）。`kernel install`/`list-remote` 对它解析；未入索引的仓 `--yes` 可装（trust: unknown）。组织仓 `pkg-cuhksz` / `pkg-lark` / `pkg-email` / `pkg-bili` / `pkg-project` / `pkg-github` 承载各包，带完整文件谱系拆分 |
 | `.agents/skills/` | 命令与连接器技能的部署副本（拆分后框架命令在此；连接器技能随包到达） |
 | `bin/` + `templates/` + `package.json` | npm 通道：`owfa` CLI、AGENTS 种子、包清单。`test/` 与 `scripts/` 仅供开发，不随包发布 |
-| `test-repo/` | 本地测试沙盒——2026-10-13 起不入 git（owner 裁定；全新 clone 不含它）。需要 AGENTS.md 上下文的实验用临时部署；设置与规则见 [`.meta/docs/sandbox.md`](https://github.com/owfadev/owfa/blob/master/.meta/docs/sandbox.md)。框架仓自身不带 AGENTS.md——库姿态；开发规则在 [CONTRIBUTING.md](https://github.com/owfadev/owfa/blob/master/CONTRIBUTING.md) |
-| `.meta/docs/` | 人读文档：`intro.md` 导论、`mechanics.md` 机制、`usage.md` 使用指南、`deployment.md` 全指南 / `quickstart.md` 五分钟路径、`instance-git.md` 实例侧 git 最小契约、`research-*.md` 研究文件——文末直链。权威机制在内核参考 skill；文档不复写机制 |
+| `test-repo/` | 本地测试沙盒——2026-10-13 起不入 git（owner 裁定；全新 clone 不含它）。需要 AGENTS.md 上下文的实验用临时部署；设置与规则见 [`.owfa/docs/sandbox.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/sandbox.md)。框架仓自身不带 AGENTS.md——库姿态；开发规则在 [CONTRIBUTING.md](https://github.com/owfadev/owfa/blob/master/CONTRIBUTING.md) |
+| `.owfa/docs/` | 人读文档：`intro.md` 导论、`mechanics.md` 机制、`usage.md` 使用指南、`deployment.md` 全指南 / `quickstart.md` 五分钟路径、`instance-git.md` 实例侧 git 最小契约、`research-*.md` 研究文件——文末直链。权威机制在内核参考 skill；文档不复写机制 |
 
 ## 参与贡献
 
-欢迎贡献，插件是预定贡献面：新能力是新插件，不是 fork 框架。三条路径，由小到大——为你使用的 CLI 写一个连接器技能；写一个把外部信息源适配进 wiki 的域插件（三路径表与开发循环见 [`developer.md`](https://github.com/owfadev/owfa/blob/master/.meta/docs/developer.md)）；或改进 core。域包自托管于各自仓；上架 = 向 [registry](https://github.com/owfadev/registry) 提一行 PR，那是人工审核的信任门。Bug 与行为问题走 issues；框架本体收 PR。
+欢迎贡献，插件是预定贡献面：新能力是新插件，不是 fork 框架。三条路径，由小到大——为你使用的 CLI 写一个连接器技能；写一个把外部信息源适配进 wiki 的域插件（三路径表与开发循环见 [`developer.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/developer.md)）；或改进 core。域包自托管于各自仓；上架 = 向 [registry](https://github.com/owfadev/registry) 提一行 PR，那是人工审核的信任门。Bug 与行为问题走 issues；框架本体收 PR。
 
 ## 协作
 
@@ -65,15 +65,15 @@
 
 ## 快速开始
 
-两条入口。**通道（推荐）：** `npx owfa init my-workspace`——安装器要 Node 16.7+，Core 要 Python 3.9+；无需 clone（npm 名申请期间用 `npx owfadev init` 兜底）。**手动：** clone 本仓并按 [quickstart.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/quickstart.md) 的五步走，然后 `python .meta/scripts/wiki_plugin_kernel.py all`。含包与升级的全指南：[deployment.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/deployment.md)。
+两条入口。**通道（推荐）：** `npx owfa init my-workspace`——安装器要 Node 16.7+，Core 要 Python 3.9+；无需 clone（npm 名申请期间用 `npx owfadev init` 兜底）。**手动：** clone 本仓并按 [quickstart.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/quickstart.md) 的五步走，然后 `python .owfa/scripts/owfa_kernel.py all`。含包与升级的全指南：[deployment.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/deployment.md)。
 
 前提：Python 3.9+，纯标准库，框架本身免安装（连接器自带依赖）；仅 npm 通道要 Node 16.7+；推荐 git（实例快照）；一个会读 AGENTS.md 与 skills 的 agent 环境，如 ZCode；Obsidian 可选，仅查看器。
 
-在仓库根开一个 agent 会话。AGENTS.md 是章程，含插件注入区；十三个命令经自然语言触发：**map / save / profile / query / check / plugin / lark-map / bb-map / asset-read / 内核参考 / teach / quiz / track**——map、save、profile、query、check、plugin、lark-map、bb-map、asset-read、wiki_plugin_kernel、bb-teach、bb-quiz、bb-track；母本在 `.meta/command/`。丢一个文件进 `vault/`，对 agent 说「map」——这就是第一次使用。
+在仓库根开一个 agent 会话。AGENTS.md 是章程，含插件注入区；十三个命令经自然语言触发：**map / save / profile / query / check / plugin / lark-map / bb-map / asset-read / 内核参考 / teach / quiz / track**——map、save、profile、query、check、plugin、lark-map、bb-map、asset-read、owfa-kernel、bb-teach、bb-quiz、bb-track；母本在 `.owfa/command/`。丢一个文件进 `vault/`，对 agent 说「map」——这就是第一次使用。
 
 ## 部署
 
-OWFA 有三层：**OWFA CLI**（安装器，绝不拷入工作区）、**OWFA Core**（`.meta/` + `.agents/skills/`，被安装之物）与 **kernel**（Core 内的纯标准库 Python 脚本——没有单独的内核安装；Python 3.9+ 即可运行）。`.meta/plugins/domains/<pkg>/` 下的域包是可选的。
+OWFA 有三层：**OWFA CLI**（安装器，绝不拷入工作区）、**OWFA Core**（`.owfa/` + `.agents/skills/`，被安装之物）与 **kernel**（Core 内的纯标准库 Python 脚本——没有单独的内核安装；Python 3.9+ 即可运行）。`.owfa/plugins/domains/<pkg>/` 下的域包是可选的。
 
 ```bash
 npx owfa init my-workspace        # 目标名；申请期间用 npx owfadev init
@@ -86,25 +86,25 @@ npx owfa upgrade                  # 日后：替换框架树，保留实例状�
 
 名字申请期间，把上面每条 `npx owfa` 换成 `npx owfadev` 即可（或全局安装任一包；两者都暴露 `owfa` 命令）。
 
-`init` 是加法的：既有内容不动，已有 `AGENTS.md` 保留、只追加注入区。`upgrade` 替换 `.meta/` 与 `.agents/skills/`（实例数据永不触碰），保留内核迁移台账、journal 与 registry 缓存。
+`init` 是加法的：既有内容不动，已有 `AGENTS.md` 保留、只追加注入区。`upgrade` 替换 `.owfa/` 与 `.agents/skills/`（实例数据永不触碰），保留内核迁移台账、journal 与 registry 缓存。
 
-- 全部署指南（组件、通道、包、升级、故障）：[`.meta/docs/deployment.md`](https://github.com/owfadev/owfa/blob/master/.meta/docs/deployment.md)
-- 五分钟路径：[`.meta/docs/quickstart.md`](https://github.com/owfadev/owfa/blob/master/.meta/docs/quickstart.md)
-- 通道设计与发布手册：[`.meta/docs/distribution.md`](https://github.com/owfadev/owfa/blob/master/.meta/docs/distribution.md)
+- 全部署指南（组件、通道、包、升级、故障）：[`.owfa/docs/deployment.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/deployment.md)
+- 五分钟路径：[`.owfa/docs/quickstart.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/quickstart.md)
+- 通道设计与发布手册：[`.owfa/docs/distribution.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/distribution.md)
 
 ## 文档索引
 
-- [.meta/docs/deployment.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/deployment.md) — 部署指南：组件、通道、首跑、包、升级、故障
-- [.meta/docs/naming.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/naming.md) — 命名：本义展开、每个词的承诺、两名两职、异议与撞名对策
-- [.meta/docs/distribution.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/distribution.md) — npm 通道：命令、工件、版本不变量、发布手册、安全姿态
-- [.meta/docs/packages.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/packages.md) — 包机制与设计理据：布局、PKG.yaml、不变量、版本、卸载契约、决策台账
-- [.meta/docs/developer.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/developer.md) — 开发者指南：插件落位三路径表、开发循环、注册与发现
-- [.meta/docs/agents-example.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/agents-example.md) / [.meta/docs/log-example.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/log-example.md) — AGENTS.md 与 log.md 的实例种子（框架仓自身两者都不带）
-- [.meta/docs/intro.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/intro.md) — 导论：为什么是这个框架，叙事与谱系
-- [.meta/docs/mechanics.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/mechanics.md) — 机制：每个机制再深一层，附 bb 家族走查；动框架前先读
-- [.meta/docs/usage.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/usage.md) — 使用指南：三种工作循环（库务、课程学习、协作开发）
-- [.meta/docs/quickstart.md](https://github.com/owfadev/owfa/blob/master/.meta/docs/quickstart.md) — 五分钟路径：一条命令或手动五步，然后首跑
-- `.meta/protocol/` — 字段注册表、行动纪律、披露范式
+- [.owfa/docs/deployment.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/deployment.md) — 部署指南：组件、通道、首跑、包、升级、故障
+- [.owfa/docs/naming.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/naming.md) — 命名：本义展开、每个词的承诺、两名两职、异议与撞名对策
+- [.owfa/docs/distribution.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/distribution.md) — npm 通道：命令、工件、版本不变量、发布手册、安全姿态
+- [.owfa/docs/packages.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) — 包机制与设计理据：布局、PKG.yaml、不变量、版本、卸载契约、决策台账
+- [.owfa/docs/developer.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/developer.md) — 开发者指南：插件落位三路径表、开发循环、注册与发现
+- [.owfa/docs/agents-example.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/agents-example.md) / [.owfa/docs/log-example.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/log-example.md) — AGENTS.md 与 log.md 的实例种子（框架仓自身两者都不带）
+- [.owfa/docs/intro.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/intro.md) — 导论：为什么是这个框架，叙事与谱系
+- [.owfa/docs/mechanics.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/mechanics.md) — 机制：每个机制再深一层，附 bb 家族走查；动框架前先读
+- [.owfa/docs/usage.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/usage.md) — 使用指南：三种工作循环（库务、课程学习、协作开发）
+- [.owfa/docs/quickstart.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/quickstart.md) — 五分钟路径：一条命令或手动五步，然后首跑
+- `.owfa/protocol/` — 字段注册表、行动纪律、披露范式
 
 ## 许可
 

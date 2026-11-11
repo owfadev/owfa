@@ -25,4 +25,4 @@ jobs:
         run: node test/smoke.js
 
       - name: Kernel structural validation
-        run: python3 .meta/scripts/wiki_plugin_kernel.py validate
+        run: python3 .owfa/scripts/owfa_kernel.py validate

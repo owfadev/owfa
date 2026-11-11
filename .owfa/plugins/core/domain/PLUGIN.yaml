@@ -1,0 +1,8 @@
+id: domain
+schema_version: 1
+version: 0.2
+depends: []
+updated: 2026-11-09
+attachment: []
+fields: {}
+inject: "Outer domains: wiki knows only inner/outer; each domain plugin declares its adapter contract, members join transitively. Blocks here are routing pointers — before first acting in a territory, read `.owfa/plugins/**/<id>/PLUGIN.md` (red lines, grammar)"

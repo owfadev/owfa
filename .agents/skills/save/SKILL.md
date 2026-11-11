@@ -12,7 +12,7 @@ Good answers should not vanish in chat history. Save what was just discussed as 
 ## Scope
 
 Write: sessions (session backbone pages), notes (native notes), log, hot, index
-Read: registry (`.meta/protocol/registry.yaml`, field and value-set anchor), tag (vocabulary `wiki/tags.md`), trust (generated), index / hot (dedup prerequisites)
+Read: registry (`.owfa/protocol/registry.yaml`, field and value-set anchor), tag (vocabulary `wiki/tags.md`), trust (generated), index / hot (dedup prerequisites)
 
 ## Dedup Before Filing (required)
 
@@ -27,13 +27,13 @@ type / status value sets defer to the registry (a one-time read anchor; do not r
 
 ## Workflow
 
-1. **Anchor (one-time read)**: read `.meta/protocol/registry.yaml` and `wiki/tags.md` — type / status value sets and the existing vocabulary are visible before writing
+1. **Anchor (one-time read)**: read `.owfa/protocol/registry.yaml` and `wiki/tags.md` — type / status value sets and the existing vocabulary are visible before writing
 2. Scan the conversation for high-value content (non-obvious insights, decisions with reasons, hard-won analyses, comparisons that will be cited again); skip mechanical Q&A / debugging processes / content already in the repository
 3. Set the type (ask only on genuine ambiguity) and title (ask only on ambiguity or conflict)
 4. Rewrite in declarative present tense: write knowledge, not dialogue
 5. Create the page per the write-side contracts in the injection region (notes / sessions destinations and shapes, trust generated, tag labeling); the session type goes to the long-sessions section
 6. Write wiki pages mentioned in the conversation into related with wikilinks
-7. **Post-write pipeline** (deterministic, mechanical, automatic): execute each plugin's write calls in injection-region order, then finish with `python .meta/scripts/pipeline.py verify` (post-write self-verification; on failure, go back and fix); then commit per the commit discipline (`保存: <page title>`, see `.meta/protocol/actions.md`)
+7. **Post-write pipeline** (deterministic, mechanical, automatic): execute each plugin's write calls in injection-region order, then finish with `python .owfa/scripts/pipeline.py verify` (post-write self-verification; on failure, go back and fix); then commit per the commit discipline (`保存: <page title>`, see `.owfa/protocol/actions.md`)
 8. Report: `Saved as [[title]] in wiki/notes/` (session type: `... in wiki/sessions/`)
 
 ## Long Sessions (session backbone)
@@ -52,7 +52,7 @@ Declarative present tense; output language takes the default key of the language
 
 ## Injected Section (plugin usage blocks)
 
-> This region is a wiki_plugin_kernel projection: consumes pulls merged with usage_routes source-side routing; disclosure order = owner first, routed blocks in the middle, pulled blocks last (rebuilt by inject / all); handwritten content does not belong here — to change the write-side contract, edit PLUGIN.yaml.
+> This region is a owfa-kernel projection: consumes pulls merged with usage_routes source-side routing; disclosure order = owner first, routed blocks in the middle, pulled blocks last (rebuilt by inject / all); handwritten content does not belong here — to change the write-side contract, edit PLUGIN.yaml.
 
 <!-- cmd-inject:start -->
 <!-- usage:notes -->
@@ -62,7 +62,7 @@ Declarative present tense; output language takes the default key of the language
 
 <!-- usage:sessions -->
 - Landing spot `wiki/sessions/YYYY-MM-DD-<topic>.md` (default naming), type: session, participants required (actor list)
-- Backbone page five-section shape: Core Conclusions / Decisions & Rationale / Non-obvious Insights / Open Questions / Related Pages (full-shape sample in the Example section of `.meta/plugins/sessions/PLUGIN.md`)
+- Backbone page five-section shape: Core Conclusions / Decisions & Rationale / Non-obvious Insights / Open Questions / Related Pages (full-shape sample in the Example section of `.owfa/plugins/sessions/PLUGIN.md`)
 - Standalone high-value topics promoted to `wiki/notes/` pages, the backbone page keeping a wikilink; dedupe before promotion
 <!-- /usage:sessions -->
 
@@ -81,14 +81,14 @@ Declarative present tense; output language takes the default key of the language
 <!-- /usage:trust -->
 
 <!-- usage:index -->
-- Post-write rebuild (mechanical, automatic): `python .meta/scripts/pipeline.py index` (index — overflow-offloading scheme, including deletion of obsolete old indexes after merge-back) and the same script's `tags` (tag reverse index); LLMs never hand-write indexes
+- Post-write rebuild (mechanical, automatic): `python .owfa/scripts/pipeline.py index` (index — overflow-offloading scheme, including deletion of obsolete old indexes after merge-back) and the same script's `tags` (tag reverse index); LLMs never hand-write indexes
 <!-- /usage:index -->
 
 <!-- usage:hot -->
-- Writing entries (mechanical, automatic): `python .meta/scripts/pipeline.py hot <type> "<wikilink + one-sentence essence>"` (type value set same as log, see the log block of the AGENTS injection region); window eviction and truncation are performed by the script
+- Writing entries (mechanical, automatic): `python .owfa/scripts/pipeline.py hot <type> "<wikilink + one-sentence essence>"` (type value set same as log, see the log block of the AGENTS injection region); window eviction and truncation are performed by the script
 <!-- /usage:hot -->
 
 <!-- usage:log -->
-- Writing lines (mechanical, automatic): `python .meta/scripts/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
+- Writing lines (mechanical, automatic): `python .owfa/scripts/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
 <!-- /usage:log -->
 <!-- cmd-inject:end -->

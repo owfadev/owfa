@@ -13,12 +13,12 @@ S-layer pointer only — the norms live in the documents (L layer). Re-read what
 When the user reports dissatisfaction with your behavior, do **not** launch an analysis on your own:
 
 - **Not a plugin/kernel matter** (pure conversation, execution slip)? Ignore the rest of this skill — respond to the user directly, fix in-session.
-- **Possibly a plugin or kernel problem?** First ask the user whether to run a behavior self-audit (**recommended** — it produces the evidence base for a real fix). Only on consent, follow the protocol: [`.meta/docs/agent-behavior.md`](../../docs/agent-behavior.md) — feedback handling → routing → the seven-step standard.
+- **Possibly a plugin or kernel problem?** First ask the user whether to run a behavior self-audit (**recommended** — it produces the evidence base for a real fix). Only on consent, follow the protocol: [`.owfa/docs/agent-behavior.md`](../../docs/agent-behavior.md) — feedback handling → routing → the seven-step standard.
 
 ## 2. "Where is X documented?" / "how does X work?"
 
-Read [`.meta/docs/map.md`](../../docs/map.md) — the routing table (what to read when), framework docs and package-repo docs both.
+Read [`.owfa/docs/map.md`](../../docs/map.md) — the routing table (what to read when), framework docs and package-repo docs both.
 
 ## 3. Filing feedback / issues
 
-The routing table lives in [`.meta/docs/agent-behavior.md`](../../docs/agent-behavior.md) §Routing: framework → owfa; package members → the matching `pkg-*` repo; new-plugin proposals → incubation on owfa.
+The routing table lives in [`.owfa/docs/agent-behavior.md`](../../docs/agent-behavior.md) §Routing: framework → owfa; package members → the matching `pkg-*` repo; new-plugin proposals → incubation on owfa.
