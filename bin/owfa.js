@@ -100,6 +100,35 @@ function parseArgs(argv) {
   return args;
 }
 
+// 0.3 quirk (review P1 round 3): the 0.3 channel wrote `upgrade --backup`
+// snapshots to .owfa/backup/ even though its framework lived in .meta/. On
+// migration that stray .owfa made replacePayloadTree park-and-delete the
+// user's only pre-upgrade snapshots AND left .meta unparked (legacySwap never
+// fired: no shim, no journal carry). Rescue the snapshots into the 0.4 backup
+// home first; an emptied leftover .owfa is removed so the legacy swap takes
+// over. A real 0.4 framework tree (.owfa/VERSION present) is never touched.
+function rescueLegacyBackup(target) {
+  const owfa = path.join(target, ".owfa");
+  const meta = path.join(target, LEGACY_META);
+  if (!fs.existsSync(owfa) || fs.existsSync(path.join(owfa, "VERSION"))) return;
+  if (!fs.existsSync(path.join(meta, "VERSION"))) return; // no legacy framework — not the 0.3 shape
+  const stray = path.join(owfa, "backup");
+  if (fs.existsSync(stray)) {
+    const home = path.join(target, BACKUP_DIR);
+    fs.mkdirSync(home, { recursive: true });
+    for (const d of fs.readdirSync(stray)) {
+      if (fs.existsSync(path.join(home, d))) {
+        out(`warning: backup snapshot ${d} left in .owfa/backup/ — ${BACKUP_DIR}/${d} already exists`);
+        continue;
+      }
+      fs.renameSync(path.join(stray, d), path.join(home, d));
+    }
+    fs.rmSync(stray, { recursive: true, force: true });
+    out(`rescued: 0.3-era upgrade snapshots moved to ${BACKUP_DIR}/`);
+  }
+  if (fs.readdirSync(owfa).length === 0) fs.rmSync(owfa, { recursive: true });
+}
+
 function copyPayload(target, { replace = false } = {}) {
   const skip = (src) => {
     const base = path.basename(src);
@@ -114,6 +143,7 @@ function copyPayload(target, { replace = false } = {}) {
     if (replace) {
       // 0.3 → 0.4 migration: the incoming .owfa/ has no counterpart on disk yet,
       // but the legacy .meta/ tree must go through the same park-and-carry swap.
+      if (entry === ".owfa") rescueLegacyBackup(target);
       const legacySwap =
         entry === ".owfa" && !fs.existsSync(dst) && fs.existsSync(path.join(target, LEGACY_META));
       if (fs.existsSync(dst) || legacySwap) replacePayloadTree(target, entry, skip);

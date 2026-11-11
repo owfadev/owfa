@@ -53,7 +53,7 @@ TERRITORY_LABELS = {"source": "proxy page", "lark": "pointer page", "calendar": 
 def _territory_types(root):
     """Read registry type.values (closed set of territory values) dynamically; session excluded (knowledge backbone, orphan hint is meaningful there)."""
     try:
-        text = open(os.path.join(root, ".meta", "protocol", "registry.yaml"), encoding="utf-8").read()
+        text = open(os.path.join(root, ".owfa", "protocol", "registry.yaml"), encoding="utf-8").read()
         m = re.search(r"values: \[([^\]]+)\]", text)
         return {v.strip() for v in m.group(1).split(",") if v.strip()} - {"session"}
     except OSError:

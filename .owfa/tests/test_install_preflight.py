@@ -22,7 +22,7 @@ class InstallPreflightTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "instance"
         self.root.mkdir()
-        for directory in (".meta", ".agents"):
+        for directory in (".owfa", ".agents"):
             shutil.copytree(FRAMEWORK / directory, self.root / directory,
                             ignore=shutil.ignore_patterns("__pycache__", "tests", "smoke-tmp"))
         (self.root / "AGENTS.md").write_text(

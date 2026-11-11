@@ -25,6 +25,12 @@
 `--root/--home` argument → `OWFA_ROOT` env → cwd reverse-lookup in the registry
 → `homes/default` (single-workspace machines: zero configuration).
 
+On a machine with **two or more bindings**, a workspace matching none of them
+still falls through to `homes/default` (degraded-but-healthy) but emits a loud
+stderr warning: default is unregistered there, and two unmatched workspaces
+sharing it would be invisible to `exclusivity_violations`. Remove the ambiguity
+by binding the root explicitly or setting `OWFA_ROOT`.
+
 ## Invariants
 
 1. **One home, one active binding.** Two workspaces draining one spool is a

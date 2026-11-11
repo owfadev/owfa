@@ -114,7 +114,7 @@ rm -rf .git && git init
 **Embed into an existing vault**: clone the template somewhere else, then copy the two trees into the target root:
 
 ```bash
-cp -R /path/to/owfa/.meta          /path/to/my-workspace/
+cp -R /path/to/owfa/.owfa          /path/to/my-workspace/
 cp -R /path/to/owfa/.agents/skills /path/to/my-workspace/.agents/
 ```
 

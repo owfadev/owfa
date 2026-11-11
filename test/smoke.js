@@ -186,8 +186,26 @@ try {
     const init = spawnSync(process.execPath, [path.join(seed, "bin", "owfa.js"), "init", legacyReal, "--name", "smoke03"], { encoding: "utf8" });
     assert.strictEqual(init.status, 0, "real 0.3 seed init failed: " + init.stderr + init.stdout);
     assert.ok(fs.existsSync(path.join(legacyReal, ".meta", "command", "map")), "seed is not a real 0.3 tree");
+    // round 3: an instance that ever ran 0.3's `upgrade --backup` carries a
+    // stray .owfa/backup/ — the migration must rescue it, still park .meta
+    // (legacySwap despite the pre-existing .owfa) and carry the journal
+    fs.mkdirSync(path.join(legacyReal, ".owfa", "backup", "manual-20261111"), { recursive: true });
+    fs.writeFileSync(path.join(legacyReal, ".owfa", "backup", "manual-20261111", "snapshot.md"), "0.3 backup fixture\n", "utf8");
+    fs.appendFileSync(path.join(legacyReal, ".meta", "kernel-journal.log"), "journal-sentinel-03\n", "utf8");
     const r = run(["upgrade", legacyReal], tmpRoot);
     assert.strictEqual(r.status, 0, "real 0.3 upgrade failed: " + r.stdout + r.stderr);
+    assert.ok(
+      fs.existsSync(path.join(legacyReal, ".owfa-backup", "manual-20261111", "snapshot.md")),
+      "0.3-era backup snapshots lost in migration"
+    );
+    assert.ok(
+      fs.readFileSync(path.join(legacyReal, ".owfa", "kernel-journal.log"), "utf8").includes("journal-sentinel-03"),
+      "kernel journal not carried despite the stray 0.3 .owfa"
+    );
+    assert.ok(
+      fs.lstatSync(path.join(legacyReal, ".meta")).isSymbolicLink(),
+      ".meta not shimmed — legacy tree left stranded"
+    );
     const cmds = fs.readdirSync(path.join(legacyReal, ".owfa", "command"));
     const skills = fs.readdirSync(path.join(legacyReal, ".agents", "skills"));
     for (const retired of RETIRED) {

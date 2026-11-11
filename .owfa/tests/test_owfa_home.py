@@ -4,7 +4,10 @@
 
 Run: python3 .owfa/tests/test_owfa_home.py  (pure stdlib; OWFA_HOME pointed at a temp dir)
 """
+import contextlib
+import io
 import os
+import stat
 import sys
 import tempfile
 import unittest
@@ -36,6 +39,25 @@ class OwfaHomeTests(unittest.TestCase):
         p = self.root / name
         p.mkdir(parents=True)
         return str(p)
+
+    def test_unmatched_cwd_on_multi_binding_machine_is_loud(self):
+        # review round 3: falling back to homes/default silently on a
+        # multi-binding machine invents an unregistered home two unmatched
+        # workspaces could share — still served (degraded-but-healthy), but loud
+        h.bind("qq", self.ws1, "alpha")
+        h.bind("qq", self.ws2, "beta")
+        os.chdir(self._ws("ws3"))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            home = h.resolve_home("qq")
+        self.assertEqual(home, h.home_dir("qq", "default"))
+        self.assertIn("matches none", err.getvalue())
+
+    @unittest.skipIf(sys.platform == "win32", "mkdir mode is a POSIX no-op on Windows")
+    def test_bind_home_dir_is_0700(self):
+        # review round 3: docs/home.md promises 0600/0700 for connector homes
+        entry = h.bind("qq", self.ws1, "alpha")
+        self.assertEqual(stat.S_IMODE(os.stat(entry["home"]).st_mode), 0o700)
 
     def test_default_home_is_zero_config(self):
         os.chdir(self.ws1)

@@ -37,6 +37,7 @@ import json
 import os
 import re
 import secrets
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -134,11 +135,21 @@ def resolve_home(connector: str, explicit_root: str = "", explicit_home: str = "
     if explicit_home:
         return Path(explicit_home).expanduser()
     root = resolve_root(connector, explicit_root)
-    for b in load_bindings(connector):
+    bindings = load_bindings(connector)
+    for b in bindings:
         if root and os.path.normpath(b.get("root", "")) == os.path.normpath(root):
             return Path(b["home"])
-        if not root and len(load_bindings(connector)) == 1:
+        if not root and len(bindings) == 1:
             return Path(b["home"])  # single binding, no better signal — it is the default
+    if len(bindings) >= 2:
+        # multi-binding machine, workspace matches nothing: default would be an
+        # unregistered home that two unmatched workspaces could silently share
+        # (review round 3) — degraded-but-healthy, but it must be loud
+        print(
+            f"[owfa-home] warning: workspace matches none of {len(bindings)} bindings — "
+            "serving homes/default; bind this root or set OWFA_ROOT to remove the ambiguity",
+            file=sys.stderr,
+        )
     return home_dir(connector, "default")
 
 
@@ -159,7 +170,7 @@ def bind(connector: str, root: str, binding_id: str = "", bot: str = "") -> dict
     bindings = [b for b in bindings if b.get("id") != entry["id"]]
     bindings.append(entry)
     save_bindings(connector, bindings)
-    Path(entry["home"]).mkdir(parents=True, exist_ok=True)
+    Path(entry["home"]).mkdir(parents=True, exist_ok=True, mode=0o700)  # docs/home.md: 0600/0700
     return entry
 
 
