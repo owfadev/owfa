@@ -17,8 +17,9 @@ This face was previously undeclared (an e-class vacuum live sample, #33's improv
 
 | Feedback | Destination | Test |
 |---|---|---|
-| kernel / mechanics / projections / core plugins / framework docs | owfa | framework contract face |
-| package member plugins (the bb family, the lark family, …) | the matching `pkg-*` repo | plugin id ∈ `PKG.members`; repo address in the registry INDEX |
+| kernel / mechanics / projections / framework docs | owfa | framework contract face |
+| core-suite plugins (the former framework plugins, now owfa-personal members) | the **owfa-personal** repo (since the v0.4 split) | plugin id ∈ owfa-personal `PKG.members` |
+| package member plugins (the bb family, the lark family, …) | the matching `owfa-*` repo | plugin id ∈ `PKG.members`; repo address in the registry INDEX |
 | behavior deviations (the #34 face) | wherever the plugin lives | behavior contracts live in PLUGIN.md |
 | new plugin proposals | owfa (incubation; moves with the package when it lands) | no owning repo yet |
 | unclear | file on owfa; maintainers transfer | fallback (#20 precedent) |

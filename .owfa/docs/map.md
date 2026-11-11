@@ -19,5 +19,5 @@
 | Development rules, commit flow, template + instance workflow | [CONTRIBUTING.md](../../CONTRIBUTING.md) — template-repo root (an instance reads it there, never keeps a copy) |
 | Day-to-day usage loops | [usage.md](usage.md) |
 | What the framework is, intro | [intro.md](intro.md) |
-| Package-side plugin docs (bb family, lark family, …) | the owning `pkg-*` repo's plugin masters |
+| Package-side plugin docs (bb family, lark family, …) | the owning `owfa-*` repo's plugin masters |
 | AGENTS.md seed / log seed examples | [agents-example.md](agents-example.md), [log-example.md](log-example.md) |
