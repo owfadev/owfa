@@ -373,6 +373,11 @@ function convertCoreToPersonal(target) {
   const lines = [
     `# synthesized by the owfa channel: v0.4 core de-parasitization conversion (upgrade)`,
     `id: personal`,
+    // kind: suite — the conversion product is a rootless-suite package (the
+    // owfa-personal shape): the synthesized root below is a family-identity
+    // anchor only, the closure law does not apply, and the canonical rootless
+    // suite can replace this package via `kernel upgrade personal` cleanly
+    `kind: suite`,
     `version: 0.1.0`,
     `compat: ">= 0.4"`,
     `members:`,

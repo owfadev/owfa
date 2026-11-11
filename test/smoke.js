@@ -395,33 +395,48 @@ try {
     return dst;
   }
   function seedFakeSuite(chan) {
-    // populate the embedded blessed copy with a minimal-but-valid package:
-    // one family root declaring the classic skeleton + teardown anchors
+    // populate the embedded blessed copy with a minimal-but-valid ROOTLESS suite
+    // (the owfa-personal shape): kind: suite, parallel members, no family root —
+    // exercises the suite package model (family-root/closure laws skipped)
     const p = path.join(chan, "payloads", "personal");
     fs.rmSync(p, { recursive: true, force: true });
-    fs.mkdirSync(path.join(p, "personal"), { recursive: true });
+    fs.mkdirSync(path.join(p, "wiki"), { recursive: true });
+    fs.mkdirSync(path.join(p, "log"), { recursive: true });
     fs.writeFileSync(
       path.join(p, "PKG.yaml"),
       [
-        "id: personal", "version: 0.1.0", 'compat: ">= 0.4"',
-        "members:", "  - personal",
+        "# smoke fixture: rootless suite (kind: suite — no family root member)",
+        "id: personal", "kind: suite", "version: 0.1.0", 'compat: ">= 0.4"',
+        "members: [wiki, log]",
         "skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]",
-        "uninstall:", "  anchors: [wiki/profile.md, wiki/language.md, wiki/calendar.md, wiki/todo.md, wiki/cron/]",
+        "uninstall:", "  anchors: [wiki/profile.md, wiki/cron/]",
         "",
       ].join("\n"),
       "utf8"
     );
     fs.writeFileSync(
-      path.join(p, "personal", "PLUGIN.yaml"),
+      path.join(p, "wiki", "PLUGIN.yaml"),
       [
-        "id: personal", "schema_version: 1", "version: 0.1", "depends: []",
+        "id: wiki", "schema_version: 1", "version: 0.1", "depends: []",
         "updated: 2026-11-12", "attachment: []", "fields: {}",
-        'inject: "personal suite (smoke fixture) — blessed-embedded family root; skeleton + anchors declared in PKG.yaml"',
+        'inject: "wiki suite member (smoke fixture) — rootless suite; skeleton + anchors declared in PKG.yaml"',
         "",
       ].join("\n"),
       "utf8"
     );
-    fs.writeFileSync(path.join(p, "personal", "PLUGIN.md"), "# personal\n\nsmoke fixture suite root\n", "utf8");
+    fs.writeFileSync(
+      path.join(p, "log", "PLUGIN.yaml"),
+      [
+        "id: log", "schema_version: 1", "version: 0.1", "depends:", "  - wiki",
+        "updated: 2026-11-12", "attachment: []", "fields: {}",
+        'inject: "log suite member (smoke fixture) — parallel member with an intra-suite depends edge"',
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    for (const m of ["wiki", "log"]) {
+      fs.writeFileSync(path.join(p, m, "PLUGIN.md"), `# ${m}\n\nsmoke fixture suite member\n`, "utf8");
+    }
   }
 
   step("two-stage init: embedded blessed suite installs offline, skeleton comes from the package", () => {
@@ -439,7 +454,11 @@ try {
     for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault"]) {
       assert.ok(fs.existsSync(path.join(inst, d)), `package-declared skeleton ${d} missing`);
     }
-    assert.ok(fs.readFileSync(path.join(inst, "AGENTS.md"), "utf8").includes("<!-- plugin:personal"), "suite root not injected");
+    // rootless suite: both parallel members injected, no synthesized root exists
+    const agentsSuite = fs.readFileSync(path.join(inst, "AGENTS.md"), "utf8");
+    assert.ok(agentsSuite.includes("<!-- plugin:wiki "), "suite member wiki not injected");
+    assert.ok(agentsSuite.includes("<!-- plugin:log "), "suite member log not injected");
+    assert.ok(!fs.existsSync(path.join(dom, "personal")), "rootless suite must not carry a family root plugin");
     const d = spawnSync(process.execPath, [path.join(chan, "bin", "owfa.js"), "doctor", inst], { cwd: tmpRoot, encoding: "utf8" });
     assert.strictEqual(d.status, 0, "suite instance fails doctor: " + d.stdout);
   });
@@ -487,6 +506,9 @@ try {
       assert.ok(fs.existsSync(path.join(dom, m, "PLUGIN.yaml")), `rescued member ${m} missing`);
     }
     const pkgYaml = fs.readFileSync(path.join(dom, "PKG.yaml"), "utf8");
+    // the conversion product is a suite package (the owfa-personal shape): the
+    // synthesized root is a family-identity anchor, the closure law does not apply
+    assert.ok(/^kind: suite$/m.test(pkgYaml), "converted PKG.yaml missing kind: suite");
     for (const m of ["domain", "instance-git", "wiki", "vault", "calendar", "cron", "todo", "user-profile"]) {
       assert.ok(new RegExp(`^  - ${m}$`, "m").test(pkgYaml), `PKG.yaml members missing ${m}`);
     }
