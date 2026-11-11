@@ -37,6 +37,26 @@ PKG.yaml (v0.4 de-parasitization) may additionally declare:
   additive only, a directory anchor expands to the .md files inside it, and a
   PKG.yaml without the key contributes nothing (backward compatible)
 
+PKG.yaml (v0.4 rootless suites + capabilities) may additionally declare:
+- `kind: suite` — a rootless package: N parallel members, no family root plugin and
+  none required (the owfa-personal shape). Suite packages skip the family-root /
+  closure laws; presence (subset discipline), compat, flat graph and id == dir name
+  still apply. Absent kind = the classic domain-family behavior (default)
+- `needs: [owfa.org.v1]` / `provides: [owfa.org.v1]` — package-scale capabilities
+  (plugin level deliberately unsupported). Grammar
+  ^[a-z][a-z0-9-]*(\\.[a-z0-9-]+)*\\.v\\d+$; a non-owfa.* capability's first name
+  segment must equal the package id (owfa.* is framework-owned, policed at the
+  registry review gate). Matching is exact-name; one provider per capability
+  (exclusive slot); needs count only trust >= reviewed provides (registry INDEX row
+  is the trust source — --path/direct installs are unknown and their provides stay
+  unverified; --yes overrides at install, journaled). Convergence points: install
+  preflight (prospective set — upgrade boards installed − old + new provides),
+  validate (full-graph error, --scope warning), upgrade (prospective). Uninstall is
+  deliberately NOT a point: removing the last provider leaves a red validate while
+  the uninstall itself succeeds (intentional asymmetry)
+- INDEX rows (registry) may carry `needs:` / `provides:` ('/'-separated lists, the
+  members precedent) and `commit:` (SHA pin — a clone whose HEAD != pin is refused)
+
 Dependencies and injection order:
 - depends declares behavioral or semantic dependencies (a bridging piece depending on the
   concept plugins at both ends is a semantic dependency); validate checks existence and acyclicity
@@ -886,12 +906,24 @@ def framework_version():
 def validate_packages(plugins, pkgs, errors, warnings):
     """Package invariants (issue #20 定稿 D1/D2/D5): roster == family closure (authoring side),
     full presence (site side, v1 — subsets land with --without later), flat package graph,
-    compat vs the .owfa/VERSION anchor."""
+    compat vs the .owfa/VERSION anchor.
+
+    kind discriminant (v0.4 rootless suites): `kind: suite` marks a rootless package —
+    N parallel members, no family root plugin, none required (the owfa-personal shape).
+    Suite packages skip the family-root/closure laws entirely (D5 root prunability,
+    roster == closure); presence (subset discipline), compat, flat graph and the
+    id == directory-name consistency still apply. A missing kind defaults to the
+    classic domain-family behavior — fully backward compatible."""
     seen_member = {}
     fw = framework_version()
     if fw is None:
         warnings.append(".owfa/VERSION missing — framework anchor absent, PKG compat unchecked")
     for pid, pkg in sorted(pkgs.items()):
+        kind = str(pkg.get("kind") or "domain-family")
+        if kind not in ("domain-family", "suite"):
+            errors.append(f"[error] PKG {pid}: kind ({kind}) must be 'suite' or 'domain-family' (absent key = domain-family)")
+            continue
+        suite = kind == "suite"
         members = pkg.get("members")
         if not isinstance(members, list) or not members:
             errors.append(f"[error] PKG {pid}: members must be a non-empty list")
@@ -900,25 +932,36 @@ def validate_packages(plugins, pkgs, errors, warnings):
             if mem in seen_member:
                 errors.append(f"[error] PKG {pid}: member {mem} also declared by PKG {seen_member[mem]} (one plugin one package)")
             seen_member[mem] = pid
-        if pid not in members:
+        if not suite and pid not in members:
             errors.append(f"[error] PKG {pid}: family root {pid} must be a member (D5: roots are never prunable)")
-        if all(m in plugins for m in members):  # full presence → authoring invariant (roster == closure); subsets exempt (site invariant above covers them)
+        if not suite and all(m in plugins for m in members):  # full presence → authoring invariant (roster == closure); subsets exempt (site invariant below covers them)
             closure = {pid} | {p for p in plugins if reaches_plugin(plugins, p, pid)}
             for extra in sorted(set(members) - closure):
                 errors.append(f"[error] PKG {pid}: member {extra} declared but outside the family closure (depends chain never reaches {pid})")
             for miss in sorted(closure - set(members)):
                 errors.append(f"[error] PKG {pid}: {miss} is in the family closure but missing from members (roster drift)")
         absent = [mem for mem in members if mem not in plugins]
-        if pid not in plugins:
-            errors.append(f"[error] PKG {pid}: family root {pid} must be installed (D5: roots are never prunable)")
+        if not suite:
+            if pid not in plugins:
+                errors.append(f"[error] PKG {pid}: family root {pid} must be installed (D5: roots are never prunable)")
+            elif absent:
+                closed = all(dep not in members or dep in plugins
+                             for mem in members if mem in plugins
+                             for dep in (plugins[mem].get("depends") or []))
+                if closed:
+                    warnings.append(f"PKG {pid}: subset install — pruned {', '.join(absent)} (D5 legal subset)")
+                else:
+                    errors.append(f"[error] PKG {pid}: installed subset not dependency-closed (structural member pruned while dependents remain — see kernel plan <pkg> --without ...)")
         elif absent:
+            # rootless suite: no root to protect — the presence law is the subset
+            # discipline alone (installed members must not depend on pruned ones)
             closed = all(dep not in members or dep in plugins
                          for mem in members if mem in plugins
                          for dep in (plugins[mem].get("depends") or []))
             if closed:
-                warnings.append(f"PKG {pid}: subset install — pruned {', '.join(absent)} (D5 legal subset)")
+                warnings.append(f"PKG {pid}: suite subset install — pruned {', '.join(absent)}")
             else:
-                errors.append(f"[error] PKG {pid}: installed subset not dependency-closed (structural member pruned while dependents remain — see kernel plan <pkg> --without ...)")
+                errors.append(f"[error] PKG {pid}: installed suite subset not dependency-closed (member pruned while dependents remain)")
         for dep in pkg.get("depends") or []:
             if dep != "framework":
                 errors.append(f"[error] PKG {pid}: package dependency {dep} not allowed in v1 (flat graph — framework only)")
