@@ -12,7 +12,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+const { spawnSync, execSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
 const BIN = path.join(ROOT, "bin", "owfa.js");
@@ -160,6 +160,45 @@ try {
     }
     const d = run(["doctor", legacy], tmpRoot);
     assert.strictEqual(d.status, 0, "migrated instance fails doctor: " + d.stdout);
+  });
+
+  // Review P1 (PR #57 round 2): the mv-based legacy fixture above is built from
+  // the NEW tree, so the retired framework masters (check/map/save/...) never
+  // exist in it and the carry-over bug stayed invisible. Seed a real 0.3
+  // instance with the REAL 0.3 channel instead (master c11f40f's own bin);
+  // skipped where git history is unavailable (npm-tarball CI context).
+  const SHA_03 = "c11f40f02e648b70190a68badde6dd762edcc620";
+  const RETIRED = ["check", "docs", "map", "plugin", "profile", "query", "save", "wiki_plugin_kernel"];
+  step("upgrade of a real 0.3 instance carries no retired masters", () => {
+    const seed = path.join(tmpRoot, "seed03");
+    const legacyReal = path.join(tmpRoot, "legacy-real");
+    fs.mkdirSync(seed, { recursive: true });
+    let seeded = true;
+    try {
+      execSync(`git archive ${SHA_03} | tar -x -C "${seed}"`, { cwd: ROOT, stdio: "pipe" });
+    } catch {
+      seeded = false; // no git history (npm tarball) or no tar — skip without failing
+    }
+    if (!seeded) {
+      console.log("  skip: git history unavailable — cannot seed a real 0.3 tree");
+      return;
+    }
+    const init = spawnSync(process.execPath, [path.join(seed, "bin", "owfa.js"), "init", legacyReal, "--name", "smoke03"], { encoding: "utf8" });
+    assert.strictEqual(init.status, 0, "real 0.3 seed init failed: " + init.stderr + init.stdout);
+    assert.ok(fs.existsSync(path.join(legacyReal, ".meta", "command", "map")), "seed is not a real 0.3 tree");
+    const r = run(["upgrade", legacyReal], tmpRoot);
+    assert.strictEqual(r.status, 0, "real 0.3 upgrade failed: " + r.stdout + r.stderr);
+    const cmds = fs.readdirSync(path.join(legacyReal, ".owfa", "command"));
+    const skills = fs.readdirSync(path.join(legacyReal, ".agents", "skills"));
+    for (const retired of RETIRED) {
+      assert.ok(!cmds.includes(retired), `retired command master ${retired} survived the upgrade`);
+      assert.ok(!skills.includes(retired), `retired skill master ${retired} survived the upgrade`);
+    }
+    for (const succ of ["owfa-check", "owfa-map", "owfa-save", "owfa-kernel"]) {
+      assert.ok(cmds.includes(succ), `successor ${succ} missing after upgrade`);
+    }
+    const d = run(["doctor", legacyReal], tmpRoot);
+    assert.strictEqual(d.status, 0, "migrated real 0.3 instance fails doctor: " + d.stdout);
   });
 
   // Review P1 (PR #53): a replace must carry instance-owned state across —

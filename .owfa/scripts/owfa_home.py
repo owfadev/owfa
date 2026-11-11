@@ -202,11 +202,28 @@ def migrate_legacy_home(connector: str, legacy_dir: str, binding_id: str = "", r
         return entry  # already migrated
     dst.parent.mkdir(parents=True, exist_ok=True)
     if src.exists():
+        # bind() pre-creates homes/<id>; POSIX rename replaces an empty existing
+        # directory, Windows raises WinError 183 — clear the empty pre-creation
+        # first so the move works on both (review P1, PR #57 round 2).
+        if dst.is_dir():
+            if any(dst.iterdir()):
+                raise SystemExit(
+                    f"[owfa-home] refusing to migrate: target home {dst} already exists and is not empty"
+                )
+            dst.rmdir()
         os.rename(src, dst)  # same volume — atomic enough
         try:
-            os.symlink(dst, src, target_is_directory=True)
+            if os.name == "nt":
+                import _winapi
+
+                # Junctions need no admin rights / Developer Mode, unlike
+                # os.symlink on Windows. Argument order matches os.symlink:
+                # junction AT src pointing TO dst.
+                _winapi.CreateJunction(str(dst), str(src))
+            else:
+                os.symlink(dst, src, target_is_directory=True)
         except OSError as exc:
-            print(f"[owfa-home] warning: could not symlink {src} -> {dst} ({exc}); old absolute paths will not resolve")
+            print(f"[owfa-home] warning: could not link {src} -> {dst} ({exc}); old absolute paths will not resolve")
     return entry
 
 

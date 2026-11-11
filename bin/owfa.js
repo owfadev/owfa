@@ -131,6 +131,23 @@ function copyPayload(target, { replace = false } = {}) {
 // under .owfa/ and .agents/ is framework-owned and replaced by the channel.
 const META_MERGE_DIRS = [path.join("plugins", "domains"), "migrations"];
 
+// v0.4 renames the framework command/skill masters to owfa-* (review P1, PR #57
+// round 2): a real 0.3 tree carries the retired names, and the difference-based
+// carry-over would otherwise treat them as package-owned state and resurrect
+// them beside their successors — 8 duplicate masters, `kernel all` blocked by
+// one-sided owner-mapping errors. Retired framework names never carry; the map
+// documents where each one lives now.
+const RETIRED_MASTERS = new Map([
+  ["check", "owfa-check"],
+  ["docs", "owfa-docs"],
+  ["map", "owfa-map"],
+  ["plugin", "owfa-plugin"],
+  ["profile", "owfa-profile"],
+  ["query", "owfa-query"],
+  ["save", "owfa-save"],
+  ["wiki_plugin_kernel", "owfa-kernel"],
+]);
+
 // .owfa/command/ is mixed-ownership: framework commands ship in the fresh tree,
 // package commands (kernel install) and anything the channel no longer ships are
 // carried over by difference — the fresh copy wins for shared names.
@@ -140,7 +157,7 @@ function carryOverCommands(target, metaAttic) {
   const freshDir = path.join(target, ".owfa", "command");
   const fresh = new Set(fs.existsSync(freshDir) ? fs.readdirSync(freshDir) : []);
   for (const d of fs.readdirSync(oldDir)) {
-    if (fresh.has(d)) continue;
+    if (fresh.has(d) || RETIRED_MASTERS.has(d)) continue;
     fs.cpSync(path.join(oldDir, d), path.join(freshDir, d), { recursive: true, force: true });
   }
 }
@@ -168,7 +185,7 @@ function carryOverEntry(target, entry, attic) {
     const freshDir = path.join(target, ".agents", "skills");
     const fresh = new Set(fs.existsSync(freshDir) ? fs.readdirSync(freshDir) : []);
     for (const d of fs.readdirSync(oldSkills)) {
-      if (fresh.has(d)) continue; // framework-shipped skill — the fresh copy wins
+      if (fresh.has(d) || RETIRED_MASTERS.has(d)) continue; // framework-shipped / retired-via-rename — the fresh copy wins
       fs.cpSync(path.join(oldSkills, d), path.join(freshDir, d), { recursive: true, force: true });
     }
   }
@@ -231,8 +248,16 @@ function ensureMetaShim(target) {
   const owfa = path.join(target, ".owfa");
   if (!fs.existsSync(owfa)) return "absent";
   let kind = "missing";
-  if (fs.existsSync(metaPath)) {
-    if (!fs.lstatSync(metaPath).isSymbolicLink()) return "real-dir";
+  // lstat, not existsSync: a dangling shim (instance dir moved — review P2 round 2)
+  // makes existsSync false, which would skip the stale branch and hit EEXIST below.
+  let mst = null;
+  try {
+    mst = fs.lstatSync(metaPath);
+  } catch {
+    mst = null; // genuinely absent
+  }
+  if (mst) {
+    if (!mst.isSymbolicLink()) return "real-dir";
     kind = "link";
     let stale = true;
     try {
@@ -545,9 +570,19 @@ function cmdDoctor(args) {
   // directory means the 0.3 layout was never migrated. doctor reports; upgrade heals.
   const owfaDir = path.join(target, ".owfa");
   const metaPath = path.join(target, LEGACY_META);
-  if (fs.existsSync(owfaDir) && fs.existsSync(metaPath)) {
-    const st = fs.lstatSync(metaPath);
-    if (!st.isSymbolicLink()) {
+  if (fs.existsSync(owfaDir)) {
+    // lstat, not existsSync: a dangling shim must reach the stale branch, not
+    // silently skip the whole check (review P2, PR #57 round 2).
+    let mst = null;
+    try {
+      mst = fs.lstatSync(metaPath);
+    } catch {
+      mst = null;
+    }
+    if (!mst) {
+      out(".meta: shim missing — 0.3-era .meta/... paths will not resolve; run `owfa upgrade` to re-create it");
+      problems.push(".meta shim is missing");
+    } else if (!mst.isSymbolicLink()) {
       out(".meta: real directory — 0.3 layout never migrated; run `owfa upgrade`");
       problems.push(".meta is not the layout shim");
     } else {

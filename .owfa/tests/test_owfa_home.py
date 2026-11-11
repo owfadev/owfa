@@ -16,6 +16,7 @@ import owfa_home as h  # noqa: E402
 
 class OwfaHomeTests(unittest.TestCase):
     def setUp(self):
+        self._cwd = os.getcwd()
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         os.environ["OWFA_HOME"] = str(self.root / "machine")
@@ -24,6 +25,9 @@ class OwfaHomeTests(unittest.TestCase):
         os.environ.pop("OWFA_ROOT", None)
 
     def tearDown(self):
+        # tests chdir into the temp workspace; TemporaryDirectory.cleanup()
+        # cannot delete the cwd, so restore first (review P3, PR #57 round 2)
+        os.chdir(self._cwd)
         self.tmp.cleanup()
         os.environ.pop("OWFA_HOME", None)
         os.environ.pop("OWFA_ROOT", None)
