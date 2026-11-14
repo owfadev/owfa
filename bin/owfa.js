@@ -368,49 +368,12 @@ function convertCoreToPersonal(target) {
     }
   }
 
-  // family-root edge: dependency roots of the rescued set adopt `personal`
-  const memberSet = new Set(members);
-  for (const m of members) {
-    const mf = path.join(staging, m, "PLUGIN.yaml");
-    let text = fs.readFileSync(mf, "utf8");
-    const depMatch = text.match(/^depends:\s*(.*)$/m);
-    const deps = depMatch
-      ? depMatch[1].replace(/^\[|\]$/g, "").split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean)
-      : [];
-    if (deps.some((d) => memberSet.has(d) || d === "personal")) continue; // reaches the family through the set already
-    if (depMatch && depMatch[1].trim() === "[]") {
-      text = text.replace(/^depends:\s*\[\]\s*$/m, "depends:\n  - personal");
-    } else if (depMatch) {
-      text = text.replace(/^depends:.*$/m, (line) => line + "\n  - personal");
-    } else {
-      text = text.replace(/^(id:.*)$/m, "$1\ndepends:\n  - personal");
-    }
-    fs.writeFileSync(mf, text, "utf8");
-  }
-
-  // synthesize the family root plugin
-  const root = path.join(staging, "personal");
-  fs.mkdirSync(root, { recursive: true });
-  const today = new Date().toISOString().slice(0, 10);
-  fs.writeFileSync(
-    path.join(root, "PLUGIN.yaml"),
-    [
-      `# synthesized by the owfa channel: v0.4 core de-parasitization conversion (upgrade)`,
-      `# adopts the framework-shipped core masters as a package; replaced by the`,
-      `# canonical owfa-personal suite on the next \`kernel upgrade personal\`.`,
-      `id: personal`,
-      `schema_version: 1`,
-      `version: 0.1`,
-      `depends: []`,
-      `updated: ${today}`,
-      `attachment: []`,
-      `fields: {}`,
-      `inject: ${JSON.stringify("personal suite (converted from framework core by the 0.4 channel upgrade) — family identity anchor; members, skeleton and teardown anchors are declared in PKG.yaml; canonical source: owfadev/owfa-personal")}`,
-      ``,
-    ].join("\n"),
-    "utf8"
-  );
-  fs.writeFileSync(path.join(root, "PLUGIN.md"), "# personal\n\nSynthesized family root for the converted core suite (0.4 channel upgrade).\nSee PKG.yaml for members, skeleton and teardown anchors.\n", "utf8");
+  // rootless suite: kind=suite skips the family-root/closure law entirely
+  // (owfa_kernel validate_packages), so no synthesized root plugin and no
+  // synthetic `personal` dependency edges — the converted package matches the
+  // canonical owfa-personal shape (21 members, no root). This also keeps the
+  // projected injection region within the 16 KiB budget: near-capacity 0.3
+  // instances (domains installed) have no headroom for an extra block.
 
   // synthesize PKG.yaml — skeleton and anchors preserve the pre-0.4 channel
   // contract mechanically (INSTANCE_DIRS and the kernel's former teardown
@@ -427,7 +390,6 @@ function convertCoreToPersonal(target) {
     `version: 0.1.0`,
     `compat: ">= 0.4"`,
     `members:`,
-    `  - personal`,
     ...members.map((m) => `  - ${m}`),
     `skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]`,
     `uninstall:`,
