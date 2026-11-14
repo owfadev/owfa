@@ -16,8 +16,13 @@ import owfa_kernel as k  # noqa: E402
 
 class VersionSchemeTests(unittest.TestCase):
     def test_framework_version_parses_three_part_anchor(self):
-        # the repo's own VERSION is the full release version now
-        self.assertEqual(k.framework_version(), (0, 4, 0))
+        # the repo's own VERSION is the full release version now — expect
+        # exactly the anchor's own three-part tuple (version-agnostic: the
+        # test survives release bumps)
+        text = open(os.path.join(k.ROOT, ".owfa", "VERSION"), encoding="utf-8").read().strip()
+        expected = tuple(int(x) for x in text.split("."))
+        self.assertEqual(len(expected), 3)
+        self.assertEqual(k.framework_version(), expected)
 
     def test_framework_version_tolerates_legacy_two_part(self):
         import tempfile
@@ -35,12 +40,12 @@ class VersionSchemeTests(unittest.TestCase):
         self.assertEqual(k._vline("0.2"), (0, 2))
 
     def test_compat_floor_tuple_semantics(self):
-        fw = k.framework_version()  # (0, 4, 0)
-        self.assertFalse((0, 3) > fw)     # floor below the line passes
-        self.assertFalse((0, 4) > fw)     # floor at the line passes
-        self.assertFalse((0, 4, 0) > fw)  # floor equal to the release passes
-        self.assertTrue((0, 4, 1) > fw)   # floor demanding a later patch refuses
-        self.assertTrue((0, 5) > fw)      # floor above the line refuses
+        fw = k.framework_version()  # the live anchor, whatever release it says
+        self.assertFalse((0, 3) > fw)                      # floor below the line passes
+        self.assertFalse(fw[:2] > fw)                      # floor at the line passes
+        self.assertFalse(fw > fw)                          # floor equal to the release passes
+        self.assertTrue((fw[0], fw[1], fw[2] + 1) > fw)    # floor demanding a later patch refuses
+        self.assertTrue((fw[0] + 1,) > fw)                 # floor above the line refuses
 
     def test_staging_line_range(self):
         # mirror of the _stage_migrations predicate: stage when prev_line <= from_line < new_line
