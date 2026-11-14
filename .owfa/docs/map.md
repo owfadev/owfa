@@ -12,7 +12,7 @@
 | Installing/upgrading the framework body; npm channel; release runbook | [distribution.md](distribution.md) |
 | The name: OWFA expansion, two names two jobs, collision policy | [naming.md](naming.md) |
 | Converting a legacy (pre-split flat) instance to the package era | [conversion.md](conversion.md) — the eight-step drill walked on a real instance |
-| Instance git usage (snapshots, red lines, recovery) | the [instance-git plugin](../plugins/core/instance-git/PLUGIN.md) (core 21) |
+| Instance git usage (snapshots, red lines, recovery) | the instance-git plugin (personal suite member; canonical repo [owfa-personal](https://github.com/owfadev/owfa-personal), embedded copy at `payloads/personal/instance-git/`) |
 | Framework mechanics: projections, bridges, injection, inject tiers | [mechanics.md](mechanics.md) |
 | (Un)install history, package lifecycle | [mechanics.md](mechanics.md) §7 + [packages.md](packages.md) |
 | Third-party view: develop → publish → install → update → uninstall; name governance | [plugin-lifecycle.md](plugin-lifecycle.md) |

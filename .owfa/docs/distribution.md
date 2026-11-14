@@ -22,8 +22,9 @@ The npm tarball is the framework body, byte-for-byte what the git channel copies
 
 | Path | Contents | In tarball |
 |---|---|---|
-| `.owfa/` | kernel, plugins, commands, protocol, docs | yes |
-| `.agents/skills/` | command/connector skill copies | yes |
+| `.owfa/` | kernel, framework commands, protocol, docs — no plugins (the v0.4 split) | yes |
+| `.agents/skills/` | framework command/connector skill copies | yes |
+| `payloads/personal/` | the embedded **blessed suite** — the owfa-personal package (21 plugin masters + its command masters) that a default init installs offline | yes |
 | `templates/AGENTS.template.md` | the instance shell with the injection markers | yes |
 | `bin/owfa.js` | CLI (zero dependencies) | yes |
 | `README.md`, `LICENSE` | — | yes |
@@ -43,13 +44,13 @@ owfa pkg
 owfa version
 ```
 
-**init** — additive deployment, the five manual steps in [deployment.md](deployment.md) mechanized:
+**init** — additive deployment, the manual steps in [deployment.md](deployment.md) mechanized, two-stage by default:
 
 1. copies `.owfa/` and `.agents/skills/` from the tarball
-2. creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`
-3. writes `AGENTS.md` from the template when absent; when one exists, **appends only the injection region** (handwritten content before it is preserved byte-for-byte); refuses if the markers are half-present
-4. runs `python .owfa/scripts/owfa_kernel.py all` (validate → inject → registry → deploy)
-5. optionally installs packages from the registry (`--packages cuhksz,lark`)
+2. writes `AGENTS.md` from the template when absent; when one exists, **appends only the injection region** (handwritten content before it is preserved byte-for-byte); refuses if the markers are half-present
+3. runs `python .owfa/scripts/owfa_kernel.py all` (validate → inject → registry → deploy) over the kernel-only tree
+4. installs the embedded personal suite offline (`payloads/personal/`) — its `skeleton:` declaration creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`; `--core none` skips this stage, `--core <pkg-id>` takes the suite from the registry
+5. optionally installs further packages from the registry (`--packages cuhksz,lark`)
 
 A package may declare a **first-run semantic migration** (root packages such as `project` do). Installing it stages the migration, and the CLI stops there with the exact `kernel migrate` command — clearing it is an agent act (create the identity/declaration page), not something a mechanical installer may fake. `init --packages` therefore exits non-zero in that state: the workspace is installed but not converged.
 
@@ -60,6 +61,7 @@ A package may declare a **first-run semantic migration** (root packages such as 
 - compares the instance's `.owfa/VERSION` with the tarball's; refuses downgrades unless `--force`
 - preserves instance-local kernel state: `.owfa/migrations/pending.json`, `.owfa/kernel-journal.log`, `.owfa/registry-cache.yaml`
 - **replaces** local edits under `.owfa/` and `.agents/skills/` — instance hotfixes belong in the instance's git history, which is the rollback path (the `--backup` flag also drops a copy under `.owfa/backup/<version>-<timestamp>/`)
+- **converts** an in-tree core (every 0.3 / compat-era instance) into the personal suite package on the way in — the parked masters are rescued from the attic and adopted mechanically (`kernel upgrade personal` later swaps in the canonical suite)
 - reruns `all`; a pending semantic migration blocks convergence and is reported with the exact `kernel migrate` command
 - `--check` is a read-only report
 

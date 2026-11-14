@@ -5,7 +5,7 @@
 ```markdown
 # 运行日志
 
-> 置顶追加、只增不删；条目 = `- YYYY-MM-DD <类型> [<域>]：一句话`（域标可缺省——无域事务，log 桥）。规则见 `.owfa/plugins/core/log/`，写走 `pipeline.py log`。
+> 置顶追加、只增不删；条目 = `- YYYY-MM-DD <类型> [<域>]：一句话`（域标可缺省——无域事务，log 桥）。规则见 personal 套件（owfa-personal，内嵌副本 `payloads/personal/log/`）的 log 插件，写走 `pipeline.py log`。
 
 - 2026-10-12 other：<one sentence: what happened, from which domain, with what outcome>
 - 2026-10-12 map：<one sentence per mapping transaction>

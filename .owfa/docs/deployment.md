@@ -29,12 +29,11 @@ my-workspace/
 ├── wiki/                      # the markdown world
 │   ├── notes/  sessions/  vault/
 │   └── index.md  tags.md  hot.md  log.md   # derived, rebuilt by the pipeline
-├── .owfa/                     # OWFA Core
+├── .owfa/                     # OWFA Core (kernel-only tree since the v0.4 split)
 │   ├── VERSION                # framework anchor (0.4.0)
 │   ├── scripts/               # kernel + pipeline + wikilib
-│   ├── plugins/core/          # 21 framework plugins
-│   ├── plugins/domains/       # installed packages (empty until you add one)
-│   ├── command/               # command masters
+│   ├── plugins/domains/       # installed packages — the embedded personal suite (21 members) lands here on init; the channel itself ships no plugins
+│   ├── command/               # framework command masters (suite-owned commands ride with their package)
 │   └── docs/                  # this guide and friends
 └── .agents/skills/            # deployed command/connector skill copies
 ```
@@ -84,13 +83,14 @@ npx owfadev doctor                  # fallback: same check through the fallback 
 
 **Command forms.** `npx <package> <verb>` needs no global install. A global install (`npm i -g owfa` or `npm i -g owfadev`) puts **both** `owfa` and `owfadev` on `PATH`. The rest of this guide writes `owfa <verb>` for the CLI and `kernel …` for the Python engine; substitute `npx owfa` / `npx owfadev` if you are not installing globally.
 
-`init` performs the five manual steps below:
+`init` is two-stage by default (the v0.4 final shape — this is the only shape the channel ships):
 
-1. copies `.owfa/` and `.agents/skills/` from the tarball;
-2. creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`;
+1. copies `.owfa/` and `.agents/skills/` from the tarball and runs `python .owfa/scripts/owfa_kernel.py all` (validate → inject → registry → deploy) over the kernel-only tree;
+2. installs the embedded **personal suite** (the 21 former core plugins, a vetted copy of the **owfa-personal** package at `payloads/personal/`) offline — its `PKG.yaml` `skeleton:` declaration creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`, and its command masters (`owfa-map`, `owfa-profile`, `owfa-save`) deploy with it;
 3. writes `AGENTS.md` from the seed, or appends **only the injection region** to an existing one (the handwritten part is preserved; half-present markers are refused);
-4. runs `python .owfa/scripts/owfa_kernel.py all` (validate → inject → registry → deploy);
-5. optionally installs packages (`--packages cuhksz,lark`), stopping at the first package that stages a semantic migration.
+4. optionally installs packages (`--packages cuhksz,lark`), stopping at the first package that stages a semantic migration.
+
+`--core none` skips stage 2 (a kernel-only instance: no skeleton, no suite); `--core <pkg-id>` takes the suite from the registry instead of the embedded copy.
 
 Useful flags:
 
@@ -118,17 +118,22 @@ cp -R /path/to/owfa/.owfa          /path/to/my-workspace/
 cp -R /path/to/owfa/.agents/skills /path/to/my-workspace/.agents/
 ```
 
+Since the v0.4 split the copied tree carries the kernel only — no plugins. Install the embedded suite (it ships inside the clone at `payloads/personal/`) and the skeleton with it:
+
+```bash
+python3 .owfa/scripts/owfa_kernel.py install personal --path /path/to/owfa/payloads/personal
+```
+
 Then, at the workspace root:
 
 1. **Write `AGENTS.md`** — one identity paragraph, one layout paragraph, and the injection markers verbatim from [agents-example.md](agents-example.md). If an `AGENTS.md` already exists, paste in only the marker block (or let `owfa init` append it).
-2. **Create the four directories**: `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`. Derived pages build themselves.
-3. **Converge**:
+2. **Converge**:
 
 ```bash
 python .owfa/scripts/owfa_kernel.py all
 ```
 
-Expected: all core plugins validate, package rosters reconcile, the injection region is rebuilt, command copies are in sync.
+Expected: the personal suite's 21 members validate, package rosters reconcile, the injection region is rebuilt, command copies are in sync. The four skeleton directories (`vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`) came with the suite install — its `PKG.yaml` `skeleton:` declares them; the channel hardcodes no instance layout.
 
 ### 4.3 "Installing the kernel"
 
@@ -136,8 +141,8 @@ There is nothing separate to install. The kernel is the file `.owfa/scripts/owfa
 
 ```bash
 python3 .owfa/scripts/owfa_kernel.py validate   # structural check, read-only
-python3 .owfa/scripts/owfa_kernel.py ls         # 21 core plugins
-python3 .owfa/scripts/owfa_kernel.py pkg        # installed packages + core remainder
+python3 .owfa/scripts/owfa_kernel.py ls         # the personal suite's 21 members (the framework tree itself carries none)
+python3 .owfa/scripts/owfa_kernel.py pkg        # installed packages + the unclaimed core remainder
 ```
 
 On Windows, `python` may be `py -3`; the CLI probes `python3`, `python`, then `py -3`. Set `OWFA_PYTHON=/path/to/python3` to override. If the kernel is missing, the Core copy is incomplete — recopy the tree, do not "pip install" anything.

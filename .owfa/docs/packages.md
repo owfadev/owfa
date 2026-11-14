@@ -8,9 +8,8 @@
 
 ```
 .owfa/plugins/
-├── core/            # 21 framework plugins (the two roots + cross-cutting pieces)
-│   ├── wiki/ …
 └── domains/         # one directory per package = the install unit
+    ├── personal/    #   the embedded suite (21 former core plugins) — installed by a default init
     ├── cuhksz/      #   PKG.yaml + 8 plugin masters
     ├── lark/        #   PKG.yaml + 4 plugin masters
     ├── email/  bili/  project/
@@ -20,14 +19,15 @@ The **directory boundary == tier boundary == package boundary** — the same str
 
 | Unit | Members | Connectors | Depends |
 |---|---|---|---|
-| framework (core) | 21, incl. the explicit vault/mapping/structure exception — the default domain is constitutional infrastructure, the mapping proxy layer belongs to the wiki body | — | — |
+| framework (the channel tree) | none — since the v0.4.0 split the channel ships no plugins (kernel + framework commands only) | — | — |
+| personal (suite) | 21: the former core plugins, incl. the explicit vault/mapping/structure exception — the default domain is constitutional infrastructure, the mapping proxy layer belongs to the wiki body; embedded at `payloads/personal/`, canonical repo **owfa-personal** | — | framework |
 | cuhksz | cuhksz · bb · bb-map · bb-track · bb-teach · bb-quiz · sis · registry | bb-cli, sis-cli | framework |
 | lark | lark · lark-docs · lark-im · lark-calendar | lark-cli (external) | framework |
 | email | email | mail-cli | framework |
 | bili | bili | bili-cli | framework |
 | project | project | — | framework |
 
-Why the vault-exception matters: a naive "all domains are packages" split would ship the default domain out of the framework — but every instance boots on vault/mapping/structure before any package exists. Exceptions are declared, not discovered.
+Why the vault-exception matters: a naive "all domains are packages" split would ship the default domain out of the framework — but every instance boots on vault/mapping/structure before any other package exists. Since the v0.4.0 split these boot plugins ride as members of the embedded personal suite that the default init installs (exceptions declared, not shipped as framework files).
 
 ## PKG.yaml
 

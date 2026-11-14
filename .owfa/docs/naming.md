@@ -31,7 +31,7 @@ The name answers the project's actual starting pain: an agent that must be re-in
 | Framework | **OWFA Core** (proposed) | `.owfa/` + `.agents/skills/` | the body that is installed into a workspace |
 | Installer | **OWFA CLI** | `bin/owfa.js` (npm package) | fetch the tree, `init`, `upgrade`, `doctor`, `add` |
 | Engine | **kernel** | `.owfa/scripts/owfa_kernel.py` | validate / inject / registry / deploy / install mechanics |
-| Plugin tier | **core** | `.owfa/plugins/core/` | the 21 framework plugins |
+| Plugin tier | **core** | the owfa-personal suite package (embedded at `payloads/personal/` in the channel) | the 21 former framework plugins |
 | Extension | **package** | `.owfa/plugins/domains/<pkg>/` | domain families (cuhksz, lark, email, bili, project…) |
 | Unit | **instance** | the user's directory | a deployed workspace |
 

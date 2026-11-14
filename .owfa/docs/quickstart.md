@@ -24,7 +24,7 @@
 
 The manual steps below serve A and B; posture 0 skips them.
 
-**A. Just using it (clone-as-instance).** A clone of this repository *is* your instance: `git clone https://github.com/owfadev/owfa.git <your-vault>`, optionally `rm -rf <your-vault>/.git && git init` to own the history, then do steps ③–⑤ below (AGENTS.md shell, four directories, converge). Packages install on demand from the registry — `kernel install <pkg> --yes`. No development intent needed; you never touch the framework internals.
+**A. Just using it (clone-as-instance).** A clone of this repository *is* your instance: `git clone https://github.com/owfadev/owfa.git <your-vault>`, optionally `rm -rf <your-vault>/.git && git init` to own the history, then do steps ②–⑤ below (suite install, AGENTS.md shell, converge, verify). Packages install on demand from the registry — `kernel install <pkg> --yes`. No development intent needed; you never touch the framework internals.
 
 **B. Developing (template + instance).** Keep a clone of this repository as the *template* — development, experiments and upstream updates happen there, following [CONTRIBUTING.md](../../CONTRIBUTING.md). Separately deploy a real *instance* (your actual vault — posture A's steps, or the embedding steps below); when the template gains updates, review the diff and sync selectively into the instance, then converge — see the "Template + instance workflow" section of CONTRIBUTING.md. To develop is to run a real instance: the framework is validated in actual use, not in the abstract.
 
@@ -32,11 +32,11 @@ The manual steps below serve A and B; posture 0 skips them.
 
 **① Get the framework**: `git clone https://github.com/owfadev/owfa.git`, or download the ZIP and unzip it (the old personal-repo address redirects).
 
-**② Copy two trees** to the target vault root: `.owfa/` and `.agents/skills/`. Plugin masters, command masters and copies, protocol artifacts, and mechanical scripts all live there. The clone ships **core 20 only** — no domain packages. Packages are added per need from the registry: `python3 .owfa/scripts/owfa_kernel.py install <pkg> --yes` (see [packages.md](packages.md)); offline alternative — copy a package's `domains/<pkg>/` directory in and rerun `all`.
+**② Copy two trees** to the target vault root: `.owfa/` and `.agents/skills/`. Kernel, framework command masters and copies, protocol artifacts, and mechanical scripts all live there. Since the v0.4 split the tree carries **no plugins** — install the embedded personal suite (the 21 former core plugins, shipped in the clone at `payloads/personal/`) right after: `python3 .owfa/scripts/owfa_kernel.py install personal --path <clone>/payloads/personal` — its `skeleton:` declaration creates the four instance directories. Further packages are added per need from the registry: `python3 .owfa/scripts/owfa_kernel.py install <pkg> --yes` (see [packages.md](packages.md)); offline alternative — copy a package's `domains/<pkg>/` directory in and rerun `all`.
 
 **③ Write the target vault's AGENTS.md**: draft the shell yourself—one identity paragraph plus a layout description; copy the injection region marker block verbatim from [agents-example.md](agents-example.md), not a single character changed—from `<!-- wiki-inject:start -->` to `<!-- wiki-inject:end -->`—it is the sole source of the structural contract. If the target vault already has an AGENTS.md, paste in only the injection region block.
 
-**④ Create four empty directories**: `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`. Derived pages need no hand-creation—index, tags, hot, and log are built by the pipeline on first run; the root index's `format_version` is also rendered by the pipeline.
+**④ Skeleton comes with the suite**: the personal suite's `PKG.yaml` `skeleton:` created `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/` at install. Derived pages need no hand-creation—index, tags, hot, and log are built by the pipeline on first run; the root index's `format_version` is also rendered by the pipeline.
 
 **⑤ Converge the projections**, run at the target vault root:
 
@@ -46,15 +46,15 @@ python .owfa/scripts/owfa_kernel.py all
 The npm name `owfa` is under application (similarity freeze); until it is granted the fallback package serves the same CLI: `npx owfadev init my-workspace`, `npx owfadev doctor`, etc. — substitute `owfadev` for `owfa` in every command above.
 ```
 
-`init` copies `.owfa/` + `.agents/skills/`, creates `vault/` and the three wiki directories, writes or appends `AGENTS.md`, and runs the kernel. Existing content is untouched. Optional packages: `npx owfa init my-workspace --packages cuhksz,lark`.
+`init` copies `.owfa/` + `.agents/skills/`, writes or appends `AGENTS.md`, runs the kernel, then installs the embedded personal suite — the 21 former core plugins — which declares and creates the skeleton (`vault/` and the three wiki directories) and deploys its commands. Existing content is untouched. Optional packages: `npx owfa init my-workspace --packages cuhksz,lark`.
 
 Already have a workspace? `init` refuses if `.owfa/` exists; use `npx owfa upgrade` (or `--force` to re-copy the framework trees).
 
 ## 3. Manual five steps (git or offline)
 
 1. **Get the framework**: `git clone https://github.com/owfadev/owfa.git my-workspace` — a clone is a valid instance (the pre-rename `AIE3905-Wuwa/vault-wiki` URL redirects). To embed into an existing vault, clone the template elsewhere and copy `.owfa/` + `.agents/skills/` into the target root.
-2. **Write `AGENTS.md`**: one identity paragraph, one layout paragraph, and the injection markers verbatim from [agents-example.md](agents-example.md). Existing `AGENTS.md`? Paste in only the marker block.
-3. **Create four directories**: `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`.
+2. **Install the embedded personal suite**: `python3 .owfa/scripts/owfa_kernel.py install personal --path <clone>/payloads/personal` — the 21 former core plugins land as a package and the four skeleton directories come with its `skeleton:` declaration.
+3. **Write `AGENTS.md`**: one identity paragraph, one layout paragraph, and the injection markers verbatim from [agents-example.md](agents-example.md). Existing `AGENTS.md`? Paste in only the marker block.
 4. **Converge**:
    ```bash
    python .owfa/scripts/owfa_kernel.py all

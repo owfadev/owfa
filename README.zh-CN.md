@@ -47,7 +47,7 @@
 
 | 目录 | 内容 |
 |------|------|
-| `.owfa/` | 原型核心，两级插件布局：`plugins/core/`（20 个框架插件——domain 与 wiki 两个概念根、横切件，以及 vault/mapping/structure 的明示章程例外）+ `plugins/domains/<pkg>/`（一包一目录：`PKG.yaml` + 家族母本——cuhksz 8、lark 4、email、bili、project）。目录边界 == 层级边界 == 包边界；`PKG.yaml` 声明名册，内核对账家族闭包；`.owfa/VERSION` 锚定框架版本（包 `compat` 下限对它校验）。注入次序 = 依赖拓扑 + 字典序；AGENTS 注入区分层——成员级域件退出注入区（家族名册 + 技能 + 按需 manifest 读取承担曝光），受内核字节预算约束；全局插件可声明桥，必依桥由内核校验。另有 13 个命令母本、协议工件（registry、actions、experiments）与机械脚本 owfa_kernel、pipeline、wikilib——纯标准库零依赖 |
+| `.owfa/` | 框架树，v0.4 分仓后只随内核：`plugins/domains/<pkg>/`（一包一目录：`PKG.yaml` + 家族母本——默认 init 落地内嵌 **personal** 套件即 21 个前 core 插件；随后按需 cuhksz 8、lark 4、email、bili、project）。目录边界 == 层级边界 == 包边界；`PKG.yaml` 声明名册，内核对账家族闭包；`.owfa/VERSION` 锚定框架版本（包 `compat` 下限对它校验）。注入次序 = 依赖拓扑 + 字典序；AGENTS 注入区分层——成员级域件退出注入区（家族名册 + 技能 + 按需 manifest 读取承担曝光），受内核字节预算约束；全局插件可声明桥，必依桥由内核校验。另有 6 个框架命令母本（套件自有命令随包落地）、协议工件（registry、actions、experiments）与机械脚本 owfa_kernel、pipeline、wikilib——纯标准库零依赖；套件正仓为 owfa-personal，内嵌副本在 `payloads/personal/` |
 | `connectors/` | 连接器母本：部署侧 CLI 事实接口 + 技能使用披露。`connectors/*/SKILL.md` 经内核 deploy 落入 `.agents/skills/`；现有 bb-cli、sis-cli、mail-cli、bili-cli。连接器随各自包的 `PKG.yaml` 走 |
 | Packages | 索引在 [registry](https://github.com/owfadev/registry)（Obsidian 模式：包自托管于各自仓，一行 PR 即上架门）。`kernel install`/`list-remote` 对它解析；未入索引的仓 `--yes` 可装（trust: unknown）。组织仓 `pkg-cuhksz` / `pkg-lark` / `pkg-email` / `pkg-bili` / `pkg-project` / `pkg-github` 承载各包，带完整文件谱系拆分 |
 | `.agents/skills/` | 命令与连接器技能的部署副本（拆分后框架命令在此；连接器技能随包到达） |
