@@ -1,79 +1,28 @@
 # Quickstart
 
-> The five-minute path. Full guide — components, channels, packages, upgrades, troubleshooting: [deployment.md](deployment.md). The channel's design and release record: [distribution.md](distribution.md).
-> Status: npm `owfa` is under application (frozen on similarity grounds); until the registry serves it, the git channel works today. The fallback package `owfadev` carries the same CLI once published.
+Reader: a first-time user who wants a working OWFA workspace in about five minutes.
 
-## 1. Prerequisites
+## Prerequisites
 
-- **Python 3.9+** — the framework and kernel are pure stdlib; no pip, no venv.
-- **Node 16.7+** — only for the npm channel (the CLI is Node).
-- **An agent** that reads `AGENTS.md` and `.agents/skills/` (ZCode, Claude Code, Cursor, dsh…).
-- **git** recommended — instance snapshots and the upgrade rollback path.
+- **Node 16.7+** — the installer CLI is Node (`npx owfadev`).
+- **Python 3.9+** — the kernel is pure standard library; no pip, no venv.
+- **An agent** that reads `AGENTS.md` and `.agents/skills/` (Claude Code, Cursor, dsh, Zcode…).
 
-## 2. One command (npm channel)
-
-| Item | Requirement |
-|---|---|
-| Python | 3.9+, pure standard library, zero dependencies |
-| agent | A coding assistant that can read AGENTS.md and `.agents/skills/`, e.g. ZCode |
-| Obsidian | Optional, viewer only |
-
-## Three postures
-
-**0. One command (npm channel).** `npx owfa init <your-vault>` — fetches the framework, creates the directories, writes the AGENTS shell (or appends only the injection region to an existing one), and converges the projections. Then `cd <your-vault> && npx owfa doctor`. This is the same deployment as ①–⑤ below, mechanized; the manual steps remain the reference, the offline path and the developer path. Optional packages: `npx owfa init <dir> --packages cuhksz,lark`; later `npx owfa upgrade` replaces the framework trees and preserves the kernel's migration state. Details: [distribution.md](distribution.md).
-
-The manual steps below serve A and B; posture 0 skips them.
-
-**A. Just using it (clone-as-instance).** A clone of this repository *is* your instance: `git clone https://github.com/owfadev/owfa.git <your-vault>`, optionally `rm -rf <your-vault>/.git && git init` to own the history, then do steps ②–⑤ below (suite install, AGENTS.md shell, converge, verify). Packages install on demand from the registry — `kernel install <pkg> --yes`. No development intent needed; you never touch the framework internals.
-
-**B. Developing (template + instance).** Keep a clone of this repository as the *template* — development, experiments and upstream updates happen there, following [CONTRIBUTING.md](../../CONTRIBUTING.md). Separately deploy a real *instance* (your actual vault — posture A's steps, or the embedding steps below); when the template gains updates, review the diff and sync selectively into the instance, then converge — see the "Template + instance workflow" section of CONTRIBUTING.md. To develop is to run a real instance: the framework is validated in actual use, not in the abstract.
-
-## Five deployment steps
-
-**① Get the framework**: `git clone https://github.com/owfadev/owfa.git`, or download the ZIP and unzip it (the old personal-repo address redirects).
-
-**② Copy two trees** to the target vault root: `.owfa/` and `.agents/skills/`. Kernel, framework command masters and copies, protocol artifacts, and mechanical scripts all live there. Since the v0.4 split the tree carries **no plugins** — install the embedded personal suite (the 21 former core plugins, shipped in the clone at `payloads/personal/`) right after: `python3 .owfa/scripts/owfa_kernel.py install personal --path <clone>/payloads/personal` — its `skeleton:` declaration creates the four instance directories. Further packages are added per need from the registry: `python3 .owfa/scripts/owfa_kernel.py install <pkg> --yes` (see [packages.md](packages.md)); offline alternative — copy a package's `domains/<pkg>/` directory in and rerun `all`.
-
-**③ Write the target vault's AGENTS.md**: draft the shell yourself—one identity paragraph plus a layout description; copy the injection region marker block verbatim from [agents-example.md](agents-example.md), not a single character changed—from `<!-- wiki-inject:start -->` to `<!-- wiki-inject:end -->`—it is the sole source of the structural contract. If the target vault already has an AGENTS.md, paste in only the injection region block.
-
-**④ Skeleton comes with the suite**: the personal suite's `PKG.yaml` `skeleton:` created `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/` at install. Derived pages need no hand-creation—index, tags, hot, and log are built by the pipeline on first run; the root index's `format_version` is also rendered by the pipeline.
-
-**⑤ Converge the projections**, run at the target vault root:
-
-```
-python .owfa/scripts/owfa_kernel.py all
-
-The npm name `owfa` is under application (similarity freeze); until it is granted the fallback package serves the same CLI: `npx owfadev init my-workspace`, `npx owfadev doctor`, etc. — substitute `owfadev` for `owfa` in every command above.
-```
-
-`init` copies `.owfa/` + `.agents/skills/`, writes or appends `AGENTS.md`, runs the kernel, then installs the embedded personal suite — the 21 former core plugins — which declares and creates the skeleton (`vault/` and the three wiki directories) and deploys its commands. Existing content is untouched. Optional packages: `npx owfa init my-workspace --packages cuhksz,lark`.
-
-Already have a workspace? `init` refuses if `.owfa/` exists; use `npx owfa upgrade` (or `--force` to re-copy the framework trees).
-
-## 3. Manual five steps (git or offline)
-
-1. **Get the framework**: `git clone https://github.com/owfadev/owfa.git my-workspace` — a clone is a valid instance (the pre-rename `AIE3905-Wuwa/vault-wiki` URL redirects). To embed into an existing vault, clone the template elsewhere and copy `.owfa/` + `.agents/skills/` into the target root.
-2. **Install the embedded personal suite**: `python3 .owfa/scripts/owfa_kernel.py install personal --path <clone>/payloads/personal` — the 21 former core plugins land as a package and the four skeleton directories come with its `skeleton:` declaration.
-3. **Write `AGENTS.md`**: one identity paragraph, one layout paragraph, and the injection markers verbatim from [agents-example.md](agents-example.md). Existing `AGENTS.md`? Paste in only the marker block.
-4. **Converge**:
-   ```bash
-   python .owfa/scripts/owfa_kernel.py all
-   ```
-5. **Verify**: drop a file into `vault/`, open an agent at the root, say "owfa-map", then "owfa-check".
-
-There is no separate kernel install: the kernel is `.owfa/scripts/owfa_kernel.py` inside the tree; Python 3.9+ runs it. On Windows use `py -3` or set `OWFA_PYTHON`.
-
-## 4. Next
+## The five-minute path
 
 ```bash
-owfa list                  # registry catalog: packages, versions, installed marks
-owfa add cuhksz            # install a domain package (stops at a semantic migration if one is staged)
-owfa pkg                   # what is installed here
-owfa upgrade               # later: replace the framework trees, preserve instance state
+npx owfadev init my-workspace
+cd my-workspace
 ```
 
-These assume a global install (`npm i -g owfa` or `npm i -g owfadev`); without one, use `npx owfa …` / `npx owfadev …`.
+The npm package is **`owfadev`** (the name `owfa` is frozen by npm's similarity policy, so `npx owfa` does not work — always use `npx owfadev`).
 
-- Package lifecycle, trust levels, offline installs, uninstall: [deployment.md](deployment.md#7-packages--finding-and-installing).
-- Daily use: [usage.md](usage.md); mechanics: [mechanics.md](mechanics.md).
-- Developing the framework itself: [CONTRIBUTING.md](../../CONTRIBUTING.md).
+`init` is two-stage: stage ① bootstraps the kernel (the `.owfa/` tree plus an `AGENTS.md` seed — additive, existing content untouched), stage ② installs the embedded personal suite offline (`kernel install personal --path payloads/personal`), whose `skeleton:` declaration creates the workspace directories (`vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`).
+
+Now open an agent session at the workspace root, drop any file into `vault/`, and say **"owfa-map"** — the agent registers the asset as a wiki proxy page (SHA-256, mirror path, index/hot/log linkage). First run also builds the derived pages. Follow up with "owfa-check" to audit the instance's health.
+
+That's it — the workspace is live. Daily usage is covered in [usage.md](usage.md).
+
+## Manual deployment
+
+Prefer the manual path (git clone, offline, or embedding into an existing vault)? One sentence: copy the framework trees, install the suite, write the `AGENTS.md` shell, converge — step by step in [deployment.md](deployment.md).

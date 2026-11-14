@@ -9,13 +9,13 @@
 | How packages / install / upgrade / migrations work (design + decision ledger) | [packages.md](packages.md) |
 | Deploying an instance; components (CLI/Core/kernel); channels; packages; upgrades; troubleshooting | [deployment.md](deployment.md) |
 | Five-minute install path | [quickstart.md](quickstart.md) |
-| Installing/upgrading the framework body; npm channel; release runbook | [distribution.md](distribution.md) |
+| Installing/upgrading the framework body; npm channel | [deployment.md](deployment.md) ; release runbook | [releasing.md](releasing.md) |
 | The name: OWFA expansion, two names two jobs, collision policy | [naming.md](naming.md) |
 | Converting a legacy (pre-split flat) instance to the package era | [conversion.md](conversion.md) — the eight-step drill walked on a real instance |
 | Instance git usage (snapshots, red lines, recovery) | the instance-git plugin (personal suite member; canonical repo [owfa-personal](https://github.com/owfadev/owfa-personal), embedded copy at `payloads/personal/instance-git/`) |
 | Framework mechanics: projections, bridges, injection, inject tiers | [mechanics.md](mechanics.md) |
 | (Un)install history, package lifecycle | [mechanics.md](mechanics.md) §7 + [packages.md](packages.md) |
-| Third-party view: develop → publish → install → update → uninstall; name governance | [plugin-lifecycle.md](plugin-lifecycle.md) |
+| Third-party view: develop → publish → install → update → uninstall; name governance | [packages.md](packages.md) (consolidated) + [developer.md](developer.md) |
 | Experiments: sandbox or local | [sandbox.md](sandbox.md) |
 | Development rules, commit flow, template + instance workflow | [CONTRIBUTING.md](../../CONTRIBUTING.md) — template-repo root (an instance reads it there, never keeps a copy) |
 | Day-to-day usage loops | [usage.md](usage.md) |

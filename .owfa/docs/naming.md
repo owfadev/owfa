@@ -1,9 +1,9 @@
 # The name
 
 > **OWFA — One Workspace For All (agents).**
-> Public framework: **OWFA Core** (proposed; `vault-wiki` retires from the public surface) · installer: **OWFA CLI** · GitHub: **owfadev** · npm: `owfa` (application pending) or `owfadev` (fallback).
+> Public framework: **OWFA Core** · installer: **OWFA CLI** · GitHub: **owfadev/owfa** · npm: `owfadev` (bins `owfa` + `owfadev`).
 
-This page exists because a name is a contract with the people who type it. It records what the words commit to, which layers must not be collapsed, where the name actually resolves, and what happens if a registry refuses the string.
+This page exists because a name is a contract with the people who type it. It records what the words commit to, which layers must not be collapsed, and where the name actually resolves.
 
 ## The line
 
@@ -28,8 +28,8 @@ The name answers the project's actual starting pain: an agent that must be re-in
 | Layer | Name | Lives in | Job |
 |---|---|---|---|
 | Product | **OWFA** | README, npm page, docs | the brand |
-| Framework | **OWFA Core** (proposed) | `.owfa/` + `.agents/skills/` | the body that is installed into a workspace |
-| Installer | **OWFA CLI** | `bin/owfa.js` (npm package) | fetch the tree, `init`, `upgrade`, `doctor`, `add` |
+| Framework | **OWFA Core** | `.owfa/` + `.agents/skills/` | the body that is installed into a workspace |
+| Installer | **OWFA CLI** | `bin/owfa.js` (npm package `owfadev`) | fetch the tree, `init`, `upgrade`, `doctor`, `add` |
 | Engine | **kernel** | `.owfa/scripts/owfa_kernel.py` | validate / inject / registry / deploy / install mechanics |
 | Plugin tier | **core** | the owfa-personal suite package (embedded at `payloads/personal/` in the channel) | the 21 former framework plugins |
 | Extension | **package** | `.owfa/plugins/domains/<pkg>/` | domain families (cuhksz, lark, email, bili, project…) |
@@ -38,7 +38,7 @@ The name answers the project's actual starting pain: an agent that must be re-in
 The call chain is the reason the names must stay distinct:
 
 ```
-npx owfa init
+npx owfadev init
   └─ bin/owfa.js            CLI: fetch payload, copy trees, write AGENTS.md, call the engine
        └─ kernel             validate → inject → registry → deploy
             └─ core plugins  the structural contracts projected into AGENTS.md
@@ -47,36 +47,20 @@ npx owfa init
 Two rules fall out:
 
 - **CLI ≠ kernel.** The CLI is replaceable delivery (npm today, pipx or curl tomorrow); the kernel is deterministic mechanics with a fixed contract. Renaming the kernel to "OWFA CLI" would collapse the two and make the npm channel appear to own semantics it does not own.
-- **`core` is the plugin tier.** If the framework is publicly called *OWFA Core*, do **not** also name the repository `core`: one word, two referents. The repo is `owfadev/owfa` for now; if it ever splits, `owfadev/core` (framework body) and `owfadev/cli` (installer) can take the word, and only then does `core` mean the repo.
+- **`core` is the plugin tier.** The framework is publicly called *OWFA Core*, and the repository is `owfadev/owfa` — one word, two referents is avoided by never naming a repository `core`. If the framework ever splits, `owfadev/core` (framework body) and `owfadev/cli` (installer) can take the word, and only then does `core` mean the repo.
 
-`vault-wiki` is retired from the public surface: public copy says OWFA (or OWFA Core), the repo target is `owfadev/owfa`. The old string survives in history, old links and technical identifiers; there is no big-bang rename of the kernel, plugin directories or package IDs.
+`vault-wiki` is retired from the public surface: public copy says OWFA (or OWFA Core), the repo is `owfadev/owfa`. The old string survives in history, old links and technical identifiers; there is no big-bang rename of the kernel, plugin directories or package IDs.
 
-## Two names, two jobs
+## Two names, two jobs — the settled layout
 
 | Name | Job | Where it appears |
 |---|---|---|
-| `vault-wiki` | historical / technical alias — what the code was called | old links, commit history, registry rows until the move |
+| `vault-wiki` | historical / technical alias — what the code was called | old links, commit history |
 | OWFA / OWFA Core | public name — what the project is | README first line, npm page, docs |
-| `owfadev` | namespace — where the name resolves | GitHub org, npm fallback package |
+| `owfadev` | namespace — where the name resolves | GitHub org and npm package (dual bins `owfa` + `owfadev`) |
+| `owfa` | the CLI bin name, and the repository name (`owfadev/owfa`) | `PATH` after a global install; the GitHub home |
 
-A name that exists only in slides is a slogan; a name that resolves in a package manager is an address. The address layer is the one that has to be settled mechanically, not rhetorically.
-
-## Namespaces — the actual collision
-
-- **GitHub `owfa` is taken** by an unrelated, dormant organization ("One Web For All", 0 public repos). We do not claim it, link it, or wait for it.
-- **GitHub `owfadev` is available** (checked 2026-10-25). It is the project's org target. The repository target is `owfadev/owfa`; the current `AIE3905-Wuwa/vault-wiki` stays in place until the org exists and the team agrees to the move. A move is a migration either way: transfer the repo into a new org, or rename the current org (`AIE3905-Wuwa` is project-only — 9 repos, 3 members — so renaming is viable if the course no longer depends on the name). Both paths need the same URL/registry sweep; renaming releases the old org name and 404s the old org profile/API, while transferring leaves the course org intact. **Update 2026-10-26: the team agreed — direct org rename (plan B) to `owfadev` with the repository renamed to `owfa`; execution follows `migration.md`.**
-- **npm `owfa` is frozen.** `npm view owfa` returns 404, but 404 means "no published package", **not** "publishable": npm holds the name back under its similarity policy (too close to `ow` / `ora`; reported by the maintainer when publishing). The only path is an application to npm support.
-- **The fallback is `owfadev`** — it returns 404 on npm (no published package, no freeze reported; unlike `owfa`, confirm at the first publish), matching the GitHub org. The package can expose both bins (`owfa` and `owfadev`), so `npx owfadev init` works today and `owfa init` works after a global install. If the application is granted, `owfa` becomes the primary package; `owfadev` stays as an alias or is deprecated, never deleted.
-
-A 404 is not a claim. A frozen name is claimed by an application **plus** a working fallback, not by announcing the command early.
-
-## Sequence — why GitHub first
-
-1. **Create `owfadev` and move the repo** (`owfadev/owfa`), update metadata and links. This is the public home a reviewer can inspect.
-2. **Apply to npm** with the org, the repo, the docs and the fallback as evidence that this is a project, not a typo-squat.
-3. **Publish the fallback first if the application is slow**; switch the primary package to `owfa` if and when it is granted. The brand never blocks on the registry string.
-
-The order is not bureaucratic: npm support evaluates a project by its public home, and a repo that is about to move is weak evidence. Settle the home, then ask for the address.
+A name that exists only in slides is a slogan; a name that resolves in a package manager is an address. The address layer had to be settled mechanically, not rhetorically — and it now is: `npx owfadev` is the command every install example uses.
 
 ## What OWFA is not
 
@@ -93,21 +77,17 @@ The order is not bureaucratic: npm support evaluates a project by its public hom
 2. **"'Workspace' is vague; the thing is a wiki."**
    The wiki is the medium; the workspace is the owned unit of re-entry. The product's value is that a new session knows where to look, not that files end in `.md`.
 
-3. **"The GitHub org is taken and npm froze the name, so the name is not ours."**
-   The brand and the address are separate. The org target `owfadev` is ours; the npm fallback `owfadev` is publishable; `owfa` is an application, not a dependency. If the string is denied, the project still ships, and the README says which command works.
-
-4. **"Then rename the repo and all packages."**
-   No. The repo target is `owfadev/owfa`; package IDs, plugin directories and the kernel stay as they are. `core` stays the plugin tier. This is the `ripgrep`/`rg` pattern at the namespace level.
-
-5. **"It is still just a slogan."**
-   It is a CLI with a working fallback channel; the command runs under `owfadev` even before `owfa` is granted. That is the difference between a position paper and a channel.
+3. **"Then rename the repo and all packages."**
+   No. The repo is `owfadev/owfa`; package IDs, plugin directories and the kernel stay as they are. `core` stays the plugin tier. This is the `ripgrep`/`rg` pattern at the namespace level.
 
 ## Where the name is enforced
 
-- `package.json` — `"name": "owfa"` (target) with `"bin": { "owfa": "bin/owfa.js" }`; the fallback is the same file with `"name": "owfadev"` and bins `owfa` + `owfadev`
+- `package.json` — `"name": "owfadev"` with `"bin": { "owfa": …, "owfadev": … }`
 - `README.md` — first line, the *Name* section, and the install note (never announce a command the registry does not serve)
 - `templates/AGENTS.template.md` — the identity paragraph a new instance starts from
-- `.owfa/docs/distribution.md` — the channel's version invariant, fallback and release runbook
+- `.owfa/docs/releasing.md` — the channel's version invariant and release runbook
 - `scripts/verify-release.js` — the release gate (name/bin agreement, version rides `.owfa/VERSION`, tag matches)
 
-Update 2026-10-26: the repository itself is renamed to `owfa` (`owfadev/owfa`), and the public copy uses OWFA / OWFA Core; `vault-wiki` survives only in history and old links. Nothing in the kernel, plugin IDs, or registry depends on the brand.
+---
+
+**Outcome note (2026-10-26):** the project moved into the **`owfadev`** organization (org renamed from `AIE3905-Wuwa`, repository renamed from `vault-wiki` to `owfa`). npm held `owfa` frozen under its similarity policy, and the settled answer is the package **`owfadev`** with dual bins `owfa` + `owfadev` — published with provenance (v0.4.0 and v0.4.1, both 2026-11-14). The name question is closed; this page keeps the rationale, not the chase.
