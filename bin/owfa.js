@@ -298,14 +298,12 @@ function rescueCoreForConversion(target, attic, freshOwfa) {
 // (--yes is legitimate here: the channel itself is converting its own former
 // payload, a mechanical adoption, not a trust decision).
 //
-// Family closure (kernel D5 invariant): every member must reach the family root
-// through depends. The rescued set's own dependency roots (members whose depends
-// has no edge into the rescued set — today: domain, instance-git, wiki) get a
-// synthetic `- personal` edge in the STAGING copies only, so the adopted roster
-// validates. When the real owfa-personal suite later replaces this package via
-// `kernel upgrade`, the canonical manifests take over. The conversion stages no
-// semantic migration (no migrations/ dir: nothing semantic changes — plugin
-// bodies and projections are byte-identical), so there is nothing to verify-clear.
+// Rootless-suite conversion (kind: suite): the kernel's family-root/closure law
+// does not apply, so no synthesized root plugin and no synthetic dependency
+// edges — the staged package matches the canonical owfa-personal shape (21
+// members, no root). The conversion stages no semantic migration (no
+// migrations/ dir: nothing semantic changes — plugin bodies and projections are
+// byte-identical), so there is nothing to verify-clear.
 function convertCoreToPersonal(target) {
   const hold = path.join(target, MIGRATE_SCRATCH, "convert", "core");
   if (!fs.existsSync(hold)) return;
@@ -382,10 +380,8 @@ function convertCoreToPersonal(target) {
   const lines = [
     `# synthesized by the owfa channel: v0.4 core de-parasitization conversion (upgrade)`,
     `id: personal`,
-    // kind: suite — the conversion product is a rootless-suite package (the
-    // owfa-personal shape): the synthesized root below is a family-identity
-    // anchor only, the closure law does not apply, and the canonical rootless
-    // suite can replace this package via `kernel upgrade personal` cleanly
+    // kind: suite — the conversion product is a rootless-suite package: the
+    // canonical owfa-personal shape, replaceable via `kernel upgrade personal`
     `kind: suite`,
     `version: 0.1.0`,
     `compat: ">= 0.4"`,
