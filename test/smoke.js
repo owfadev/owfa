@@ -481,13 +481,13 @@ try {
     const dom = path.join(inst, ".owfa", "plugins", "domains", "personal");
     assert.ok(fs.existsSync(path.join(dom, "PKG.yaml")), "converted PKG.yaml missing");
     assert.ok(!fs.existsSync(path.join(inst, ".owfa", "plugins", "core")), "old plugins/core/ must not survive");
-    assert.ok(fs.existsSync(path.join(dom, "personal", "PLUGIN.yaml")), "synthesized family root missing");
+    assert.ok(!fs.existsSync(path.join(dom, "personal")), "rootless suite conversion must not synthesize a family root");
     for (const m of ["domain", "instance-git", "wiki", "vault", "log"]) {
       assert.ok(fs.existsSync(path.join(dom, m, "PLUGIN.yaml")), `rescued member ${m} missing`);
     }
     const pkgYaml = fs.readFileSync(path.join(dom, "PKG.yaml"), "utf8");
     // the conversion product is a suite package (the owfa-personal shape): the
-    // synthesized root is a family-identity anchor, the closure law does not apply
+    // rootless suite (kind: suite) — no synthesized root, no synthetic edges
     assert.ok(/^kind: suite$/m.test(pkgYaml), "converted PKG.yaml missing kind: suite");
     for (const m of ["domain", "instance-git", "wiki", "vault", "calendar", "cron", "todo", "user-profile"]) {
       assert.ok(new RegExp(`^  - ${m}$`, "m").test(pkgYaml), `PKG.yaml members missing ${m}`);
@@ -497,7 +497,6 @@ try {
     // family-root rewiring: the rescued dependency roots adopt personal
     for (const m of ["domain", "instance-git", "wiki"]) {
       const t = fs.readFileSync(path.join(dom, m, "PLUGIN.yaml"), "utf8");
-      assert.ok(/- personal/.test(t), `${m} did not adopt the personal family root`);
     }
     // the suite's command masters ride with the conversion (members declare them)
     for (const c of ["owfa-map", "owfa-save"]) {
@@ -509,8 +508,8 @@ try {
       assert.ok(fs.existsSync(path.join(inst, d)), `skeleton ${d} lost in conversion`);
     }
     const agents = fs.readFileSync(path.join(inst, "AGENTS.md"), "utf8");
-    assert.ok(agents.includes("<!-- plugin:personal"), "converted family root not injected");
-    assert.strictEqual(countPluginBlocks(agents), 22, `expected 22 plugin blocks after conversion (21 members + family root), got ${countPluginBlocks(agents)}`);
+    assert.ok(!agents.includes("<!-- plugin:personal"), "rootless conversion must not inject a synthesized root");
+    assert.strictEqual(countPluginBlocks(agents), 21, `expected 21 plugin blocks after rootless conversion, got ${countPluginBlocks(agents)}`);
     const d = run(["doctor", inst], tmpRoot);
     assert.strictEqual(d.status, 0, "converted instance fails doctor: " + d.stdout);
     assert.ok(!fs.existsSync(path.join(inst, ".owfa-migrate")), "conversion scratch not cleaned");
