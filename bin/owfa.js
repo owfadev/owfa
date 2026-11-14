@@ -390,7 +390,6 @@ function convertCoreToPersonal(target) {
     `version: 0.1.0`,
     `compat: ">= 0.4"`,
     `members:`,
-    `  - personal`,
     ...members.map((m) => `  - ${m}`),
     `skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]`,
     `uninstall:`,
