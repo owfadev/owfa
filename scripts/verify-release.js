@@ -58,10 +58,12 @@ const REQUIRED = [
   ".owfa/scripts/owfa_kernel.py",
   ".owfa/docs/deployment.md",
   ".owfa/docs/quickstart.md",
-  ".agents/skills/owfa-map/SKILL.md",
+  ".owfa/command/owfa-query/SKILL.md",
   "bin/owfa.js",
   "payloads/personal/PKG.yaml",
   "payloads/personal/README.md",
+  "payloads/personal/wiki/PLUGIN.yaml",
+  "payloads/personal/command/owfa-map/SKILL.md",
   "templates/AGENTS.template.md",
 ];
 const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "payloads/", "templates/", "package.json", "README.md",
@@ -90,6 +92,11 @@ if (pack.status !== 0) {
     for (const bad of FORBIDDEN) if (bad.test(f)) problems.push(`local/dev state would ship: ${f}`);
   }
   if (files.some((f) => f.startsWith("vault/") || f.startsWith("wiki/"))) problems.push("instance data (vault/ or wiki/) would ship");
+  // v0.4 final shape: core lives in the embedded suite, never in the framework tree
+  if (files.some((f) => f.startsWith(".owfa/plugins/core/"))) problems.push("plugins/core/ must not ship — the core masters live in payloads/personal/");
+  if (files.some((f) => f.startsWith(".owfa/command/owfa-map/") || f.startsWith(".owfa/command/owfa-profile/") || f.startsWith(".owfa/command/owfa-save/"))) {
+    problems.push("core-owned command masters (owfa-map/owfa-profile/owfa-save) must not ship in .owfa/command/ — they ride with the personal suite package");
+  }
 }
 
 if (problems.length) {

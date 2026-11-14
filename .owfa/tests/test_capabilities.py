@@ -35,6 +35,10 @@ class CapabilityTests(unittest.TestCase):
         self.source.mkdir()
         self.env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
         self.env.pop("PYTHONPATH", None)
+        # v0.4 final shape: the framework tree ships no plugins — the synthetic
+        # instances bootstrap exactly like a real init (embedded personal suite)
+        result = self.run_kernel("install", "personal", "--path", str(FRAMEWORK / "payloads" / "personal"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = self.run_kernel("all")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -244,8 +248,9 @@ class CapabilityTests(unittest.TestCase):
 
     def test_rootless_suite_validates_green(self):
         # rootless suite: parallel members, no root plugin — family-root/closure
-        # laws must not apply (the owfa-personal shape)
-        suite = self.source / "personalpkg"
+        # laws must not apply (the owfa-personal shape; id "synth" — the real
+        # "personal" suite is already installed by the v0.4 bootstrap setUp)
+        suite = self.source / "synthpkg"
         suite.mkdir()
         for name, deps in (("swiki", "[]"), ("slog", "[swiki]")):
             member = suite / name
@@ -257,19 +262,19 @@ class CapabilityTests(unittest.TestCase):
                 f'inject: "{name} suite member (synthetic)"\n', encoding="utf-8")
             (member / "PLUGIN.md").write_text("# member\n", encoding="utf-8")
         (suite / "PKG.yaml").write_text(
-            "id: personal\nkind: suite\nversion: 0.1.0\ncompat: '>= 0.3'\n"
+            "id: synth\nkind: suite\nversion: 0.1.0\ncompat: '>= 0.3'\n"
             "members: [swiki, slog]\ndepends: [framework]\n", encoding="utf-8")
-        result = self.run_kernel("install", "personal", "--path", str(suite))
+        result = self.run_kernel("install", "synth", "--path", str(suite))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.run_kernel("validate").returncode, 0)
         # the same roster WITHOUT kind: suite must fail the family-root laws
         (suite / "PKG.yaml").write_text(
-            "id: personal\nversion: 0.1.0\ncompat: '>= 0.3'\n"
+            "id: synth\nversion: 0.1.0\ncompat: '>= 0.3'\n"
             "members: [swiki, slog]\ndepends: [framework]\n", encoding="utf-8")
-        self.run_kernel("uninstall", "personal", "--yes")
-        result = self.run_kernel("install", "personal", "--path", str(suite))
+        self.run_kernel("uninstall", "synth", "--yes")
+        result = self.run_kernel("install", "synth", "--path", str(suite))
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("family root personal must be a member", result.stdout)
+        self.assertIn("family root synth must be a member", result.stdout)
 
     def test_unknown_kind_is_rejected(self):
         suite = self.source / "weirdpkg"

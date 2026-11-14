@@ -32,6 +32,10 @@ class InstallPreflightTests(unittest.TestCase):
         self.source.mkdir()
         self.env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
         self.env.pop("PYTHONPATH", None)
+        # v0.4 final shape: the framework tree ships no plugins — the synthetic
+        # instances bootstrap exactly like a real init (embedded personal suite)
+        result = self.run_kernel("install", "personal", "--path", str(FRAMEWORK / "payloads" / "personal"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = self.run_kernel("all")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 

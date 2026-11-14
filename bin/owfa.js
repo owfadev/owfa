@@ -29,11 +29,12 @@ const FRAMEWORK_VERSION = readVersion(CLI_ROOT) || "?";
 const INJECT_START = "<!-- wiki-inject:start -->";
 const INJECT_END = "<!-- wiki-inject:end -->";
 const PAYLOAD = [".owfa", ".agents"];
-// v0.4 de-parasitization: the channel no longer hardcodes instance skeleton dirs.
-// Packages declare their own (`skeleton:` in PKG.yaml; the kernel mkdirs them on
-// install), and the blessed suite copy embedded at payloads/personal/ is what a
-// fresh init installs by default (offline, --path channel). Compat period: while
-// this channel still ships .owfa/plugins/core/, init skips the suite stage.
+// v0.4 de-parasitization (final shape): the channel no longer hardcodes instance
+// skeleton dirs and no longer ships .owfa/plugins/core/ — the 21 core plugins live
+// in the owfa-personal suite repo, embedded at payloads/personal/, and that blessed
+// copy is what a fresh init installs by default (offline, --path channel). Packages
+// declare their own skeleton (`skeleton:` in PKG.yaml; the kernel mkdirs them on
+// install), so the default two-stage init lands both framework and skeleton.
 const BLESSED_SUITE = path.join(CLI_ROOT, "payloads", "personal");
 // 0.3 instances carry the framework in .meta/; upgrade migrates them to .owfa/
 // and leaves a .meta shim (symlink/junction) so old absolute paths keep working.
@@ -322,6 +323,51 @@ function convertCoreToPersonal(target) {
   fs.mkdirSync(staging, { recursive: true });
   for (const m of members) fs.cpSync(path.join(hold, m), path.join(staging, m), { recursive: true });
 
+  // 0.3-era rescued manifests still declare the pre-rename command ids (map /
+  // profile / save) while the command masters riding with this conversion carry
+  // the v0.4 successors — rewrite the staging copies' `commands:` lists so the
+  // adopted roster binds (flow list and block list both handled).
+  for (const m of members) {
+    const mf = path.join(staging, m, "PLUGIN.yaml");
+    const lines = fs.readFileSync(mf, "utf8").split("\n");
+    let inCommands = false;
+    for (let i = 0; i < lines.length; i++) {
+      const flow = lines[i].match(/^((?:commands|usage_routes):\s*)\[(.*)\](\s*)$/);
+      if (flow) {
+        const items = flow[2].split(",").map((s) => s.trim()).filter(Boolean)
+          .map((s) => RETIRED_MASTERS.get(s) || s);
+        lines[i] = `${flow[1]}[${items.join(", ")}]${flow[3]}`;
+        continue;
+      }
+      if (/^(commands|usage_routes):\s*$/.test(lines[i])) {
+        inCommands = true;
+        continue;
+      }
+      if (inCommands) {
+        const item = lines[i].match(/^(\s*-\s*)(\S+)\s*$/);
+        if (!item) {
+          inCommands = false;
+          continue;
+        }
+        lines[i] = item[1] + (RETIRED_MASTERS.get(item[2]) || item[2]);
+      }
+    }
+    fs.writeFileSync(mf, lines.join("\n"), "utf8");
+  }
+
+  // the suite's command masters ride along: the members adopted above declare
+  // them (mapping/notes/sessions/user-profile `commands:`), and the embedded
+  // blessed copy carries the canonical copies — without them the converted
+  // instance would lose map/save/profile until a manual `kernel upgrade personal`
+  const blessedCmd = path.join(CLI_ROOT, "payloads", "personal", "command");
+  if (fs.existsSync(blessedCmd)) {
+    const stagingCmd = path.join(staging, "command");
+    fs.mkdirSync(stagingCmd, { recursive: true });
+    for (const d of fs.readdirSync(blessedCmd)) {
+      fs.cpSync(path.join(blessedCmd, d), path.join(stagingCmd, d), { recursive: true });
+    }
+  }
+
   // family-root edge: dependency roots of the rescued set adopt `personal`
   const memberSet = new Set(members);
   for (const m of members) {
@@ -597,13 +643,14 @@ function cmdInit(args) {
   const name = args.name || path.basename(target) || "workspace";
   fs.mkdirSync(target, { recursive: true });
 
-  // two-stage bootstrap (v0.4 core de-parasitization). Stage ①: the kernel
-  // payload. Stage ② (after convergence): the core suite — by default the
-  // blessed copy embedded in this channel tarball (offline, --path channel);
+  // two-stage bootstrap (v0.4 core de-parasitization, final shape). Stage ①: the
+  // kernel payload. Stage ② (after convergence): the personal suite — by default
+  // the blessed copy embedded in this channel tarball (offline, --path channel);
   // `--core none` skips it; `--core <pkg-id>` takes the suite from the registry.
-  // Compat period: while this channel still ships .owfa/plugins/core/, the suite
-  // already lives in the framework tree — stage ② is skipped and saying otherwise
-  // is refused up front.
+  // Defensive compat branch: this channel stopped shipping .owfa/plugins/core/ in
+  // v0.4.0 — if a future (or hand-assembled) channel tree ever carries core again,
+  // the suite already lives in the framework tree and stage ② must not double-
+  // install; saying otherwise is refused up front.
   const coreShipped =
     fs.existsSync(path.join(CLI_ROOT, ".owfa", "plugins", "core")) ||
     fs.existsSync(path.join(CLI_ROOT, ".meta", "plugins", "core"));
@@ -641,7 +688,7 @@ function cmdInit(args) {
   // ---- stage ②: the core suite ----
   let suiteNote;
   if (coreShipped) {
-    suiteNote = "core suite ships inside the framework tree (compat)";
+    suiteNote = "core suite ships inside the framework tree (defensive compat branch — this channel does not)";
     out(`suite: ${suiteNote} — no separate suite package is installed`);
   } else if (args.core === "none") {
     suiteNote = "no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed";
@@ -659,13 +706,19 @@ function cmdInit(args) {
   } else {
     // default: the embedded blessed copy — 100% offline, local --path trust.
     // A copy without plugin masters is the placeholder state (suite repo not yet
-    // synced into the channel): report it exactly like --core none.
+    // synced into the channel): report it exactly like --core none. A --force
+    // re-init over an instance that already carries the suite keeps it (the
+    // package tree is instance state, the channel never replaces it here).
+    const pkgDir = path.join(target, ".owfa", "plugins", "domains", "personal");
     const hasMasters =
       fs.existsSync(path.join(BLESSED_SUITE, "PKG.yaml")) &&
       fs.readdirSync(BLESSED_SUITE, { withFileTypes: true }).some(
         (d) => d.isDirectory() && fs.existsSync(path.join(BLESSED_SUITE, d.name, "PLUGIN.yaml"))
       );
-    if (hasMasters) {
+    if (fs.existsSync(pkgDir)) {
+      suiteNote = "personal suite already installed — kept";
+      out(`suite: ${suiteNote}`);
+    } else if (hasMasters) {
       out("");
       out("installing the blessed personal suite (embedded copy — offline)");
       if (kernel(target, ["install", "personal", "--path", BLESSED_SUITE]) !== 0) {
@@ -705,7 +758,7 @@ function cmdInit(args) {
   out("next:");
   out(`  cd ${target}`);
   out("  git init && git add -A && git commit -m \"init: OWFA workspace\"   # recommended: instance snapshots");
-  out("  skeleton dirs (vault/, wiki/...) are declared by installed packages — kernel install creates them");
+  out(`  skeleton dirs (vault/, wiki/...) came with the suite — its PKG.yaml \`skeleton:\` declared them`);
   out("  owfa doctor        # anytime: python, framework, kernel validate");
   return 0;
 }
@@ -911,7 +964,8 @@ notes:
   - \`init\` never deletes instance data; \`upgrade\` preserves the kernel's
     migration ledger, journal and registry cache
   - skeleton dirs (vault/, wiki/...) come from package declarations (PKG.yaml
-    \`skeleton:\`), created on install — the channel hardcodes no instance layout
+    \`skeleton:\`), created on install — the default init already installed the
+    embedded personal suite and its skeleton
   - no install/postinstall scripts: npm install executes nothing
 `);
 }
