@@ -86,7 +86,7 @@ PKG.yaml is a **minimal YAML subset** — top-level scalars, `key: []`, block li
 
 Absent `kind` = the classic domain-family behavior (default): the kernel computes the family closure and diffs it against `members` both ways — drift is a validate error. Why declare at all, when the closure is computable? Because the depends graph is live and a package is a versioned anchor: a closure-derived package would silently change contents as the graph evolves. The declared roster pins contents to the version.
 
-Site side, v1 requires full presence — every member on disk; the subset grammar (`installed ⊆ members`, non-empty, dependency-closed, root mandatory for domain-family) is fixed now so `--without` (reserved, v1 reports not-yet-open) never breaks the validator later. Its promise is semantic — zero injection, zero skill surface, zero credentials — not physical.
+Site side, v1 requires full presence — every member on disk; the subset grammar (`installed ⊆ members`, non-empty, dependency-closed, root mandatory for domain-family) is fixed so `--without` never breaks the validator: `kernel install <pkg> --without a,b` (and `owfa add <pkg> --without a,b`) installs a validated subset today — installed members get a `suite subset install` note in validate. Its promise is semantic — zero injection, zero skill surface, zero credentials — not physical.
 
 ## Capabilities
 
@@ -130,7 +130,7 @@ Subcommands (package lifecycle, 8 total incl. `migrate` — see [conversion.md](
 | `plan <pkg>` | dependency disclosure before a package lands: trust level, package disclosure, baseline/optional members, connectors, suggested command. One-shot, never interactive — the *agent* runs the consent conversation; the kernel only discloses |
 | `install <pkg>[@tag]` | resolve the registry index (members reconciled against PKG.yaml) → trust gate → clone → prospective manifest/budget preflight → copy masters/connectors/commands → converge |
 | `uninstall <pkg> --yes` | mechanical four-clear (masters / commands / connectors / skills) + convergence + residual scan + retains/credentials reminders — data never touched |
-| `residual <pkg>` | standalone residual scan: greps the anchor surfaces (AGENTS handwritten region + `uninstall.anchors`, profile/language/calendar/todo/cron pages) for member references — word-boundary, deliberately broad; the kernel-managed injection region is skipped (cleaned mechanically) |
+| `residual <pkg>` | standalone residual scan: greps the anchor surfaces (AGENTS handwritten region + the package's `uninstall.anchors` pages — profile/language/calendar/todo/cron for the personal suite, per its PKG.yaml) for member references — word-boundary, deliberately broad; the kernel-managed injection region is skipped (cleaned mechanically) |
 | `list-remote` | registry index table with installed marks |
 | `upgrade` / `upgrade <pkg> --yes` | read-only reconciliation report; applying is a **silent reinstall** per package (never cascaded) — member deltas, changelog excerpts, chained migration staging |
 | `pkg` | package inventory: members, connectors, plugins unclaimed by any package |
@@ -191,7 +191,7 @@ transports:
 | D2 | package version ≠ member versions | distribution unit ≠ semantic unit; lockstep is a trap |
 | D3 | scope/tolerant validate in the binding round | the split is only safe if repos can self-check without the full graph |
 | D4 | instance-local packages live in `domains/` too | one semantic: package directory == install unit; zero-index private packages |
-| D5 | subset grammar fixed now, `--without` opens on demand | validator format never breaks; first real subset user triggers it |
+| D5 | subset grammar fixed, `--without` shipped open | validator format never breaks; subset is validated at install time |
 | D6 | declarative uninstall, no hooks | third execution surface declined; deletion knowledge becomes reviewable data |
 | D7 | migrations are declarations closing 0→x→y→0; teardown ships dormant with every install | semantic change rides reviewable files; the x→0 case must be declared *before* the package is gone |
 | D8 | sweep symmetry + dormant PKG.yaml presence marker | ledger truth without a cron; manual `rm -rf` still self-heals (no hooks anywhere) |

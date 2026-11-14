@@ -5,7 +5,7 @@
 ## 前提
 
 - **Node 16.7+** —— 安装器 CLI 是 Node 的（`npx owfadev`）。
-- **Python 3.9+** —— 内核是纯标准库，不需要 pip，也不需要 venv。
+- **Python 3.9+** —— kernel是纯标准库，不需要 pip，也不需要 venv。
 - **一个会读 `AGENTS.md` 与 `.agents/skills/` 的 agent**（Claude Code、Cursor、dsh、Zcode…）。
 
 ## 五分钟路径

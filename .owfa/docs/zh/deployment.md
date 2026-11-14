@@ -183,7 +183,7 @@ git init && git add -A && git commit -m "init: OWFA workspace"   # 建议
 | 讲解 / 出题 / 认知档案 | 课程学习全家（需课程 domain，如 cuhksz） |
 | kernel 参考 | kernel 用法与机制 |
 
-日常循环——库务、课程学习、协作开发——见 [usage.md](usage.md)。机制见 [mechanics.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/mechanics.md)；flag 以 kernel 参考 skill 为权威。
+日常循环——库务、课程学习、协作开发——见 [usage.md](usage.md)。机制见 [mechanics.md](mechanics.md)；flag 以 kernel 参考 skill 为权威。
 
 ## 7. package——查找与安装
 
@@ -242,7 +242,7 @@ python3 .owfa/scripts/owfa_kernel.py uninstall <pkg> --yes
 
 - package 版本是骑在自己 tag 上的发布序数；成员 plugin 版本不联动。
 - 升级在新版本落地时 stage 语义迁移；做下一个机械动作前先清掉。
-- 卸载做机械四清（母本、命令、connector、skill）加残余扫描；**数据区与凭据永不自动删除**。声明的 teardown 会 stage 语义删除警告与残余闸。见 [packages.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md)。
+- 卸载做机械四清（母本、命令、connector、skill）加残余扫描；**数据区与凭据永不自动删除**。声明的 teardown 会 stage 语义删除警告与残余闸。见 [packages.md](packages.md)。
 
 ## 8. 升级框架
 
@@ -303,7 +303,7 @@ npx owfadev upgrade --backup   # 在 .owfa/backup/<version>-<timestamp>/ 留一�
 - **Windows？** 纯标准库、无硬编码路径；CLI 探测 `py -3`。Git Bash 与 PowerShell 皆可。
 - **离线？** 联网机上 `npm pack`，拷 `.tgz`，`npm install -g ./owfa-x.y.z.tgz`，再 `owfa init`。package 可拷 `domains/<pkg>/` 后用 `all` 收敛。
 - **多工作区？** 一目录一实例，互相独立。CLI 可 init/upgrade 任意路径。
-- **plugin 从哪来？** registry 索引；未索引仓库可用 `--yes` 装（trust: unknown）。package 模型与 `PKG.yaml` 见 [packages.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md)。
+- **plugin 从哪来？** registry 索引；未索引仓库可用 `--yes` 装（trust: unknown）。package 模型与 `PKG.yaml` 见 [packages.md](packages.md)。
 
 ## 附录——命令速查
 

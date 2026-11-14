@@ -10,7 +10,7 @@
 |---|---|
 | 用起来——五分钟建好一个 workspace | [quickstart.md](quickstart.md) |
 | 懂原理——kernel、plugin、投影、bridge | [mechanics.md](mechanics.md) |
-| 写插件或包 | [packages.md](packages.md) + [developer.md](developer.md) |
+| 写plugin或包 | [packages.md](packages.md) + [developer.md](developer.md) |
 | 装机 / 升级实例（手动路径、各通道） | [deployment.md](deployment.md) |
 | 发版——框架或包 | [releasing.md](releasing.md) |
 | 把 0.3 旧实例迁到 0.4 | [conversion.md](conversion.md) |

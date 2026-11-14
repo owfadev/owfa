@@ -1,18 +1,18 @@
-# 开发者指南：写插件与包
+# 开发者指南：写plugin与包
 
 读者：任何想为 OWFA 生态贡献 plugin 或 package 的人。
 
-插件落在哪里由它的 `depends` 决定，而非个人口味——而且无论落在哪里，开发循环都一样：clone → 分支 → 修改 → `--path` 装进沙箱 → PR。机制细节（PKG.yaml 字段、能力机制、通道与信任、装卸契约、版本、registry 行格式）都在 [packages.md](packages.md)——本页只有落位表、开发循环与发现机制。
+plugin落在哪里由它的 `depends` 决定，而非个人口味——而且无论落在哪里，开发循环都一样：clone → 分支 → 修改 → `--path` 装进沙箱 → PR。机制细节（PKG.yaml 字段、能力机制、通道与信任、装卸契约、版本、registry 行格式）都在 [packages.md](packages.md)——本页只有落位表、开发循环与发现机制。
 
-## 你的插件落在哪里？
+## 你的plugin落在哪里？
 
-| 你的插件是…… | 落在…… | 信任门 |
+| 你的plugin是…… | 落在…… | 信任门 |
 |---|---|---|
 | **domain 成员**（depends 链到达某个 domain 根，如 bb 家族） | 该 domain 包的仓库——往那里提 PR。没有选择余地：家族闭包会机械地认领你（`PKG.members` 必须包含你，否则 validate 报错） | 包维护者 |
 | 一个独立的**新 domain** | 你自己的仓库作为一个包（`PKG.yaml`，见 [packages.md](packages.md)）+ 向 [registry](https://github.com/owfadev/owfa-registry) 提一行 PR | registry PR——人工评审门（inject 文本与 connector 是安全面） |
 | **横切 / 非 domain**（全局件） | blessed 套件包仓库（**owfadev/owfa-personal**）——往那里提 PR | 所有者评审（章程级，门槛最高） |
 
-单个插件从不裸发货——package 才是分发单元。孤插件就是单成员包（十几行 PKG.yaml，参见 owfa-email / owfa-bili / owfa-project）。
+单个plugin从不裸发货——package 才是分发单元。孤plugin就是单成员包（十几行 PKG.yaml，参见 owfa-email / owfa-bili / owfa-project）。
 
 ## 开发循环
 

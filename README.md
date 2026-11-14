@@ -36,7 +36,7 @@ Let an AI coding agent run a "personal wiki" for you:
 | Concept | Definition |
 |---|---|
 | wiki | the md world, the inner side of the inner/outer divide: per-domain projections + native notes + derived layer |
-| domain | the adapter contract for an information source outside the wiki. vault is the default domain; lark, project, email, cuhksz, bili are domains too |
+| domain | the adapter contract for an information source outside the wiki. vault is the default domain; lark, project, email, cuhksz, bili, github are domains too |
 | vault | the default domain — the real-asset repository; command side append-only, deletion & editing belong to the human |
 | SASU-L | the disclosure paradigm: the agent learns only via system prompt, AGENTS.md, Skills, user's words, loop |
 

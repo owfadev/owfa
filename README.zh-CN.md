@@ -18,7 +18,7 @@
 
 ## 关于命名
 
-**OWFA — One Workspace For All (agents)。** 一个工作区——你拥有的目录，装着 `vault/`、`wiki/`、`AGENTS.md` 与框架本体——你使用的每一个 agent 都重新进入它，而不是每次会话重新认识它。*All* 指的是*你的*所有 agent，不是所有人，也不是托管服务；人始终是所有者与审计锚点。`vault-wiki` 退出公开面：公开文案称 **OWFA**（或 **OWFA Core**），GitHub 家在 **`owfadev/owfa`**，npm 包名是 **`owfadev`**——npm 以「与 `ow`/`ora` 过于相似」冻结了 `owfa`，`npx owfa` 不可用，因此一切安装示例写 `npx owfadev`（包装好后暴露 `owfa` bin）。完整的理据、分层与撞名对策：[`.owfa/docs/zh/naming.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/naming.md)。
+**OWFA — One Workspace For All (agents)。** 一个工作区——你拥有的目录，装着 `vault/`、`wiki/`、`AGENTS.md` 与框架本体——你使用的每一个 agent 都重新进入它，而不是每次会话重新认识它。*All* 指的是*你的*所有 agent，不是所有人，也不是托管服务；人始终是所有者与审计锚点。`vault-wiki` 退出公开面：公开文案称 **OWFA**（或 **OWFA Core**），GitHub 家在 **`owfadev/owfa`**，npm 包名是 **`owfadev`**——npm 以「与 `ow`/`ora` 过于相似」冻结了 `owfa`，`npx owfa` 不可用，因此一切安装示例写 `npx owfadev`（装好包后即暴露 `owfa` bin）。完整的理据、分层与撞名对策：[`.owfa/docs/zh/naming.md`](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/naming.md)。
 
 ## 它做什么
 
@@ -36,7 +36,7 @@
 | 概念 | 定义 |
 |---|---|
 | wiki | md 世界，内外之分的内侧：各域投影 + 原生笔记 + 派生层 |
-| domain | wiki 之外信息源的适配器契约。vault 是默认域；lark、project、email、cuhksz、bili 也是域 |
+| domain | wiki 之外信息源的适配器契约。vault 是默认域；lark、project、email、cuhksz、bili、github 也是域 |
 | vault | 默认域——真实资产仓库；命令侧只增不删，删除与修改的自由属于人 |
 | SASU-L | 披露范式：agent 只经系统提示、AGENTS.md、Skills、用户的话与循环来学习 |
 

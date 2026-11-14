@@ -54,7 +54,7 @@ The first is ownership; the latter two are borrows: the territory belongs to ano
 
 `depends` declares dependencies. validate checks two things: dependencies exist, and there are no cycles — cycles are detected via DFS.
 
-A domain piece is any plugin whose depends chain reaches `domain`. Those connecting to domain directly are domain bases — the six current bases: vault (a member of the embedded personal suite), lark, project, email, cuhksz, bili; pieces inside a domain belong to it transitively, without connecting directly. bb-quiz does not connect to domain directly: it arrives via `bb-quiz → bb-track → bb-map → bb → cuhksz → domain`, and is thus a domain piece. Within the cuhksz package, bb (and likewise sis and registry) carries a direct edge to both cuhksz and domain — in-domain governing members, each ruling a sub-territory under the domain base.
+A domain piece is any plugin whose depends chain reaches `domain`. Those connecting to domain directly are domain bases — the seven current bases: vault (a member of the embedded personal suite), lark, project, email, cuhksz, bili, github; pieces inside a domain belong to it transitively, without connecting directly. bb-quiz does not connect to domain directly: it arrives via `bb-quiz → bb-track → bb-map → bb → cuhksz → domain`, and is thus a domain piece. Within the cuhksz package, bb (and likewise sis and registry) carries a direct edge to both cuhksz and domain — in-domain governing members, each ruling a sub-territory under the domain base.
 
 Injection order = dependency topology plus alphabetical order within a batch: dependees are injected first; same-batch pieces sort by name. Look at the cuhksz family's depends and the resulting order:
 

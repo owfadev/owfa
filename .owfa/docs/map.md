@@ -9,9 +9,10 @@
 | How packages / install / upgrade / migrations work (design + decision ledger) | [packages.md](packages.md) |
 | Deploying an instance; components (CLI/Core/kernel); channels; packages; upgrades; troubleshooting | [deployment.md](deployment.md) |
 | Five-minute install path | [quickstart.md](quickstart.md) |
-| Installing/upgrading the framework body; npm channel | [deployment.md](deployment.md) ; release runbook | [releasing.md](releasing.md) |
+| Installing/upgrading the framework body; npm channel | [deployment.md](deployment.md) |
+| Release runbook (version invariant, publish pipeline, merge discipline) | [releasing.md](releasing.md) |
 | The name: OWFA expansion, two names two jobs, collision policy | [naming.md](naming.md) |
-| Converting a legacy (pre-split flat) instance to the package era | [conversion.md](conversion.md) — the eight-step drill walked on a real instance |
+| Converting a legacy (pre-split flat) instance to the package era | [conversion.md](conversion.md) — one command (`npx owfadev upgrade`), with the staging-resume warning |
 | Instance git usage (snapshots, red lines, recovery) | the instance-git plugin (personal suite member; canonical repo [owfa-personal](https://github.com/owfadev/owfa-personal), embedded copy at `payloads/personal/instance-git/`) |
 | Framework mechanics: projections, bridges, injection, inject tiers | [mechanics.md](mechanics.md) |
 | (Un)install history, package lifecycle | [mechanics.md](mechanics.md) §7 + [packages.md](packages.md) |
@@ -22,3 +23,5 @@
 | What the framework is, intro | [intro.md](intro.md) |
 | Package-side plugin docs (bb family, lark family, …) | the owning `owfa-*` repo's plugin masters |
 | AGENTS.md seed / log seed examples | [agents-example.md](agents-example.md), [log-example.md](log-example.md) |
+| Repo homepage copy draft | [home.md](home.md) |
+| Research notes (landscape, user-profile) | [research-landscape.md](research-landscape.md), [research-user-profile.md](research-user-profile.md) |

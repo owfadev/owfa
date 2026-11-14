@@ -11,7 +11,7 @@ rewritten freely — the agent never edits outside the injection region.>
 ## Layout
 
 <vault root>: `vault/` real assets · `wiki/` the md world
-· `.owfa/` + `.agents/skills/` the framework body (personal suite members land via `kernel install`).
+· `.owfa/` + `.agents/skills/` the framework body (packages land under `.owfa/plugins/domains/` via `kernel install`; the default init installs the embedded personal suite offline).
 
 ## Git
 
@@ -21,7 +21,7 @@ Instance snapshots follow the instance-git plugin (personal suite member, owfa-p
 
 ## wiki 注入区
 
-> 本区为插件注入的投影，装卸插件时同步增删对应标记块；手写内容不进此区。
+> 本区为plugin注入的投影，装卸plugin时同步增删对应标记块；手写内容不进此区。
 
 <!-- wiki-inject:end -->
 ```
