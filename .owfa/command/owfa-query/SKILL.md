@@ -1,7 +1,6 @@
 ---
 name: owfa-query
 owner: framework
-consumes: [log]
 description: "Retrieve from the wiki and answer synthetically: hot cache → index → grep → read pages, producing answers with wikilink citations. Triggers on: query, what do you know about, what is, explain, find in wiki, 检索."
 ---
 

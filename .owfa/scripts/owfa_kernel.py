@@ -251,6 +251,8 @@ def parse_manifest(path):
 
 def _plugin_dirs(base):
     """Yield (plugin_id, dir) across layouts: flat <p>/, core/<p>/, domains/<pkg>/<p>/."""
+    if not os.path.isdir(base):
+        return  # v0.4: the channel ships no plugins/ at all (core moved to the suite package) — empty set is valid
     for name in sorted(os.listdir(base)):
         pdir = os.path.join(base, name)
         if not os.path.isdir(pdir):

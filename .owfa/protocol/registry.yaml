@@ -28,48 +28,7 @@ protocol:
     note: "YYYY-MM-DD, refreshed by any write operation"
 
 plugins:
-  calendar:
-    calendar:
-      note: block mapping (declaration page) — source key → source declaration (value syntax belongs to the adapter: lark-calendar uses `lark/<profile> <calendar_id|primary>`); the source key is the end-of-line tag on schedule lines
-  cron:
-    cron:
-      note: block mapping (task page) — trigger (deferred-trigger declaration; v0.4 generalizes the v0.3 schedule key, schedule reads as the time form): time form = crontab 5-field or human-readable cadence, local timezone by default; condition form = condition <kind> <target> [pattern] [interval] [max_fires] [cooldown], kind first batch file|command|http|process|port|webhook (open vocabulary — extend words, not machinery), pattern semantics fixed as no-match→match edge (default any change after baseline) / action (the action in one sentence) / form (execution shape: session edition | script edition — criterion: any agent-judgment step means session, purely mechanical means script; orthogonal to trigger, all four combinations legal) / domain (owning domain, tagged when a domain plugin registers via the bridge, omittable for cross-domain tasks) / status (active in-service | paused suspended | deprecated retired) / last_run (most recent run or fire time, machine-maintained) / machine (optional: executing-machine anchor for multi-device location; no linkage built)
-  device:
-    device:
-      note: block mapping (device profile page in notes) — serial (serial number) / purchased (purchase date YYYY-MM-DD) / warranty_until (warranty or coverage end date YYYY-MM-DD, the attached-audit scan item), a three-key minimal set; remaining keys open (model, vendor, etc.; the architecture does not enumerate)
-  language:
-    language:
-      note: block mapping (declaration page) — canonical key → one-sentence rule (open vocabulary, e.g. default/teaching/annotation/register); output language and writing baseline — register = the writing register (audience reading level, default first/second-year undergraduates), consumed by bb-teach, bb-quiz and save
-    terms:
-      note: block mapping (declaration page) — term original → unified translation (single-line value); the cross-session translation-consistency lookup piece
-  link:
-    aliases:
-      note: YAML list, aliases/short names, for link resolution
-    related:
-      note: YAML list, full-name wikilinks of related pages
-  mapping:
-    raw_file:
-      note: root-relative path, always present on proxy pages
-    raw_sha256:
-      note: hexadecimal SHA-256, mechanically recomputable from vault
-  sessions:
-    participants:
-      note: YAML list, actor convention (human:name / process:flow name / agent/model id), the multi-agent collaboration extension point
-  tag:
-    tags:
-      note: YAML list ≤5; primary language follows the language page's default key (absent → session language); English tags lowercase kebab-case; hierarchy ≤2, `/` separated; restating type forbidden
-  trust:
-    generated:
-      note: block-style mapping by/at (actor convention + YYYY-MM-DD), who generated the page
-    sources:
-      note: source list, items contain id / resource / credibility signals (author, usage_count, last_modified)
-    stale_after:
-      note: YYYY-MM-DD absolute moment; expiry check = the pure comparison now ≥ stale_after
-    verified:
-      note: event list, items single-line `by: <actor>, at: <date>`, appendable multiple times; the trust level is derived from this
-  vault:
-    url:
-      note: Source URL; provenance registration for URL-type assets (source preservation), optional for manual placement, required for agent channels (delegate etc.); also the interface for other domains to land via vault
+
 
 reserved: {}
 
