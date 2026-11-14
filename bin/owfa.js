@@ -405,7 +405,7 @@ function convertCoreToPersonal(target) {
       `updated: ${today}`,
       `attachment: []`,
       `fields: {}`,
-      `inject: ${JSON.stringify("personal suite (converted from framework core by the 0.4 channel upgrade) — family identity anchor; members, skeleton and teardown anchors are declared in PKG.yaml; canonical source: owfadev/owfa-personal")}`,
+      `inject: ${JSON.stringify("personal suite — identity anchor; members and skeleton in PKG.yaml")}`,
       ``,
     ].join("\n"),
     "utf8"
