@@ -90,7 +90,7 @@ Site side, v1 requires full presence — every member on disk; the subset gramma
 
 ## kind: protocol — the step2 shape rulings (R1–R11)
 
-`kind: protocol` + `protocol: <id>` declared together make a **protocol package** — the landholder of a workspace protocol. The shape rulings, in force since step2 (0.4.5/0.4.6; canonical text: step2-spec v2), enumerated once here because kernel.md and abi.md cite them by number:
+`kind: protocol` + `protocol: <id>` declared together make a **protocol package** — the holder of a workspace protocol. The shape rulings, in force since step2 (0.4.5/0.4.6; canonical text: step2-spec v2), enumerated once here because kernel.md and abi.md cite them by number:
 
 | # | Ruling (validate-enforced unless noted) |
 |---|---|

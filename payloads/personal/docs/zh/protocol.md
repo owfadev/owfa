@@ -26,7 +26,7 @@
 | **可否拆除？** | 拆了它，workspace 就不再是这个 workspace | 卸载该域，workspace 毫发无伤 |
 | **提供横切服务吗？** | 派生层、检索、check 规则、提炼区——全 workspace 共用 | 不提供；域内派生借协议服务落地（结论经桥进 notes，用协议的 index 检索） |
 
-内核则拥有**机制**（manifest 语法、投影、[包/能力引擎](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [内核机制](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md)、check 机器），且协议无关：它执行已装包声明的任何规则。一句话——**内核是机器，协议是地主法，域是带章程的租户**。
+内核则拥有**机制**（manifest 语法、投影、[包/能力引擎](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [内核机制](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md)、check 机器），且协议无关：它执行已装包声明的任何规则。一句话——**内核是机器，协议是本工作区的法，域是一种自带章程的被定义信息**。
 
 ## 槽位的形状
 
