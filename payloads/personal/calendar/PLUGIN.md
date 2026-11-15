@@ -2,7 +2,7 @@
 
 ## Design Overview
 
-- **Why it exists**: the wiki's time dimension — what happens when. The source model is open: manual notes plus each adapter's projections converge on the same page, lark-calendar being the first adapter. Time is a single cross-tenant dimension; multi-source convergence is precisely this territory's reason for being
+- **Why it exists**: the wiki's time dimension — what happens when. The source model is open: manual notes plus each adapter's projections converge on the same page, lark-calendar being the first adapter. Time is a single cross-source dimension; multi-source convergence is precisely this territory's reason for being
 - **Key rulings**:
   - Events are lines, not pages: the calendar registers only the timeline; weighty events are distilled via save into a note or session, then wikilinked from the calendar line — consistent with 'the wiki receives distillates'
   - Boundary with todo: the calendar stores 'what happens when', todo stores 'what is pending'; events may derive todo entries, never merged the other way
