@@ -73,7 +73,7 @@ function readVersion(root) {
   // F1 dual-target version source: a WORKSPACE.yaml workspace anchors the
   // five-carrier equation on the user-level kernel (Q1a) — read its VERSION,
   // not the tree's. Every other instance keeps reading the in-tree VERSION.
-  if (hasWorkspaceMarker(root)) {
+  if (hasWorkspaceMarker(root) && fs.existsSync(path.join(owfaHome(), "kernel", "owfa_kernel.py"))) {
     try {
       return fs.readFileSync(path.join(owfaHome(), "kernel", "VERSION"), "utf8").trim();
     } catch {
@@ -163,6 +163,13 @@ function rescueLegacyBackup(target) {
 }
 
 function copyPayload(target, { replace = false } = {}) {
+  // M1 (kernel-home spec v2 §4.5): the legacy channel must never re-plant the
+  // in-tree framework over a user-level-channel workspace — a replace would
+  // both dual-plant the kernel and silently drop the WORKSPACE.yaml marker.
+  if (hasWorkspaceMarker(target)) {
+    err(`refused: ${target} carries .owfa/WORKSPACE.yaml (user-level channel) — the legacy init/upgrade payload must not replace it; use the user-level channel (owfa upgrade)`);
+    process.exit(1);
+  }
   const skip = (src) => {
     const base = path.basename(src);
     if (base === "__pycache__" || base.endsWith(".pyc") || base === ".DS_Store") return false;

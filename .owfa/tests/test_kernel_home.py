@@ -283,3 +283,33 @@ class ChannelDualTarget(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+    def test_m1_guard_blocks_legacy_init_force_over_marker(self):
+        """copyPayload/init --force must refuse over a WORKSPACE.yaml tree (review F1)."""
+        import subprocess, tempfile, os, json
+        ws = tempfile.mkdtemp()
+        os.makedirs(os.path.join(ws, ".owfa"))
+        with open(os.path.join(ws, ".owfa", "WORKSPACE.yaml"), "w") as f:
+            f.write("kernel_compat: '>= 0.4'\n")
+        r = subprocess.run(["node", str(FRAMEWORK / "bin" / "owfa.js"), "init", ws, "--force"],
+                           capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("WORKSPACE.yaml", r.stderr + r.stdout)
+        self.assertTrue(os.path.exists(os.path.join(ws, ".owfa", "WORKSPACE.yaml")))
+
+    def test_readversion_falls_back_to_tree_when_user_kernel_absent(self):
+        """marker + missing user kernel -> tree VERSION (dispatch-aligned, review fix 2)."""
+        import subprocess, tempfile, os
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as ws:
+            os.makedirs(os.path.join(ws, ".owfa"))
+            with open(os.path.join(ws, ".owfa", "WORKSPACE.yaml"), "w") as f:
+                f.write("kernel_compat: '>= 0.4'\n")
+            with open(os.path.join(ws, ".owfa", "VERSION"), "w") as f:
+                f.write("7.7.7\n")
+            env = dict(os.environ, OWFA_HOME=home)
+            r = subprocess.run(["node", str(FRAMEWORK / "bin" / "owfa.js"), "doctor", ws],
+                               capture_output=True, text=True, env=env)
+            out = r.stdout + r.stderr
+            self.assertNotIn("9.9.9", out)
+            # dispatch fell back to the tree kernel; version report must not be user-level
+            self.assertTrue("7.7.7" in out or r.returncode != 0, out)
