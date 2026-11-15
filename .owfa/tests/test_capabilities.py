@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import pathlib
 
 
 FRAMEWORK = Path(__file__).resolve().parents[2]
@@ -323,10 +324,14 @@ class CapabilityTests(unittest.TestCase):
         self.assertNotIn("unchecked", result.stdout)
 
     def test_two_segment_floor_higher_minor_fails(self):
-        # ">= 0.5" against anchor 0.4.3: exceeds the framework version — refused
-        result = self.pkg_with_compat(">= 0.5")
+        # a floor with a higher minor than the live anchor is refused
+        # (anchor derived from .owfa/VERSION — never hardcoded, version-agnostic)
+        anchor = pathlib.Path(self.root / ".owfa" / "VERSION").read_text().strip()
+        major, minor, _patch = anchor.split(".")
+        floor = f">= {major}.{int(minor) + 1}"
+        result = self.pkg_with_compat(floor)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("compat >= 0.5 exceeds framework 0.4.3", result.stdout)
+        self.assertIn(f"compat {floor} exceeds framework {anchor}", result.stdout)
 
     def test_three_segment_floor_at_anchor_passes(self):
         # ">= 0.4.3" against anchor 0.4.3: patch floor, equality passes
@@ -336,10 +341,14 @@ class CapabilityTests(unittest.TestCase):
         self.assertNotIn("unchecked", result.stdout)
 
     def test_three_segment_floor_above_anchor_fails(self):
-        # ">= 0.4.4" against anchor 0.4.3: patch floor exceeds — refused
-        result = self.pkg_with_compat(">= 0.4.4")
+        # a patch floor one above the live anchor is refused
+        # (anchor derived from .owfa/VERSION — never hardcoded, version-agnostic)
+        anchor = pathlib.Path(self.root / ".owfa" / "VERSION").read_text().strip()
+        major, minor, patch = anchor.split(".")
+        floor = f">= {major}.{minor}.{int(patch) + 1}"
+        result = self.pkg_with_compat(floor)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("compat >= 0.4.4 exceeds framework 0.4.3", result.stdout)
+        self.assertIn(f"compat {floor} exceeds framework {anchor}", result.stdout)
 
     def test_illegal_compat_shape_warns_unchecked(self):
         # only illegal shapes (no prefix / =< / non-numeric) report unchecked
