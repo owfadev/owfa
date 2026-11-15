@@ -976,7 +976,15 @@ def framework_version():
     releases (versioning scheme, 0.4 — the anchor carries the full release)."""
     vpath = os.path.join(ROOT, ".owfa", "VERSION")
     if not os.path.exists(vpath):
-        return None
+        # kernel-home step 2 (spec Q1a): a WORKSPACE.yaml workspace anchors the
+        # five-carrier equation on the user-level kernel — this kernel's own
+        # VERSION (next to __file__ under $OWFA_HOME/kernel/<X.Y.Z>/) is the
+        # anchor. Legacy trees keep requiring the in-tree VERSION.
+        if not os.path.exists(os.path.join(ROOT, ".owfa", "WORKSPACE.yaml")):
+            return None
+        vpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
+        if not os.path.exists(vpath):
+            return None
     m = re.fullmatch(r"\s*(\d+)\.(\d+)(?:\.(\d+))?\s*", open(vpath, encoding="utf-8").read())
     if not m:
         return None
@@ -2777,6 +2785,8 @@ def main():
                 continue
             if d.endswith("-upgrade-hold"):
                 continue  # F2 (#72): in-tree upgrade park — owned and cleared by `kernel upgrade` itself, protected by the hold marker
+            if d == "kernel-exit-hold":
+                continue  # kernel-home step 2 (spec Q6a/M2): the channel's adopt park (tree scripts held between set-aside and green validate) — owned and cleared by `owfa adopt`, never swept
             if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") not in ("teardown", "upgrade-hold"):
                 _orphans.append(d)  # staged dormant PKG marks presence; absent package + no teardown = orphan residue
     # issue #72: an interrupted upgrade parks the old package under an

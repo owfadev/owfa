@@ -215,9 +215,12 @@ class ChannelDualTarget(unittest.TestCase):
         self.target = self.root / "ws"
         (self.target / ".owfa").mkdir(parents=True)
         self.argv_out = self.root / "argv.json"
-        # the fake user-level kernel + its VERSION (Q1a anchor)
-        (self.home / "kernel" / "owfa_kernel.py").write_text(FAKE_KERNEL, encoding="utf-8")
-        (self.home / "kernel" / "VERSION").write_text("9.9.9\n", encoding="utf-8")
+        # the fake user-level kernel, step-2 (G1) versioned layout:
+        # kernel/<X.Y.Z>/owfa_kernel.py + VERSION, kernel/current = latest
+        (self.home / "kernel" / "9.9.9").mkdir()
+        (self.home / "kernel" / "9.9.9" / "owfa_kernel.py").write_text(FAKE_KERNEL, encoding="utf-8")
+        (self.home / "kernel" / "9.9.9" / "VERSION").write_text("9.9.9\n", encoding="utf-8")
+        (self.home / "kernel" / "current").write_text("9.9.9\n", encoding="utf-8")
         # the fake in-tree kernel (records argv the same way)
         (self.target / ".owfa" / "scripts").mkdir(parents=True)
         (self.target / ".owfa" / "scripts" / "owfa_kernel.py").write_text(FAKE_KERNEL, encoding="utf-8")
@@ -274,7 +277,9 @@ class ChannelDualTarget(unittest.TestCase):
     def test_marker_without_user_kernel_falls_back_to_tree(self):
         # WORKSPACE.yaml present but no user-level kernel installed → legacy
         # in-tree path (the dispatch requires both conditions)
-        (self.home / "kernel" / "owfa_kernel.py").unlink()
+        import shutil
+        shutil.rmtree(self.home / "kernel")
+        (self.home / "kernel").mkdir()
         r = self._node(["pkg"], marker=True)
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
         got = json.loads(self.argv_out.read_text(encoding="utf-8"))["argv"]
@@ -310,6 +315,364 @@ class ChannelDualTarget(unittest.TestCase):
             self.assertNotIn("9.9.9", out)
             # dispatch fell back to the tree kernel; version report must not be user-level
             self.assertTrue("7.7.7" in out or r.returncode != 0, out)
+
+# ---------------------------------------------------------------------------
+# kernel-home step 2 (spec v2 §6): user-level channel A/B/C/D
+# ---------------------------------------------------------------------------
+FW = (REPO / ".owfa" / "VERSION").read_text(encoding="utf-8").strip()  # channel framework version
+
+# a fake kernel that also reports WHICH version-dir it ran from (multi-version
+# resolution tests need to see the chosen version, not just the argv)
+def _fake_kernel_v(ver):
+    return (
+        "import json, sys, os\n"
+        f"json.dump({{'argv': sys.argv[1:], 'ver': {ver!r}}}, open(os.environ['FAKE_KERNEL_OUT'], 'w'))\n"
+        "sys.exit(0)\n"
+    )
+
+
+def _node2(args, home, cwd=None, extra_env=None):
+    """Run bin/owfa.js with an isolated OWFA_HOME."""
+    env = {**os.environ, "OWFA_HOME": str(home)}
+    if extra_env:
+        env.update(extra_env)
+    return subprocess.run([os.environ.get("NODE", "node"), str(BIN), *args],
+                          capture_output=True, text=True, env=env, cwd=cwd or str(REPO))
+
+
+def _plant_fake_kernel(home, ver):
+    d = Path(home) / "kernel" / ver
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "owfa_kernel.py").write_text(_fake_kernel_v(ver), encoding="utf-8")
+    (d / "VERSION").write_text(ver + "\n", encoding="utf-8")
+    return d
+
+
+class InstallKernelTests(unittest.TestCase):
+    """A (Q1a/Q3a/Q7/G1): owfa install-kernel — versioned layout + hash check + journal."""
+
+    def test_install_files_current_journal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            r = _node2(["install-kernel"], home)
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            kd = home / "kernel" / FW
+            for name in ("owfa_kernel.py", "wikilib.py", "VERSION"):
+                self.assertTrue((kd / name).exists(), name)
+            self.assertEqual((kd / "VERSION").read_text(encoding="utf-8").strip(), FW)
+            # current = latest installed (only one so far)
+            self.assertEqual((home / "kernel" / "current").read_text(encoding="utf-8").strip(), FW)
+            # M3: the user-level journal got an append line
+            j = (home / "journal" / "events.log").read_text(encoding="utf-8")
+            self.assertIn("kernel-install", j)
+            # Q7: install result is byte-identical to the channel master
+            import hashlib
+            for name in ("owfa_kernel.py", "wikilib.py"):
+                a = hashlib.sha256((REPO / ".owfa" / "scripts" / name).read_bytes()).hexdigest()
+                b = hashlib.sha256((kd / name).read_bytes()).hexdigest()
+                self.assertEqual(a, b, name)
+
+    def test_reinstall_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            self.assertEqual(_node2(["install-kernel"], home).returncode, 0)
+            r = _node2(["install-kernel"], home)
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+
+
+class InitUserLevelTests(unittest.TestCase):
+    """B (spec §2/C1): init --user-level full chain — kernel installed, marker
+    written (no protocol field), workspace registered, validate green through
+    the user-level kernel; legacy init (no flag) unchanged."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.root = Path(cls.tmp.name)
+        cls.home = cls.root / "home"
+        cls.ws = cls.root / "ws"
+        r = _node2(["init", str(cls.ws), "--name", "ul", "--user-level"], cls.home)
+        assert r.returncode == 0, r.stdout + r.stderr
+        cls.out = r.stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_kernel_installed_and_journal(self):
+        self.assertTrue((self.home / "kernel" / FW / "owfa_kernel.py").exists())
+        self.assertIn("workspace-register", (self.home / "journal" / "events.log").read_text(encoding="utf-8"))
+
+    def test_tree_has_no_kernel_and_no_version(self):
+        # Q1a/Q2a: the tree carries neither scripts/ nor VERSION — the anchor
+        # lives at $OWFA_HOME/kernel/<ver>/VERSION
+        self.assertTrue((self.ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") >= 0)
+        self.assertFalse((self.ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
+        self.assertFalse((self.ws / ".owfa" / "VERSION").exists())
+
+    def test_marker_is_minimal_yaml(self):
+        marker = (self.ws / ".owfa" / "WORKSPACE.yaml").read_text(encoding="utf-8")
+        self.assertIn(f'kernel_compat: ">= {FW}"', marker)
+        self.assertNotIn("protocol:", marker)  # C1: protocol identity is never written
+
+    def test_registered(self):
+        reg = (self.home / "workspaces.yaml").read_text(encoding="utf-8")
+        self.assertIn(str(self.ws), reg)
+        r = _node2(["workspaces", "list"], self.home)
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        self.assertIn(str(self.ws), r.stdout)
+
+    def test_doctor_green_user_level(self):
+        r = _node2(["doctor", str(self.ws)], self.home)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f"kernel source: user-level {FW}", r.stdout)
+        self.assertIn("registry: registered", r.stdout)
+        self.assertIn("doctor: ok", r.stdout)
+
+    def test_legacy_init_unchanged(self):
+        """Regression: without the flag nothing user-level happens (M1/legacy chain intact)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            ws = Path(tmp) / "legacy"
+            r = _node2(["init", str(ws)], home)
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            self.assertTrue((ws / ".owfa" / "scripts" / "owfa_kernel.py").exists())
+            self.assertTrue((ws / ".owfa" / "VERSION").exists())
+            self.assertFalse((ws / ".owfa" / "WORKSPACE.yaml").exists())
+            self.assertFalse((home / "kernel").exists())
+            self.assertFalse((home / "workspaces.yaml").exists())
+
+
+class MultiVersionResolution(unittest.TestCase):
+    """A/G1: kernel_compat floor + registry binding pick the serving version."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.home = self.root / "home"
+        _plant_fake_kernel(self.home, "4.4.4")
+        _plant_fake_kernel(self.home, "5.0.0")
+        (self.home / "kernel" / "current").write_text("5.0.0\n", encoding="utf-8")
+        self.target = self.root / "ws"
+        (self.target / ".owfa" / "scripts").mkdir(parents=True)
+        (self.target / ".owfa" / "scripts" / "owfa_kernel.py").write_text(_fake_kernel_v("tree"), encoding="utf-8")
+        self.argv_out = self.root / "argv.json"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _run(self, compat):
+        (self.target / ".owfa" / "WORKSPACE.yaml").write_text(f'kernel_compat: ">= {compat}"\n', encoding="utf-8")
+        return _node2(["pkg"], self.home, cwd=str(self.target),
+                      extra_env={"FAKE_KERNEL_OUT": str(self.argv_out)})
+
+    def test_floor_picks_the_newest_satisfying(self):
+        r = self._run("5.0.0")
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        got = json.loads(self.argv_out.read_text(encoding="utf-8"))
+        self.assertEqual(got["ver"], "5.0.0")
+        self.assertEqual(got["argv"][:2], ["--root", str(self.target)])
+
+    def test_registry_binding_wins_over_newer_installed(self):
+        # bind the workspace to 4.4.4; 5.0.0 is installed and satisfies the
+        # floor, but the binding is the resolution source (G1)
+        self._run("4.4.4")
+        reg = self.home / "workspaces.yaml"
+        reg.parent.mkdir(parents=True, exist_ok=True)
+        reg.write_text(
+            "workspaces:\n"
+            f"  - id: 11111111-2222-3333-4444-555555555555\n"
+            f"    path: {self.target}\n"
+            "    kernel: 4.4.4\n"
+            '    compat: ">= 4.4.4"\n'
+            "    registered: 2026-01-01T00:00:00Z\n",
+            encoding="utf-8",
+        )
+        r = _node2(["pkg"], self.home, cwd=str(self.target),
+                   extra_env={"FAKE_KERNEL_OUT": str(self.argv_out)})
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        got = json.loads(self.argv_out.read_text(encoding="utf-8"))
+        self.assertEqual(got["ver"], "4.4.4")
+
+    def test_unsatisfiable_floor_fails_loudly(self):
+        # the floor is unsatisfiable while kernels ARE installed — doctor (and
+        # the dispatch) must fail pointing at install-kernel, not silently fall
+        # back to a tree kernel that is not there
+        self._run("9.9.9")  # marker in place with an unsatisfiable floor
+        r = _node2(["doctor", str(self.target)], self.home, cwd=str(self.target))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("install-kernel", r.stdout + r.stderr)
+
+
+class AdoptTests(unittest.TestCase):
+    """D (Q6a/M2/#72): adopt success / failure rollback / idempotency / M1."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.root = Path(cls.tmp.name)
+        cls.home = cls.root / "home"
+        cls.src = cls.root / "legacy-src"
+        r = _node2(["init", str(cls.src), "--name", "legacy"], cls.home)
+        assert r.returncode == 0, r.stdout + r.stderr
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def _copy(self, name):
+        import shutil
+        dst = self.root / name
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(self.src, dst, symlinks=True)
+        return dst
+
+    def test_adopt_success_full_chain(self):
+        ws = self._copy("ws-ok")
+        r = _node2(["adopt", str(ws)], self.home)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        # tree kernel exited: scripts + VERSION gone, hold cleared
+        self.assertFalse((ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") == -1 or (ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
+        self.assertFalse((ws / ".owfa" / "VERSION").exists())
+        self.assertFalse((ws / ".owfa" / "migrations" / "kernel-exit-hold").exists())
+        # marker floor = tree VERSION; registry bound; kernel installed
+        marker = (ws / ".owfa" / "WORKSPACE.yaml").read_text(encoding="utf-8")
+        self.assertIn(f'kernel_compat: ">= {FW}"', marker)
+        self.assertTrue((self.home / "kernel" / FW / "owfa_kernel.py").exists())
+        self.assertIn(str(ws), (self.home / "workspaces.yaml").read_text(encoding="utf-8"))
+        # doctor green through the user-level kernel
+        d = _node2(["doctor", str(ws)], self.home)
+        self.assertEqual(d.returncode, 0, d.stdout + d.stderr)
+        self.assertIn(f"kernel source: user-level {FW}", d.stdout)
+        return ws
+
+    def test_adopt_is_idempotent(self):
+        ws = self.test_adopt_success_full_chain()
+        before = (ws / ".owfa" / "WORKSPACE.yaml").read_text(encoding="utf-8")
+        r = _node2(["adopt", str(ws)], self.home)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("already adopted", r.stdout)
+        self.assertEqual(before, (ws / ".owfa" / "WORKSPACE.yaml").read_text(encoding="utf-8"))
+
+    def test_adopt_failure_rolls_back_park(self):
+        ws = self._copy("ws-fail")
+        # pre-existing damage (not ours): an unparsable manifest makes validate
+        # fail THROUGH THE NEW KERNEL after the park — the whole adopt must undo
+        import glob
+        manifests = sorted(glob.glob(str(ws / ".owfa" / "plugins" / "domains" / "*" / "*" / "PLUGIN.yaml")))
+        self.assertTrue(manifests)
+        with open(manifests[0], "a", encoding="utf-8") as f:
+            f.write("!!! [[ unparsable\n")
+        r = _node2(["adopt", str(ws)], self.home)
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("all-or-nothing", r.stdout + r.stderr)
+        # park restored exactly: scripts + VERSION back, no marker, no hold
+        self.assertTrue((ws / ".owfa" / "scripts" / "owfa_kernel.py").exists())
+        self.assertTrue((ws / ".owfa" / "VERSION").exists())
+        self.assertFalse((ws / ".owfa" / "WORKSPACE.yaml").exists())
+        self.assertFalse((ws / ".owfa" / "migrations" / "kernel-exit-hold").exists())
+        self.assertNotIn(str(ws), (self.home / "workspaces.yaml").read_text(encoding="utf-8"))
+
+    def test_adopt_refuses_interrupted_park(self):
+        ws = self._copy("ws-int")
+        hold = ws / ".owfa" / "migrations" / "kernel-exit-hold" / "scripts"
+        hold.mkdir(parents=True)
+        (hold / "owfa_kernel.py").write_text("# parked\n", encoding="utf-8")
+        r = _node2(["adopt", str(ws)], self.home)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("interrupted adopt", r.stdout + r.stderr)
+        # and the park is untouched (no implicit cleanup)
+        self.assertTrue((hold / "owfa_kernel.py").exists())
+
+    def test_m1_guards_after_adopt(self):
+        """M1 in the new shape: the legacy channel still refuses an adopted tree."""
+        ws = self.test_adopt_success_full_chain()
+        r = _node2(["upgrade", str(ws)], self.home)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("WORKSPACE.yaml", r.stderr)
+        r2 = _node2(["init", str(ws), "--force"], self.home)
+        self.assertNotEqual(r2.returncode, 0)
+        self.assertIn("WORKSPACE.yaml", r2.stderr + r2.stdout)
+
+
+class RegistryTests(unittest.TestCase):
+    """C (§4/G2): dangling lazy sweep + rescan rebuild."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.home = self.root / "home"
+        self.home.mkdir(parents=True)
+        self.argv_out = self.root / "argv.json"
+        _plant_fake_kernel(self.home, "9.9.9")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _marker_ws(self, name, compat="9.9.9"):
+        d = self.root / name
+        (d / ".owfa").mkdir(parents=True)
+        (d / ".owfa" / "WORKSPACE.yaml").write_text(f'kernel_compat: ">= {compat}"\n', encoding="utf-8")
+        return d
+
+    def test_dangling_entry_lazily_removed_on_list(self):
+        live = self._marker_ws("live")
+        gone = self.root / "gone"
+        reg = self.home / "workspaces.yaml"
+        reg.write_text(
+            "workspaces:\n"
+            "  - id: aaaaaaaa-0000-0000-0000-000000000001\n"
+            f"    path: {live}\n"
+            "    kernel: 9.9.9\n"
+            '    compat: ">= 9.9.9"\n'
+            "    registered: 2026-01-01T00:00:00Z\n"
+            "  - id: aaaaaaaa-0000-0000-0000-000000000002\n"
+            f"    path: {gone}\n"
+            "    kernel: 9.9.9\n"
+            '    compat: ">= 9.9.9"\n'
+            "    registered: 2026-01-01T00:00:00Z\n",
+            encoding="utf-8",
+        )
+        r = _node2(["workspaces", "list"], self.home)
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        self.assertIn("dangling", r.stdout)
+        self.assertIn("re-adopt", r.stdout)
+        text = reg.read_text(encoding="utf-8")
+        self.assertIn(str(live), text)
+        self.assertNotIn(str(gone), text)
+
+    def test_rescan_rebuilds_from_disk(self):
+        a = self._marker_ws("alpha")
+        b = self._marker_ws("beta")
+        # pre-register alpha by hand (its id must survive the rescan); a stale
+        # entry for a vanished path must be dropped
+        reg = self.home / "workspaces.yaml"
+        reg.write_text(
+            "workspaces:\n"
+            "  - id: bbbbbbbb-0000-0000-0000-00000000000a\n"
+            f"    path: {a}\n"
+            "    kernel: 9.9.9\n"
+            '    compat: ">= 9.9.9"\n'
+            "    registered: 2026-01-01T00:00:00Z\n"
+            "  - id: bbbbbbbb-0000-0000-0000-0000000000z\n"
+            f"    path: {self.root / 'vanished'}\n"
+            "    kernel: 9.9.9\n"
+            '    compat: ">= 9.9.9"\n'
+            "    registered: 2026-01-01T00:00:00Z\n",
+            encoding="utf-8",
+        )
+        r = _node2(["workspaces", "rescan", "--under", str(self.root)], self.home)
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        text = reg.read_text(encoding="utf-8")
+        self.assertIn(str(a), text)
+        self.assertIn(str(b), text)
+        self.assertIn("bbbbbbbb-0000-0000-0000-00000000000a", text)  # id preserved
+        self.assertNotIn("vanished", text)
+        r2 = _node2(["workspaces", "list"], self.home)
+        self.assertEqual(r2.returncode, 0)
+        self.assertEqual(r2.stdout.count("path-"), 0)  # sanity: list is clean
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
