@@ -1,3 +1,4 @@
+<!-- docs-lint: historical — 示例叙事；路径为示意，非本仓树 -->
 # AGENTS.md —— 实例种子示例
 
 > 框架仓自身不带 AGENTS.md（库姿态——开发规则住在 README/CONTRIBUTING）。这是实例在部署指南第 ③ 步起草的种子。保持短：一段身份、一段布局、注入区逐字保留。

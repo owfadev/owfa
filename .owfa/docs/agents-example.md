@@ -1,3 +1,4 @@
+<!-- docs-lint: historical — example narrative; paths are illustrative, not repo tree -->
 # AGENTS.md — instance seed example
 
 > The framework repo itself carries no AGENTS.md (library posture — dev rules live in README/CONTRIBUTING). This is the seed an instance drafts at deployment step ③ of the deployment guide. Keep it short: one identity paragraph, one layout paragraph, the injection region verbatim.

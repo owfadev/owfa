@@ -18,7 +18,7 @@
 - 不得有 `preinstall`/`install`/`postinstall` 脚本；
 - 实际 packlist（`npm pack --dry-run --json`）必须含必备载荷——`.owfa/VERSION`、kernel、`payloads/personal/PKG.yaml`、内嵌 suite 母本等——且不得混入开发/本机状态（`test/`、`scripts/`、`.github/`、`__pycache__`、`pending.json`、`kernel-journal.log`、`registry-cache.yaml`、实例 `vault/`/`wiki/`、`.owfa/plugins/core/`、以及 suite 自有命令母本出现在 `.owfa/command/` 下）。
 
-会打破等式的发布在 publish 之前被拒，而不是事后修补。现行版本 0.4.1（tags v0.4.0 与 v0.4.1，均 2026-11-14）。
+会打破等式的发布在 publish 之前被拒，而不是事后修补。现行版本以 `.owfa/VERSION`（或 `owfa version`）为准；文档中不落发布号字面。
 
 ## 框架发布流程
 

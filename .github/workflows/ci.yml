@@ -33,3 +33,6 @@ jobs:
 
       - name: Kernel unit tests (unittest discover, both suites)
         run: python3 -m unittest discover -s .owfa/tests -p "test_*.py"
+
+      - name: Docs lint (dead paths / version literals / en-zh mirror)
+        run: python3 scripts/docs_lint.py

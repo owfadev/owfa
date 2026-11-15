@@ -49,6 +49,35 @@ Entry-level definition of what a plugin **is**, ruled by the owner on 2026-11-15
 - **Territory is not in the formula.** A territory is the storage-form requirement of *some* information kinds — never a condition of plugin identity. The precedents already in the tree prove it: `trust` has no directory territory, and `bridge` at 0.3 ran with zero territory. A plugin owns a territory exactly when its information kind needs that storage form; that is storage, not identity.
 - **Processing is protocol-constrained.** How information is processed is bound by the protocol, along a strength spectrum from weak to strong — `bridge` is the full-strength end, where the constraint hardens into the topology-completeness law (section 4).
 
+### 2.2 The inhabited design space (evidence, 2026-11-16)
+
+The formula is not aspirational — the installed base has filled it in five distinct shapes, each a way a defined information kind answers "acquired how, processed how":
+
+| Shape | Members (live) | Acquisition | Processing | Note |
+|---|---|---|---|---|
+| Concept | trust · tag · link · language · hot · index · log · todo · tmp · domain | reads existing pages | declarative — the manifest fields ARE the species definition | no connector, often no territory; `trust` (no directory) and `domain` (whose information kind is the inner/outer distinction itself) are the limiting cases |
+| Container | wiki · notes · sessions · vault · diary · structure · mapping | the user's own writing / landing | registration + derived layers | territory here is a genuine storage-form need, not identity |
+| Connector domain | cuhksz · lark · email · bili · github | a connector CLI | adapter contract + trust ceiling | credentials stay outside the repo (red lines); cache territories are storage, not identity |
+| Method | bridge · bb-map · bb-teach · bb-quiz | the bridge/ABI, mapped artifacts, cognition profiles | pure method, zero landing code | `bridge` is the formula's zero point — zero territory, zero fields, production-proven |
+| Trusted autonomous agent | bili-pet | feed scoring + debrief | standing consent + write whitelist + ledger | the declared exception class, not an accident: consent quotas are part of the species definition |
+
+Two precedents worth citing by name: **`trust` proves territory is not in the formula** (a full plugin with no directory), and **`bridge` proves the formula's minimum** (a species defined by documentation and method alone). A new plugin should be able to say which row it extends; a row that fits none is a design question, not a failure of the formula.
+
+### 2.3 Documentation is the formula's first part — the single-source discipline
+
+Because documentation is a functional component of a plugin (not commentary about it), it is governed like any information kind. The discipline, learned from the 2026-11-16 doc-debt sweep (dead paths pointing at a retired layout, release numbers pinned in three places, mirrored doc sets drifting):
+
+- **One home per fact.** Every fact — a path, a version number, a command name, a ruling number — has exactly one canonical home (the manifest, the protocol law, `.owfa/VERSION`); every other mention is a pointer, never a copy. The R1–R11 table lives in packages.md alone; kernel.md and abi.md point at it.
+- **Docs state what is, not what is planned.** A law page that denies its own machinery ("the ABI remains undecided" beside a shipped proto_query.py) is the worst-class defect; promises of future kernel behavior belong in issue trackers, not law documents.
+- **Mechanical guards catch what semantic review misses.** Structural doc checks — referenced paths must exist on disk, pinned version literals must match `.owfa/VERSION`, en/zh heading sets must align, changelog top entry must equal the manifest version — are shape checks, fit for the kernel/CI; whether docs *tell the truth about behavior* stays with fresh-context review.
+
+### 2.4 The kernel's own boundary under the ontology
+
+The kernel owns mechanisms — manifest syntax, projections, the package/capability engine, check machinery — and **no information kind**. Framework commands are explicitly ownerless (`owner: framework`); the kernel is protocol-agnostic and enforces whatever rules the installed packages declare. Two consequences follow, both deliberate:
+
+- The kernel does **not** enforce the ontology. `validate` checks shape (manifest compliance, graph laws); whether a plugin's four parts are actually present and truthful is a semantic question, gated by fresh-context review at the registry PR — the machine polices shape, humans and reviewers police meaning. A plugin with a missing acquisition channel passes validate; it should not pass review.
+- The kernel's own docs obey the same single-source discipline as any plugin's (2.3). When this page and `owfa_kernel.py` disagree, the source prevails — and that is itself an instance of the rule that law documents describe machinery, never substitute for it.
+
 ## 3. The capability engine
 
 Since v0.4, packages declare capabilities in PKG.yaml — `needs: [ … ]` / `provides: [ … ]` — deliberately package-scale; plugin-level declarations are unsupported by design (`owfa_kernel.py`). (What member-level capabilities would mean in a multi-protocol world is a step-2 design question, out of scope here.) The kernel enforces four laws:
