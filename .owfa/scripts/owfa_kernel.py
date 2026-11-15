@@ -43,11 +43,24 @@ PKG.yaml (v0.4 rootless suites + capabilities) may additionally declare:
   none required (the owfa-personal shape). Suite packages skip the family-root /
   closure laws; presence (subset discipline), compat, flat graph and id == dir name
   still apply. Absent kind = the classic domain-family behavior (default)
-- `needs: [owfa.org.v1]` / `provides: [owfa.org.v1]` — package-scale capabilities
+- `needs: [qq.transport.v1]` / `provides: [owfa.net.v1]` — package-scale capabilities
   (plugin level deliberately unsupported). Grammar
   ^[a-z][a-z0-9-]*(\\.[a-z0-9-]+)*\\.v\\d+$; a non-owfa.* capability's first name
-  segment must equal the package id (owfa.* is framework-owned, policed at the
-  registry review gate). Matching is exact-name; one provider per capability
+  segment must equal the package id or the package's `protocol:` id (step2 R4 dual
+  source; owfa.* is framework-owned, policed at the registry review gate).
+
+PKG.yaml (step2 protocol formalization) may additionally declare:
+- `kind: protocol` + `protocol: <id>` — a protocol package (the landholder of a
+  workspace protocol). The pair is declared together (R1); provides must carry
+  exactly one `<protocol>.org.v<N>` org capability (R2); the package inherits the
+  rootless-suite discipline (R3); org (*.org.vN) capabilities are protocol-only
+  (R9), at most one org holder per workspace (one workspace one protocol);
+  all-or-nothing: --without and member-level-needs pruning never touch a protocol
+  package's members (R6). PLUGIN.yaml may carry a member-level optional
+  `needs: [<capability>]` (Q12): an unsatisfied member of a domain package is
+  pruned at install preflight (riding the --without cascade); owfa.* is reserved
+  there (R10). INDEX rows may carry kind / protocol / default keys (transparent
+  pass-through; at most one default:true row). Matching is exact-name; one provider per capability
   (exclusive slot); needs count only trust >= reviewed provides (registry INDEX row
   is the trust source — --path/direct installs are unknown and their provides stay
   unverified; --yes overrides at install, journaled). Convergence points: install
@@ -918,17 +931,26 @@ def validate_packages(plugins, pkgs, errors, warnings):
     Suite packages skip the family-root/closure laws entirely (D5 root prunability,
     roster == closure); presence (subset discipline), compat, flat graph and the
     id == directory-name consistency still apply. A missing kind defaults to the
-    classic domain-family behavior — fully backward compatible."""
+    classic domain-family behavior — fully backward compatible.
+
+    step2 protocol formalization: `kind: protocol` (+ `protocol: <id>`) inherits the
+    full rootless-suite discipline (R3 — no root, closure law skipped, all members on
+    site) and adds the protocol shape laws R1/R2/R7 via package_shape_issues plus the
+    R5 retains-covers-skeleton data-zone warning."""
     seen_member = {}
     fw = framework_version()
     if fw is None:
         warnings.append(".owfa/VERSION missing — framework anchor absent, PKG compat unchecked")
     for pid, pkg in sorted(pkgs.items()):
         kind = str(pkg.get("kind") or "domain-family")
-        if kind not in ("domain-family", "suite"):
-            errors.append(f"[error] PKG {pid}: kind ({kind}) must be 'suite' or 'domain-family' (absent key = domain-family)")
+        if kind not in ("domain-family", "suite", "protocol"):
+            errors.append(f"[error] PKG {pid}: kind ({kind}) must be 'suite', 'protocol' or 'domain-family' (absent key = domain-family)")
             continue
-        suite = kind == "suite"
+        # R3: a protocol package is rootless (suite discipline) — no family root, no closure law
+        suite = kind in ("suite", "protocol")
+        # R1/R2/R4/R7 declaration-level protocol shape (shared with the install preflight)
+        for msg in package_shape_issues(pid, pkg):
+            errors.append(f"[error] {msg}")
         members = pkg.get("members")
         if not isinstance(members, list) or not members:
             errors.append(f"[error] PKG {pid}: members must be a non-empty list")
@@ -977,18 +999,46 @@ def validate_packages(plugins, pkgs, errors, warnings):
                 warnings.append(f"PKG {pid}: compat ({compat!r}) not in '>= X.Y' form — unchecked (v1 supports only this form)")
             elif (int(m.group(1)), int(m.group(2))) > fw:
                 errors.append(f"[error] PKG {pid}: compat {compat} exceeds framework version {'.'.join(map(str, fw))}")
+        # R5 (step2): a package's declared data zones (skeleton dirs) must be covered
+        # by uninstall.retains — a skeleton dir the uninstall declaration does not
+        # retain leaves data with no declared fate (warning: the human decides)
+        _un = pkg.get("uninstall")
+        _retains = [str(r).rstrip("/") for r in ((_un.get("retains") if isinstance(_un, dict) else None) or [])]
+        for s in (str(x).rstrip("/") for x in (pkg.get("skeleton") or []) if str(x).strip()):
+            if not any(s == r or s.startswith(r + "/") for r in _retains):
+                warnings.append(f"PKG {pid}: skeleton dir {s!r} is not covered by uninstall.retains ({', '.join(_retains) or 'none declared'}) — a data zone with no declared fate on uninstall (R5)")
+    # R7 cross-package: protocol ids are unique and clash with no installed package id
+    _proto_holder = {}
+    for pid, pkg in sorted(pkgs.items()):
+        proto = str(pkg.get("protocol") or "")
+        if not proto:
+            continue
+        if proto in _proto_holder:
+            errors.append(f"[error] PKG {pid}: protocol id {proto!r} already declared by PKG {_proto_holder[proto]} (R7 — protocol ids are unique)")
+        else:
+            _proto_holder[proto] = pid
+        if proto in pkgs and proto != pid:
+            errors.append(f"[error] PKG {pid}: protocol id {proto!r} conflicts with installed package id {proto} (R7)")
 
 
 # ---------- capabilities (v0.4 needs/provides, work order #56 follow-up) ----------
-# PKG.yaml top-level flow lists: `needs: [owfa.org.v1]` / `provides: [owfa.org.v1]`
-# (plugin level deliberately unsupported — a capability is a package-scale contract).
-# Grammar: ^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*\.v\d+$  (e.g. owfa.org.v1, qq.transport.v1)
-# Prefix rule: a non-`owfa.` capability's first name segment must equal the declaring
-# package id (owfa.* is the framework-owned namespace; its definition right is enforced
-# at the registry review gate, the kernel only checks grammar).
-# Matching is exact-name equality: needs owfa.org.v1 is satisfied only by provides
-# owfa.org.v1 — a v2 provider leaves a v1 need unsatisfied (reported distinctly).
+# PKG.yaml top-level flow lists: `needs: [qq.im.v1]` / `provides: [owfa.net.v1]`
+# (plugin level deliberately unsupported — a capability is a package-scale contract;
+# the step2 Q12 member-level `needs:` in PLUGIN.yaml is an install-time pruning
+# signal, never a capability declaration surface).
+# Grammar: ^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*\.v\d+$  (e.g. owfa.net.v1, qq.transport.v1)
+# Prefix rule (step2 R4 dual source): a non-`owfa.` capability's first name segment
+# must equal the declaring package id OR the package's `protocol:` id (owfa.* is the
+# framework-owned namespace; its definition right is enforced at the registry
+# review gate, the kernel only checks grammar).
+# Matching is exact-name equality: needs owfa.net.v1 is satisfied only by provides
+# owfa.net.v1 — a v2 provider leaves a v1 need unsatisfied (reported distinctly).
 CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)*\.v\d+$")
+# step2 R9: org capabilities (^<proto>.org.vN$) are the protocol landholder seat —
+# only a kind:protocol package whose protocol id equals the prefix may provide one
+ORG_CAP_RE = re.compile(r"^[a-z][a-z0-9-]*\.org\.v\d+$")
+# step2 R1/R4: protocol id grammar + the reserved word
+PROTOCOL_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 # trust levels whose provides may satisfy needs ("trust >= reviewed"); the registry
 # INDEX row is the trust source — --path / owner-repo direct installs carry no row
 # (trust unknown) and their provides stay unverified
@@ -1013,15 +1063,84 @@ def _cap_base(cap):
     return cap.rsplit(".v", 1)[0]
 
 
+def _flow_caps(value):
+    """Normalize a member-level needs declaration (PLUGIN.yaml `needs:`) into a list.
+
+    The PLUGIN.yaml parser stores a flow list as its raw string ("[a, b]") — the
+    member-level signal (step2 Q12/R10) shares the package-level capability grammar.
+    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        vals = [str(x).strip() for x in value]
+    else:
+        s = str(value).strip()
+        if s.startswith("[") and s.endswith("]"):
+            vals = [x.strip(" \"'") for x in s[1:-1].split(",")]
+        else:
+            vals = [s]
+    return [v for v in vals if v]
+
+
 def capability_grammar_issues(pid, pkg):
-    """Declaration-level checks (grammar + namespace prefix) for one package; list of messages."""
+    """Declaration-level checks (grammar + namespace prefix + R9 org exclusivity) for one package; list of messages."""
     out = []
+    proto = str(pkg.get("protocol") or "")
+    # R4 dual source: the legal capability prefixes are the package id ∪ the protocol id
+    prefixes = {pid} | ({proto} if proto else set())
     for key in ("needs", "provides"):
         for cap in _cap_list(pkg.get(key)):
             if not CAPABILITY_RE.fullmatch(cap):
-                out.append(f"PKG {pid}: {key} entry {cap!r} fails the capability grammar ^[a-z][a-z0-9-]*(\\.[a-z0-9-]+)*\\.v\\d+$ (e.g. owfa.org.v1)")
-            elif not cap.startswith("owfa.") and cap.split(".", 1)[0] != pid:
-                out.append(f"PKG {pid}: {key} entry {cap!r} — the first name segment must equal the package id (non-owfa.* capabilities belong to their declarer; owfa.* is framework-owned)")
+                out.append(f"PKG {pid}: {key} entry {cap!r} fails the capability grammar ^[a-z][a-z0-9-]*(\\.[a-z0-9-]+)*\\.v\\d+$ (e.g. owfa.net.v1)")
+            elif key == "provides" and ORG_CAP_RE.fullmatch(cap):
+                # R9: org capabilities (*.org.vN) may only be provided by the
+                # kind:protocol package whose protocol id equals the prefix — a
+                # non-protocol package providing any org capability is an error,
+                # which mechanizes "one workspace one protocol" (no separate check)
+                if str(pkg.get("kind") or "") != "protocol" or not proto or cap.split(".", 1)[0] != proto:
+                    out.append(f"PKG {pid}: provides entry {cap!r} — org capabilities (*.org.vN) are provided only by the kind:protocol package whose protocol id equals the prefix (R9: one workspace one protocol)")
+            elif key == "provides" and not cap.startswith("owfa.") and cap.split(".", 1)[0] not in prefixes:
+                # R4 dual source applies to DECLARED capabilities (provides); a needs
+                # entry names a foreign capability by design (e.g. a domain family
+                # declaring needs [<proto>.org.v1], spec §3) and carries no prefix right
+                out.append(f"PKG {pid}: provides entry {cap!r} — the first name segment must equal the package id or the protocol id (R4 dual source; non-owfa.* capabilities belong to their declarer, owfa.* is framework-owned)")
+    return out
+
+
+def package_shape_issues(pid, pkg, other_pkgs=None):
+    """Protocol package shape checks (step2 R1/R2/R4/R7, declaration level).
+
+    Shared by validate (full graph) and the install preflight (refuse before any
+    file lands). other_pkgs (installed set minus this package) enables the R7
+    cross-package conflict tests."""
+    out = []
+    kind = str(pkg.get("kind") or "")
+    proto = str(pkg.get("protocol") or "")
+    # R1: kind: protocol <=> protocol: field — the pair is declared together
+    if kind == "protocol" and not proto:
+        out.append(f"PKG {pid}: kind: protocol requires the protocol: field (R1 — the pair is declared together)")
+    if proto and kind != "protocol":
+        out.append(f"PKG {pid}: protocol: {proto!r} requires kind: protocol (R1 — the pair is declared together)")
+    if not proto:
+        return out
+    if not PROTOCOL_ID_RE.fullmatch(proto):
+        out.append(f"PKG {pid}: protocol id {proto!r} fails the grammar ^[a-z][a-z0-9-]*$")
+    # R4: the framework namespace is not a protocol
+    if proto == "owfa":
+        out.append(f"PKG {pid}: protocol id 'owfa' is reserved (R4) — the framework namespace is not a protocol")
+    if other_pkgs is not None:
+        for opid, opkg in sorted(other_pkgs.items()):
+            if opid == pid:
+                continue
+            if str(opkg.get("protocol") or "") == proto:
+                out.append(f"PKG {pid}: protocol id {proto!r} already declared by PKG {opid} (R7 — protocol ids are unique)")
+            elif proto == opid:
+                out.append(f"PKG {pid}: protocol id {proto!r} conflicts with installed package id {opid} (R7)")
+    # R2 (+R8): provides must carry exactly one <proto>.org.vN — v1+v2 coexisting
+    # is the same "exactly one" violation (upgrade = in-place replacement, no window)
+    orgs = [c for c in _cap_list(pkg.get("provides")) if ORG_CAP_RE.fullmatch(c)]
+    if len(orgs) != 1 or orgs[0].split(".", 1)[0] != proto:
+        out.append(f"PKG {pid}: a protocol package must provide exactly one {proto}.org.v<N> capability (R2; same-protocol version variants coexisting are refused, R8) — got {orgs or 'none'}")
     return out
 
 
@@ -1042,6 +1161,12 @@ def capability_issues(pkgs, trust_map=None, enforce_trust=True):
     (kind, message) with kind in {"exclusive", "missing", "version", "trust"}."""
     issues = []
     providers = capability_providers(pkgs)
+    # R9 corollary: at most one package provides any *.org.v* capability — the org
+    # slot is the protocol landholder seat, so "one workspace one protocol" holds
+    # mechanically (two protocols cannot coexist, each holding its own org capability)
+    org_holders = sorted(p for p in pkgs if any(ORG_CAP_RE.fullmatch(c) for c in _cap_list(pkgs[p].get("provides"))))
+    if len(org_holders) > 1:
+        issues.append(("exclusive", f"org-capability holders {', '.join(org_holders)} — at most one package may provide any *.org.v* capability (R9: one workspace one protocol)"))
     for cap, ps in sorted(providers.items()):
         if len(ps) > 1:
             issues.append(("exclusive", f"capability {cap} is provided by multiple installed packages ({', '.join(ps)}) — exclusive slot: at most one provider per capability"))
@@ -1068,15 +1193,35 @@ def _trust_map_from_index(index):
     return {pid: str(e.get("trust") or "") for pid, e in (index or {}).items()}
 
 
-def validate_capabilities(pkgs, errors, warnings, scope=None):
+def validate_capabilities(pkgs, errors, warnings, scope=None, plugins=None):
     """Capability laws at validate time (full-graph: errors; --scope single-package
-    mode: downgraded to warnings, mirroring the dependency-absence tolerance)."""
+    mode: downgraded to warnings, mirroring the dependency-absence tolerance).
+
+    Member-level needs (step2 Q12/R10): grammar + the owfa.* reserved word are
+    errors; an unsatisfied member-level need of an *installed* member is reported
+    as info (the pruning itself is an install-time signal — domain packages prune,
+    protocol packages refuse, R6)."""
     for pid, pkg in sorted(pkgs.items()):
         for msg in capability_grammar_issues(pid, pkg):
             if scope:
                 warnings.append(f"{msg} — tolerated in single-package mode (full-graph disciplines run where the full graph lives)")
             else:
                 errors.append(f"[error] {msg}")
+    if plugins:
+        pkg_of = {str(mem): pk for pk, pv in sorted(pkgs.items()) for mem in (pv.get("members") or [])}
+        _providers = capability_providers(pkgs)
+        for name in sorted(plugins):
+            caps = _flow_caps(plugins[name].get("needs"))
+            if not caps:
+                continue
+            for cap in caps:
+                if not CAPABILITY_RE.fullmatch(cap):
+                    errors.append(f"[error] {name}/PLUGIN.yaml: needs entry {cap!r} fails the capability grammar (member-level needs share the package-level grammar, R10)")
+                elif cap.startswith("owfa."):
+                    errors.append(f"[error] {name}/PLUGIN.yaml: needs entry {cap!r} — owfa.* is reserved, member-level needs cannot use the framework namespace (R10)")
+                elif not _providers.get(cap):
+                    # info-level: the pruning/refusal is decided at install preflight
+                    warnings.append(f"{name}/ (PKG {pkg_of.get(name, '?')}): member-level needs {cap} unsatisfied — member pruned by unsatisfied need (info; the member rides the --without cascade out at install, R6/R10)")
     if not any(_cap_list(p.get("needs")) or _cap_list(p.get("provides")) for p in pkgs.values()):
         return  # nobody declares capabilities — nothing to check (pre-0.4 packages)
     index, _src = load_index([], quiet=True, local_only=True)  # read-only view: local INDEX / cache, never a network fetch
@@ -1097,6 +1242,8 @@ def do_pkg_ls(pkgs, plugins):
     for pid, pkg in sorted(pkgs.items()):
         members = pkg.get("members") or []
         kind = " (suite)" if str(pkg.get("kind") or "") == "suite" else ""
+        if str(pkg.get("kind") or "") == "protocol":
+            kind = f" (protocol: {pkg.get('protocol', '?')})"
         print(f"pkg {pid:<10} v{pkg.get('version','?'):<5} compat {str(pkg.get('compat','?')):<8} {len(members)} members{kind}: {', '.join(members)}")
         for c in pkg.get("connectors") or []:
             where = c.get("path") or ("external" if c.get("external") else "system" if c.get("system") else "?")
@@ -1285,7 +1432,7 @@ def converge(label):
         validate_bindings(plugins, errors)
         validate_bridges(plugins, errors)
         validate_packages(plugins, pkgs, errors, warns)
-        validate_capabilities(pkgs, errors, warns)
+        validate_capabilities(pkgs, errors, warns, plugins=plugins)
     for w in warns:
         print(f"[warning] {w}")
     for e in errors:
@@ -1423,8 +1570,40 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
             print(f"[error] index version v{idx_ver} != PKG.yaml version v{pkgm.get('version')} (release metadata drift — the tag would install but never reconcile with `pkg`/`upgrade`; refuse)")
             return 1
     members_all = [str(m) for m in (pkgm.get("members") or [])]
+    kind = str(pkgm.get("kind") or "")
+    proto_pkg = kind == "protocol" or pkgm.get("protocol") is not None
+    # step2 protocol shape preflight (R1/R2/R4/R7): refuse before any file lands —
+    # cross-checked against the installed set (protocol id uniqueness / id clash)
+    _shape = package_shape_issues(pid, pkgm, load_packages([]))
+    for msg in _shape:
+        print(f"[error] {msg}")
+    if _shape:
+        if not path:
+            shutil.rmtree(src, ignore_errors=True)
+        return 1
+    if not members_all:
+        # R7: members must be a non-empty list (the empty-protocol guard; the full
+        # package invariant reruns at convergence, this is the refuse-early copy)
+        print(f"[error] PKG {pid}: members must be a non-empty list (R7)")
+        if not path:
+            shutil.rmtree(src, ignore_errors=True)
+        return 1
+    # member dependency closure inside the package (shared by --without and the
+    # member-level needs pruning below — both ride the same cascade)
+    depends_in = {}
+    for m in members_all:
+        try:
+            deps = parse_manifest(os.path.join(src, m, "PLUGIN.yaml")).get("depends") or []
+        except ValueError:
+            deps = []
+        depends_in[m] = [d for d in deps if d in members_all]
     pruned = set()
     if without:
+        # R6: protocol packages are all-or-nothing — the protocol IS the landholder
+        # law; subset installation belongs to domain-family packages (prunable tenants)
+        if proto_pkg:
+            print(f"[error] --without {', '.join(without)}: protocol packages are all-or-nothing (R6) — no member of a protocol package is prunable")
+            return 1
         bad = [w for w in without if w not in members_all]
         if bad:
             print(f"[error] --without {', '.join(bad)}: not members of {pid}")
@@ -1432,13 +1611,6 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
         if pid in without:
             print(f"[error] --without {pid}: the family root is never prunable (D5)")
             return 1
-        depends_in = {}
-        for m in members_all:
-            try:
-                deps = parse_manifest(os.path.join(src, m, "PLUGIN.yaml")).get("depends") or []
-            except ValueError:
-                deps = []
-            depends_in[m] = [d for d in deps if d in members_all]
         pruned = set(without)
         changed = True
         while changed:
@@ -1451,6 +1623,78 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
             print(f"[error] --without cascade prunes the whole package (root or all members)")
             return 1
         print(f"[install] subset: final members {', '.join(m for m in members_all if m not in pruned)}; pruned {', '.join(sorted(pruned))}")
+    # ---- member-level needs (step2 Q12/R10): install-time pruning signal ----
+    # Grammar + the owfa.* reserved word refuse outright; an unsatisfiable member
+    # of a domain package rides the --without cascade out (pruned), while a
+    # protocol package refuses wholesale (R6 all-or-nothing). Trust semantics R10:
+    # only trust >= reviewed provides satisfy (untrusted counts as unsatisfied;
+    # --yes overrides, journaled — mirroring the package-level trust gate).
+    mneeds = {}
+    for m in members_all:
+        try:
+            mn = parse_manifest(os.path.join(src, m, "PLUGIN.yaml")).get("needs")
+        except (ValueError, OSError):
+            mn = None
+        if mn is not None:
+            mneeds[m] = _flow_caps(mn)
+    _mgram = []
+    for m, caps in sorted(mneeds.items()):
+        for cap in caps:
+            if not CAPABILITY_RE.fullmatch(cap):
+                _mgram.append(f"{m}/PLUGIN.yaml: needs entry {cap!r} fails the capability grammar (member-level needs share the package-level grammar, R10)")
+            elif cap.startswith("owfa."):
+                _mgram.append(f"{m}/PLUGIN.yaml: needs entry {cap!r} — owfa.* is reserved, member-level needs cannot use the framework namespace (R10)")
+    for msg in _mgram:
+        print(f"[error] {msg}")
+    if _mgram:
+        if not path:
+            shutil.rmtree(src, ignore_errors=True)
+        return 1
+    if mneeds:
+        _mboard = load_packages([])
+        if prev_pkgm is not None:
+            _mboard.pop(pid, None)  # upgrade path: the ousted edition's provides leave the board
+        _mboard[pid] = pkgm
+        if path or direct:
+            _midx, _ = load_index([], quiet=True, local_only=True)
+        else:
+            _midx = index
+        _mtrust = _trust_map_from_index(_midx)
+        _mprov = capability_providers(_mboard)
+        _m_yes_trust = []
+
+        def _m_sat(cap):
+            ps = _mprov.get(cap, [])
+            if not ps:
+                return False
+            if any(_mtrust.get(p) in TRUSTED_PROVIDERS for p in ps):
+                return True
+            _m_yes_trust.append(cap)  # present but untrusted (R10)
+            return "--yes" in args
+        _unsat = sorted(m for m, caps in mneeds.items()
+                        if m not in pruned and not all(_m_sat(c) for c in caps))
+        if _unsat:
+            if proto_pkg:
+                print(f"[error] {pid}: member-level needs unsatisfied for {', '.join(_unsat)} — protocol packages are all-or-nothing, the whole package is refused (R6)")
+                if not path:
+                    shutil.rmtree(src, ignore_errors=True)
+                return 1
+            pruned |= set(_unsat)
+            changed = True
+            while changed:
+                changed = False
+                for m in members_all:
+                    if m not in pruned and m != pid and set(depends_in[m]) & pruned:
+                        pruned.add(m)
+                        changed = True
+            if pid in pruned or not [m for m in members_all if m not in pruned]:
+                print(f"[error] {pid}: member-level needs pruning cascades to the whole package (root or all members pruned)")
+                return 1
+            print(f"[install] member-level needs: pruned {', '.join(sorted(_unsat))} (unsatisfied need — domain members are prunable tenants, Q12)")
+        if _m_yes_trust and "--yes" in args:
+            _caps = ", ".join(sorted(set(_m_yes_trust)))
+            _journal("trust-override", f"{pid} — member-level needs satisfied by unverified provides: {_caps} (--yes)")
+            print(f"[warning] {pid}: member-level needs trust gate overridden (--yes) — {_caps} accepted unreviewed; journaled")
     dst = os.path.join(PLUGINS_DIR, "domains", pid)
     if os.path.exists(dst):
         print(f"[error] {pid} already installed — uninstall first (kernel uninstall {pid} --yes)")
@@ -1671,6 +1915,13 @@ def do_uninstall(pkg, args):
     for d in (os.path.join(PLUGINS_DIR, "domains"), CONNECTORS_DIR):
         if os.path.isdir(d) and not os.listdir(d):
             os.rmdir(d)  # empty containers leave no residue
+    # R5 (step2): uninstalling the last protocol leaves a protocol-less workspace —
+    # a shell. The hint lives HERE and in doctor (validate is a pure plugin-graph
+    # check and deliberately does not carry it).
+    if str(pkgm.get("kind") or "") == "protocol" or pkgm.get("protocol"):
+        _remaining = load_packages([])
+        if not any(str(p.get("kind") or "") == "protocol" or p.get("protocol") for p in _remaining.values()):
+            print("[uninstall] workspace is protocol-less — a shell: install a protocol package (see kernel list-remote) or confirm bare framework use deliberately")
     return 0
 
 
@@ -1705,14 +1956,27 @@ def do_provides(pkgs):
 
 
 def do_list_remote():
-    """Index table with installed marks — GitHub is the marketplace page, this is the agent surface."""
+    """Index table with installed marks — GitHub is the marketplace page, this is the agent surface.
+
+    step2: rows may carry kind / protocol / default keys (transparent pass-through —
+    default is a CLI-init hint the kernel never consumes); protocol rows are marked
+    and more than one default:true row is a registry-discipline warning."""
     errors = []
     index, src = load_index(errors)
     installed = load_packages([])
     print(f"index: {src}")
+    # registry discipline: at most one blessed default protocol row, globally
+    _defaults = sorted(n for n, e in index.items() if str(e.get("default", "")).strip().lower() == "true")
+    if len(_defaults) > 1:
+        print(f"[warning] registry rows carrying default: true — at most one blessed default protocol allowed, got {', '.join(_defaults)}")
     for name, e in sorted(index.items()):
         mark = "installed" if name in installed else "available"
-        print(f"  {name:<10} v{e.get('version', '?'):<5} compat {e.get('compat', '?'):<8} [{mark}] {e.get('summary', '')}")
+        proto_mark = ""
+        if str(e.get("kind") or "") == "protocol":
+            proto_mark = f" [protocol: {e.get('protocol', '?')}]"
+            if str(e.get("default", "")).strip().lower() == "true":
+                proto_mark += " (default)"
+        print(f"  {name:<10} v{e.get('version', '?'):<5} compat {e.get('compat', '?'):<8} [{mark}]{proto_mark} {e.get('summary', '')}")
         mem = str(e.get("members", "")).replace("/", ", ")
         print(f"  {'':<12}members: {mem if mem else '?'}")
         print(f"  {'':<12}{e.get('repo', '')}  trust: {e.get('trust', '?')}")
@@ -2298,12 +2562,12 @@ def main():
     validate(plugins, errors, scope=scope, warnings=warns)
     if scope:
         print(f"[scope] bindings/bridges/package checks skipped; capability checks downgraded to warnings — single-package mode over {scope} (full-graph disciplines run where the full graph lives)")
-        validate_capabilities(pkgs, [], warns, scope=scope)
+        validate_capabilities(pkgs, [], warns, scope=scope, plugins=plugins)
     else:
         validate_bindings(plugins, errors)
         validate_bridges(plugins, errors)
         validate_packages(plugins, pkgs, errors, warns)
-        validate_capabilities(pkgs, errors, warns)
+        validate_capabilities(pkgs, errors, warns, plugins=plugins)
     for k, v in sorted(_led.items()):
         errors.append(f"[error] pending semantic migration {k} {v.get('from', '?')}->{v.get('to', '?')} — kernel migrate {k} --clear; mechanical blessing withheld (tri-face warning)")
     for w in warns:
