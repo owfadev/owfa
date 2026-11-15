@@ -250,6 +250,12 @@ python3 .owfa/scripts/owfa_kernel.py uninstall <pkg> --yes
 
 ```bash
 npx owfadev upgrade            # replace .owfa/ + .agents/skills/ with the channel's version
+# Upgrade order since v0.4.3 (shape-sensitive): FRAMEWORK FIRST, then packages.
+# A package whose PKG shape the old kernel cannot parse (kind: protocol since 0.4.3,
+# capability namespaces) will fail `kernel upgrade <pkg>` on an old kernel — and a
+# failed package upgrade must never leave you mid-way (see issue #72 for the one
+# real incident). The reverse order (suite first) was the v0.4.1–0.4.2 guidance and
+# applied to packages the old kernel could still parse.
 npx owfadev upgrade --check    # read-only report
 npx owfadev upgrade --backup   # keep a copy under .owfa/backup/<version>-<timestamp>/
 ```

@@ -250,6 +250,10 @@ python3 .owfa/scripts/owfa_kernel.py uninstall <pkg> --yes
 
 ```bash
 npx owfadev upgrade            # 以通道版本替换 .owfa/ + .agents/skills/
+# 自 v0.4.3 起升级顺序按形状定：先框架、后包。
+# PKG 形状旧内核解析不了的包（0.4.3 起 kind: protocol、能力命名空间）在旧内核上跑
+# kernel upgrade <pkg> 必失败——失败升级不得留下中间态（真实事故见 issue #72）。
+# 「套件先行」是 v0.4.1–0.4.2 的旧口径，仅适用于旧内核可解析的包。
 npx owfadev upgrade --check    # 只读报告
 npx owfadev upgrade --backup   # 在 .owfa/backup/<version>-<timestamp>/ 留一份副本
 ```
