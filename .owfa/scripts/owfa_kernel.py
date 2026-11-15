@@ -2777,6 +2777,8 @@ def main():
                 continue
             if d.endswith("-upgrade-hold"):
                 continue  # F2 (#72): in-tree upgrade park — owned and cleared by `kernel upgrade` itself, protected by the hold marker
+            if d == "kernel-exit-hold":
+                continue  # kernel-home step 2 (spec Q6a/M2): the channel's adopt park (tree scripts held between set-aside and green validate) — owned and cleared by `owfa adopt`, never swept
             if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") not in ("teardown", "upgrade-hold"):
                 _orphans.append(d)  # staged dormant PKG marks presence; absent package + no teardown = orphan residue
     # issue #72: an interrupted upgrade parks the old package under an

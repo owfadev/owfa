@@ -1226,8 +1226,21 @@ function cmdDoctor(args) {
   // env override vs default — so isolation misconfiguration is visible.
   out(`owfa-home ${owfaHome()}${process.env.OWFA_HOME ? " (OWFA_HOME)" : " (default ~/.owfa)"}`);
   out(`target ${target}`);
-  if (!local) fail("not an OWFA instance (no .owfa/VERSION) — run `owfa init` first");
+  if (!local) fail(
+    hasWorkspaceMarker(target)
+      ? `${target} carries .owfa/WORKSPACE.yaml but no servable user-level kernel — run \`owfa install-kernel\``
+      : "not an OWFA instance (no .owfa/VERSION) — run `owfa init` first"
+  );
   out(`instance framework ${local}`);
+  // D (step 2): a marker workspace reports its kernel source and registry
+  // standing — informational (registration hints never fail doctor)
+  if (hasWorkspaceMarker(target)) {
+    const ver = resolveUserKernelVersion(target);
+    if (ver) out(`kernel source: user-level ${ver} (${kernelVersionDir(ver)})`);
+    else out("kernel source: user-level, but NO installed kernel satisfies the marker's kernel_compat — run `owfa install-kernel`");
+    const reg = registryFindByPath(target);
+    out(`registry: ${reg ? `registered (id ${String(reg.id).slice(0, 8)}, kernel ${reg.kernel || "?"})` : `NOT registered — run \`owfa workspaces register ${target}\``}`);
+  }
   const problems = []; // required conditions — any hit fails doctor (review P2, PR #53)
   // layout-shim health (review P2 on the layout PR): a renamed/copied instance
   // leaves the Windows junction pointing at the old absolute path; a real .meta
@@ -1391,6 +1404,83 @@ function cmdWorkspaces(args) {
   fail("usage: owfa workspaces [list|register <dir>|unregister <dir>|rescan [--under DIR]]");
 }
 
+// D (spec Q6a/M2, issue #72): migrate an existing legacy tree onto the
+// user-level kernel channel. All-or-nothing — any failed step restores the
+// park exactly and exits non-zero; an interrupted adopt (park without marker)
+// is never implicitly cleaned.
+function cmdAdopt(args) {
+  const target = path.resolve(args._[0] || ".");
+  const markerFile = path.join(target, ".owfa", "WORKSPACE.yaml");
+  const hold = path.join(target, ".owfa", "migrations", "kernel-exit-hold");
+  // idempotent anchor (M2): WORKSPACE.yaml in place = already adopted
+  if (fs.existsSync(markerFile)) {
+    out(`already adopted: ${target} carries .owfa/WORKSPACE.yaml — nothing to do`);
+    return 0;
+  }
+  // ① tree shape: a legacy 0.4 tree carries the kernel in .owfa/scripts/
+  const scriptsDir = path.join(target, ".owfa", "scripts");
+  if (!fs.existsSync(path.join(scriptsDir, "owfa_kernel.py"))) {
+    if (fs.existsSync(path.join(target, ".meta", "VERSION"))) {
+      fail(`${target} uses the 0.3 layout (.meta/) — run \`owfa upgrade\` to reach the 0.4 layout first, then adopt`);
+    }
+    fail(`${target} is not a legacy OWFA tree (no .owfa/scripts/owfa_kernel.py) — nothing to adopt`);
+  }
+  // M2/#72: a park without the marker = an interrupted adopt — refuse, restore
+  // is a manual act, never an implicit cleanup retry
+  if (fs.existsSync(hold)) {
+    fail(
+      `interrupted adopt detected: tree scripts are parked at ${rel(target, hold)} — do NOT rerun. ` +
+        `Restore manually (move ${rel(target, path.join(hold, "scripts"))} back to .owfa/scripts/ and the parked VERSION to .owfa/VERSION), then rerun.`
+    );
+  }
+  const treeVersion = readVersion(target);
+  if (!treeVersion) fail(`${target} carries no readable VERSION — refusing to adopt an unidentified tree`);
+  if (cmpVersion(FRAMEWORK_VERSION, treeVersion) < 0) {
+    fail(`tree framework ${treeVersion} is newer than this channel's ${FRAMEWORK_VERSION} — run \`npx owfa@latest adopt\``);
+  }
+  out(`OWFA adopt — ${target} (tree ${treeVersion}) onto the user-level kernel channel`);
+  // ② install/reuse the user-level kernel (A)
+  const kernelVer = installKernel();
+  out(`user-level kernel: ${kernelVer} at ${kernelVersionDir(kernelVer)}`);
+  // ③ park the tree scripts (the upgrade park precedent — M2): the hold is the
+  // only copy between set-aside and green validate
+  fs.mkdirSync(path.dirname(hold), { recursive: true });
+  fs.renameSync(scriptsDir, path.join(hold, "scripts"));
+  const treeVersionFile = path.join(target, ".owfa", "VERSION");
+  if (fs.existsSync(treeVersionFile)) fs.renameSync(treeVersionFile, path.join(hold, "VERSION"));
+  out(`park: tree scripts held at ${rel(target, hold)} (cleared only after a green validate)`);
+  // ④⑤ marker + registry + validate through the NEW kernel — any failure rolls
+  // the park back whole
+  try {
+    writeWorkspaceMarker(target, treeVersion);
+    registerWorkspace(target, kernelVer);
+    out("validating through the user-level kernel (kernel validate --root)");
+    if (kernel(target, ["validate"]) !== 0) throw new Error("kernel validate failed (see above)");
+  } catch (e) {
+    try {
+      if (fs.existsSync(markerFile)) fs.rmSync(markerFile, { force: true });
+      unregisterWorkspace(target, `adopt rollback (${e.message})`);
+      fs.mkdirSync(path.dirname(scriptsDir), { recursive: true });
+      fs.renameSync(path.join(hold, "scripts"), scriptsDir);
+      if (fs.existsSync(path.join(hold, "VERSION"))) fs.renameSync(path.join(hold, "VERSION"), treeVersionFile);
+      fs.rmSync(hold, { recursive: true, force: true });
+    } catch (e2) {
+      fail(
+        `adopt failed (${e.message}) AND rollback failed (${e2.message}) — the tree scripts are parked at ${rel(target, hold)}; ` +
+          `do NOT rerun until they are restored to .owfa/scripts/`
+      );
+    }
+    fail(`adopt failed (${e.message}) — park restored, ${target} is exactly as before (all-or-nothing, #72)`);
+  }
+  // green: clear the hold
+  fs.rmSync(hold, { recursive: true, force: true });
+  userJournal("workspace-adopt", `${target} tree=${treeVersion} kernel=${kernelVer}`);
+  out("");
+  out(`done — ${target} now served by user-level kernel ${kernelVer} (kernel_compat >= ${treeVersion}); tree scripts removed`);
+  out("next: owfa doctor — kernel source + registry status");
+  return 0;
+}
+
 function usage() {
   out(`owfa ${PKG.version} — One Workspace For All (agents)
 the owfa framework's install and upgrade channel
@@ -1406,6 +1496,10 @@ usage:
   owfa install-kernel
       install this channel's kernel master into $OWFA_HOME/kernel/<X.Y.Z>/
       (multi-version coexistence, G1; sha256-verified against the master, Q7)
+  owfa adopt <dir>
+      migrate a legacy tree onto the user-level kernel channel: park the tree
+      scripts, write the marker, register, validate through the new kernel —
+      all-or-nothing (#72); idempotent (already adopted = no-op)
   owfa workspaces [list|register <dir>|unregister <dir>|rescan [--under DIR]]
       the machine workspace registry ($OWFA_HOME/workspaces.yaml); dangling
       paths are lazily unregistered with a re-adopt hint (G2); rescan rebuilds
@@ -1451,6 +1545,12 @@ const COMMAND_HELP = {
         "$OWFA_HOME/kernel/<X.Y.Z>/ — versions coexist (G1); `kernel/current` tracks the latest\n" +
         "installed. The install result is sha256-verified against the tarball master (Q7).\n" +
         "Internal workhorse for init --user-level and adopt; directly runnable.",
+  adopt: "usage: owfa adopt <dir>\n\n" +
+        "migrate an existing legacy tree onto the user-level kernel channel (kernel-home spec v2\n" +
+        "Q6a): park the tree scripts under .owfa/migrations/kernel-exit-hold/, write the\n" +
+        "WORKSPACE.yaml marker (compat floor = tree VERSION), register the workspace, then validate\n" +
+        "through the new kernel — the hold is cleared only on green. Any failure restores the park\n" +
+        "exactly (all-or-nothing, #72); rerunning on an adopted tree is a no-op.",
   workspaces: "usage: owfa workspaces [list|register <dir>|unregister <dir>|rescan [--under DIR]]\n\n" +
         "the machine workspace registry ($OWFA_HOME/workspaces.yaml — path + uuid identity, G2).\n" +
         "list lazily drops dangling paths (with a re-adopt hint); rescan rebuilds the index from\n" +
@@ -1516,6 +1616,8 @@ function main() {
       return cmdInit(args);
     case "install-kernel":
       return cmdInstallKernel();
+    case "adopt":
+      return cmdAdopt(args);
     case "workspaces":
       return cmdWorkspaces(args);
     case "upgrade":
