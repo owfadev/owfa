@@ -313,3 +313,6 @@ if __name__ == "__main__":
             self.assertNotIn("9.9.9", out)
             # dispatch fell back to the tree kernel; version report must not be user-level
             self.assertTrue("7.7.7" in out or r.returncode != 0, out)
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
