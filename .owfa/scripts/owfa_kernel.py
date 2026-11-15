@@ -948,8 +948,10 @@ def validate_packages(plugins, pkgs, errors, warnings):
             continue
         # R3: a protocol package is rootless (suite discipline) — no family root, no closure law
         suite = kind in ("suite", "protocol")
-        # R1/R2/R4/R7 declaration-level protocol shape (shared with the install preflight)
-        for msg in package_shape_issues(pid, pkg):
+        # R1/R2/R4/R7 declaration-level protocol shape (shared with the install
+        # preflight; the full installed set enables the R7 cross-package checks,
+        # forward AND reverse — step2 review Low)
+        for msg in package_shape_issues(pid, pkg, pkgs):
             errors.append(f"[error] {msg}")
         members = pkg.get("members")
         if not isinstance(members, list) or not members:
@@ -1122,6 +1124,14 @@ def package_shape_issues(pid, pkg, other_pkgs=None):
     if proto and kind != "protocol":
         out.append(f"PKG {pid}: protocol: {proto!r} requires kind: protocol (R1 — the pair is declared together)")
     if not proto:
+        # R7 reverse direction (step2 review Low): installing a PLAIN package whose
+        # id equals an already-installed protocol's id is the same uniqueness
+        # violation seen from the other side — the protocol landholder's law id and
+        # a package id may not trade places
+        if other_pkgs is not None:
+            for opid, opkg in sorted(other_pkgs.items()):
+                if opid != pid and str(opkg.get("protocol") or "") == pid:
+                    out.append(f"PKG {pid}: package id equals the protocol id declared by PKG {opid} (R7 — protocol ids are unique in both directions)")
         return out
     if not PROTOCOL_ID_RE.fullmatch(proto):
         out.append(f"PKG {pid}: protocol id {proto!r} fails the grammar ^[a-z][a-z0-9-]*$")
@@ -1216,9 +1226,20 @@ def validate_capabilities(pkgs, errors, warnings, scope=None, plugins=None):
                 continue
             for cap in caps:
                 if not CAPABILITY_RE.fullmatch(cap):
-                    errors.append(f"[error] {name}/PLUGIN.yaml: needs entry {cap!r} fails the capability grammar (member-level needs share the package-level grammar, R10)")
+                    # step2 review Low: in --scope single-package mode the member-level
+                    # needs grammar degrades to a warning (downgraded, not dropped —
+                    # the full-graph discipline runs where the full graph lives)
+                    msg = f"{name}/PLUGIN.yaml: needs entry {cap!r} fails the capability grammar (member-level needs share the package-level grammar, R10)"
+                    if scope:
+                        warnings.append(f"{msg} — tolerated in single-package mode")
+                    else:
+                        errors.append(f"[error] {msg}")
                 elif cap.startswith("owfa."):
-                    errors.append(f"[error] {name}/PLUGIN.yaml: needs entry {cap!r} — owfa.* is reserved, member-level needs cannot use the framework namespace (R10)")
+                    msg = f"{name}/PLUGIN.yaml: needs entry {cap!r} — owfa.* is reserved, member-level needs cannot use the framework namespace (R10)"
+                    if scope:
+                        warnings.append(f"{msg} — tolerated in single-package mode")
+                    else:
+                        errors.append(f"[error] {msg}")
                 elif not _providers.get(cap):
                     # info-level: the pruning/refusal is decided at install preflight
                     warnings.append(f"{name}/ (PKG {pkg_of.get(name, '?')}): member-level needs {cap} unsatisfied — member pruned by unsatisfied need (info; the member rides the --without cascade out at install, R6/R10)")
@@ -1601,15 +1622,23 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
     if without:
         # R6: protocol packages are all-or-nothing — the protocol IS the landholder
         # law; subset installation belongs to domain-family packages (prunable tenants)
+        # step2 review Low: every --without refusal path must drop the cloned
+        # source too (mkdtemp leak otherwise)
         if proto_pkg:
             print(f"[error] --without {', '.join(without)}: protocol packages are all-or-nothing (R6) — no member of a protocol package is prunable")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         bad = [w for w in without if w not in members_all]
         if bad:
             print(f"[error] --without {', '.join(bad)}: not members of {pid}")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         if pid in without:
             print(f"[error] --without {pid}: the family root is never prunable (D5)")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         pruned = set(without)
         changed = True
@@ -1621,6 +1650,8 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
                     changed = True
         if pid in pruned or not [m for m in members_all if m not in pruned]:
             print(f"[error] --without cascade prunes the whole package (root or all members)")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         print(f"[install] subset: final members {', '.join(m for m in members_all if m not in pruned)}; pruned {', '.join(sorted(pruned))}")
     # ---- member-level needs (step2 Q12/R10): install-time pruning signal ----
@@ -1689,6 +1720,8 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
                         changed = True
             if pid in pruned or not [m for m in members_all if m not in pruned]:
                 print(f"[error] {pid}: member-level needs pruning cascades to the whole package (root or all members pruned)")
+                if not path:  # step2 review Low: same mkdtemp-leak class as the --without refusals
+                    shutil.rmtree(src, ignore_errors=True)
                 return 1
             print(f"[install] member-level needs: pruned {', '.join(sorted(_unsat))} (unsatisfied need — domain members are prunable tenants, Q12)")
         if _m_yes_trust and "--yes" in args:
@@ -2444,6 +2477,11 @@ def do_plan(spec, args):
 
     optional = [m for m in members if m != pid]
     kind = str(pkgm.get("kind") or "domain-family")
+    # step2 review Low: kind:protocol displays through the suite (rootless) branch —
+    # R3 gives protocol packages the same rootless shape; R6 additionally makes
+    # every member non-prunable (all-or-nothing), which the --without preview below
+    # must surface instead of suggesting a command install will surely refuse
+    rootless = kind in ("suite", "protocol")
     plan = {
         "package": pid,
         "kind": kind,
@@ -2453,10 +2491,10 @@ def do_plan(spec, args):
         "needs": _cap_list(pkgm.get("needs")),
         "provides": _cap_list(pkgm.get("provides")),
         "disclosure": pkgm.get("disclosure") or "(no package disclosure declared)",
-        # rootless suite: no family root — nothing is baseline-mandatory, every member is optional
-        "baseline": ([] if kind == "suite" else [{"id": pid, "summary": menu.get(pid, "")}]),
+        # rootless suite/protocol: no family root — nothing is baseline-mandatory, every member is optional
+        "baseline": ([] if rootless else [{"id": pid, "summary": menu.get(pid, "")}]),
         "optional": ([{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m) - {pid})} for m in optional]
-                     if kind != "suite" else
+                     if not rootless else
                      [{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m))} for m in members]),
         "connectors": [{"name": c.get("name"), "kind": ("external" if c.get("external") else "system" if c.get("system") else "in-repo")}
                        for c in (pkgm.get("connectors") or [])],
@@ -2466,28 +2504,39 @@ def do_plan(spec, args):
     if "--without" in args:
         i = args.index("--without")
         wl = [x for x in args[i + 1].split(",") if x] if i + 1 < len(args) else []
-        pruned = set(wl)
-        changed = True
-        while changed:
-            changed = False
-            for m in members:
-                if m not in pruned and m != pid and set(depends_in[m]) & pruned:
-                    pruned.add(m)
-                    changed = True
-        plan["subset_preview"] = {"final": [m for m in members if m not in pruned], "pruned": sorted(pruned)}
-        plan["suggested_command"] += f" --without {','.join(wl)}"
+        if kind == "protocol":
+            # R6 all-or-nothing: no preview that implies prunability, and no
+            # --without in the suggested command — install refuses it outright
+            plan["subset_preview"] = {
+                "refused": "--without on a protocol package is always refused (R6 all-or-nothing — no member is prunable; the suggested command omits --without)",
+                "final": members,
+                "pruned": [],
+            }
+        else:
+            pruned = set(wl)
+            changed = True
+            while changed:
+                changed = False
+                for m in members:
+                    if m not in pruned and m != pid and set(depends_in[m]) & pruned:
+                        pruned.add(m)
+                        changed = True
+            plan["subset_preview"] = {"final": [m for m in members if m not in pruned], "pruned": sorted(pruned)}
+            plan["suggested_command"] += f" --without {','.join(wl)}"
     shutil.rmtree(src, ignore_errors=True)
     if "--json" in args:
         print(_json.dumps(plan, ensure_ascii=False, indent=2))
         return 0
     print(f"[plan] {pid} v{plan['version']} (compat {plan['compat']}) — trust: {plan['trust']}"
-          + ("; kind: suite (rootless — no family root member)" if kind == "suite" else ""))
+          + ("; kind: suite (rootless — no family root member)" if kind == "suite" else "")
+          + (f"; kind: protocol {pkgm.get('protocol')} (rootless, all-or-nothing — no member is prunable, R6)" if kind == "protocol" else ""))
     print(f"[plan] disclosure: {plan['disclosure']}")
     if plan["needs"] or plan["provides"]:
         print(f"[plan] capabilities — needs: {', '.join(plan['needs']) or '—'}; provides: {', '.join(plan['provides']) or '—'}"
               + (" (provides count toward needs only at trust >= reviewed — this package's trust: {})".format(plan['trust']) if plan["provides"] else ""))
-    if kind == "suite":
-        print("[plan] baseline: none — rootless suite, every member is prunable via --without")
+    if rootless:
+        print(f"[plan] baseline: none — rootless {kind}, every member rides the package"
+              + (" (none prunable — R6 all-or-nothing)" if kind == "protocol" else " (prunable via --without)"))
     else:
         print(f"[plan] baseline (always installed): {pid}" + (f" — {menu.get(pid, '')}" if menu.get(pid) else ""))
     for o in plan["optional"]:
@@ -2497,7 +2546,12 @@ def do_plan(spec, args):
         print("[plan] connectors (ride the package): " + ", ".join(f"{c['name']} ({c['kind']})" for c in plan["connectors"]))
     if "subset_preview" in plan:
         sp = plan["subset_preview"]
-        print(f"[plan] subset preview: final {', '.join(sp['final'])}; pruned {', '.join(sp['pruned'])}")
+        if sp.get("refused"):
+            # step2 review Low: the plan must not hand out a command install will
+            # surely refuse — surface R6 all-or-nothing instead
+            print(f"[plan] subset preview refused: {sp['refused']}")
+        else:
+            print(f"[plan] subset preview: final {', '.join(sp['final'])}; pruned {', '.join(sp['pruned'])}")
     print(f"[plan] suggested: {plan['suggested_command']}")
     return 0
 
