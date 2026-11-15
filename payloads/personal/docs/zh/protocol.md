@@ -26,7 +26,7 @@
 | **可否拆除？** | 拆了它，workspace 就不再是这个 workspace | 卸载该域，workspace 毫发无伤 |
 | **提供横切服务吗？** | 派生层、检索、check 规则、提炼区——全 workspace 共用 | 不提供；域内派生借协议服务落地（结论经桥进 notes，用协议的 index 检索） |
 
-内核则拥有**机制**（manifest 语法、投影、[包/能力引擎](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [内核机制](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md)、check 机器），且协议无关：它执行已装包声明的任何规则。一句话——**内核是机器，协议是地主法，域是带章程的租户**。
+内核则拥有**机制**（manifest 语法、投影、[包/能力引擎](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [内核机制](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md)、check 机器），且协议无关：它执行已装包声明的任何规则。一句话——**内核是机器，协议是法，域是带章程、受法约束的成员；插件是一「被定义的信息」，不是土地的租户**（插件本体论——owner 2026-11-15 终裁——见[内核机制](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/kernel.md) §2.1）。
 
 ## 槽位的形状
 
@@ -60,7 +60,7 @@
 | **wiki** | md 世界（`wiki/`）：territory 页、原生写作、派生投影 |
 | **vault** | 真实资产库（`vault/`），任意格式，对 agent 只增不删 |
 | **domain** | 有适配器契约的有界真相区域；wiki 只认内与外 |
-| **territory** | 一个插件拥有的路径片（拥有即写权；借用即只读消费） |
+| **territory** | 某些信息种类需要的存放形式：某插件握写权的路径片（借用即只读消费）。领土服务于信息种类，绝不是插件身份——trust 无目录领土，bridge 0.3 零领土 |
 | **派生层** | 机械再生的页面（index / tags / hot / log）——手编无效，下次重建即覆盖 |
 | **页面类型** | 开放的 `type` frontmatter 词汇；结构由各插件自行声明，协议不做穷举 |
 | **红线** | 硬纪律：对 `vault/` 与 log/历史只增不删；派生页绝不手编再生；命令对 notes/sessions 只增不改；实例数据永不入 git |
