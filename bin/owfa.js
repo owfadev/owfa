@@ -852,6 +852,27 @@ function cmdDoctor(args) {
     out(`AGENTS.md: ${ok ? "injection markers present" : "MISSING injection markers"}`);
     if (!ok) problems.push("AGENTS.md injection markers are missing or broken");
   }
+  // step2 protocol formalization: a workspace with no protocol package installed
+  // is protocol-less — a shell. Informational hint (not a problem): the user may
+  // be running the bare framework deliberately; the same hint fires at uninstall
+  // of the last protocol (validate is a pure plugin-graph check and never carries it).
+  {
+    const domainsDir = path.join(target, ".owfa", "plugins", "domains");
+    let hasProtocol = false;
+    if (fs.existsSync(domainsDir)) {
+      for (const d of fs.readdirSync(domainsDir)) {
+        try {
+          const t = fs.readFileSync(path.join(domainsDir, d, "PKG.yaml"), "utf8");
+          if (/^kind:\s*protocol\s*$/m.test(t)) { hasProtocol = true; break; }
+        } catch { /* unreadable PKG.yaml — validate reports it */ }
+      }
+    }
+    if (!hasProtocol) {
+      out("protocol: none installed — this workspace is protocol-less (a shell); install a protocol package (see `owfa list`) or confirm bare framework use deliberately");
+    } else {
+      out("protocol: present");
+    }
+  }
   if (!py) {
     out("kernel validate: skipped (no python)");
     problems.push("Python 3.9+ not found — kernel validate not run");

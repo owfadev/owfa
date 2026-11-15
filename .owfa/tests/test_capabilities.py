@@ -109,7 +109,7 @@ class CapabilityTests(unittest.TestCase):
     # ---- grammar / prefix ----
 
     def test_grammar_and_prefix_rule(self):
-        self.pkg_dir("probe", caps="needs: [Bad.Cap]\nprovides: [other.org.v1]")
+        self.pkg_dir("probe", caps="needs: [Bad.Cap]\nprovides: [other.cap.v1]")
         result = self.install_path("probe")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("fails the capability grammar", result.stdout)
@@ -127,9 +127,9 @@ class CapabilityTests(unittest.TestCase):
     # ---- exact-name matching ----
 
     def test_v2_gap_is_reported_as_different_version(self):
-        self.pkg_dir("prov", caps="provides: [owfa.org.v1]")
+        self.pkg_dir("prov", caps="provides: [owfa.net.v1]")
         self.assertEqual(self.install_path("prov").returncode, 0)
-        self.pkg_dir("needr", caps="needs: [owfa.org.v2]")
+        self.pkg_dir("needr", caps="needs: [owfa.net.v2]")
         result = self.install_path("needr")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("present at different version", result.stdout)
@@ -145,9 +145,9 @@ class CapabilityTests(unittest.TestCase):
     # ---- exclusive slot ----
 
     def test_exclusive_slot_refuses_second_provider(self):
-        self.pkg_dir("alpha", caps="provides: [owfa.org.v1]")
+        self.pkg_dir("alpha", caps="provides: [owfa.net.v1]")
         self.assertEqual(self.install_path("alpha").returncode, 0)
-        self.pkg_dir("beta", caps="provides: [owfa.org.v1]")
+        self.pkg_dir("beta", caps="provides: [owfa.net.v1]")
         result = self.install_path("beta")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("exclusive", result.stdout)
@@ -159,9 +159,9 @@ class CapabilityTests(unittest.TestCase):
 
     def test_unverified_provider_needs_yes_and_journals(self):
         # provider installed via --path (no INDEX row): provides are unverified
-        self.pkg_dir("prov", caps="provides: [owfa.org.v1]")
+        self.pkg_dir("prov", caps="provides: [owfa.net.v1]")
         self.assertEqual(self.install_path("prov").returncode, 0)
-        self.pkg_dir("needr", caps="needs: [owfa.org.v1]")
+        self.pkg_dir("needr", caps="needs: [owfa.net.v1]")
         result = self.install_path("needr")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("unverified trust", result.stdout)
@@ -173,22 +173,22 @@ class CapabilityTests(unittest.TestCase):
         self.assertIn("trust-override needr", journal)
 
     def test_reviewed_registry_provider_satisfies_needs(self):
-        repo = self.git_pkg("prov", "0.1", provides=["owfa.org.v1"])
+        repo = self.git_pkg("prov", "0.1", provides=["owfa.net.v1"])
         self.index([("prov", f"repo: {repo}, version: 0.1, trust: reviewed-3rd-party, members: prov")])
         self.assertEqual(self.run_kernel("install", "prov").returncode, 0)
-        self.pkg_dir("needr", caps="needs: [owfa.org.v1]")
+        self.pkg_dir("needr", caps="needs: [owfa.net.v1]")
         result = self.install_path("needr")  # no --yes: the trusted provider satisfies
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     # ---- prospective set (upgrade sole provider) ----
 
     def test_upgrade_of_sole_provider_passes_prospective_preflight(self):
-        repo = self.git_pkg("prov", "0.1", provides=["owfa.org.v1"])
+        repo = self.git_pkg("prov", "0.1", provides=["owfa.net.v1"])
         self.index([("prov", f"repo: {repo}, version: 0.1, trust: reviewed-3rd-party, members: prov")])
         self.assertEqual(self.run_kernel("install", "prov").returncode, 0)
-        self.pkg_dir("needr", caps="needs: [owfa.org.v1]")
+        self.pkg_dir("needr", caps="needs: [owfa.net.v1]")
         self.assertEqual(self.install_path("needr").returncode, 0)
-        # bump the provider: v0.2 still provides owfa.org.v1
+        # bump the provider: v0.2 still provides owfa.net.v1
         lines = (repo / "PKG.yaml").read_text(encoding="utf-8").replace("version: 0.1", "version: 0.2")
         (repo / "PKG.yaml").write_text(lines, encoding="utf-8")
         self.git(repo, "add", "-A")
@@ -207,7 +207,7 @@ class CapabilityTests(unittest.TestCase):
     def test_index_parses_needs_provides_commit_and_strips_single_quotes(self):
         self.index([
             ("prov", "repo: 'https://x/y.git', version: 0.1, trust: 'reviewed-3rd-party', "
-                     "members: a/b, needs: owfa.org.v1/qq.im.v1, provides: prov.org.v1/owfa.net.v1, commit: 'ABC123'"),
+                     "members: a/b, needs: owfa.net.v1/qq.im.v1, provides: prov.org.v1/owfa.net.v1, commit: 'ABC123'"),
             ("bare", 'repo: "https://x/z.git", version: 0.2, trust: framework-bundled, members: z'),
         ])
         prefix = "import sys; sys.path.insert(0, '.owfa/scripts'); import owfa_kernel as k; "
@@ -223,13 +223,13 @@ class CapabilityTests(unittest.TestCase):
         data = json.loads(r.stdout)
         self.assertEqual(data["trust"], "reviewed-3rd-party")  # single quotes stripped
         self.assertEqual(data["commit"], "ABC123")
-        self.assertEqual(data["needs"], ["owfa.org.v1", "qq.im.v1"])  # '/'-separated
+        self.assertEqual(data["needs"], ["owfa.net.v1", "qq.im.v1"])  # '/'-separated
         self.assertEqual(data["provides"], ["prov.org.v1", "owfa.net.v1"])
         self.assertEqual(data["bare_needs"], [])                    # absent = empty set
         self.assertIsNone(data["bare_commit"])                     # absent = no pin
 
     def test_commit_pin_mismatch_is_refused(self):
-        repo = self.git_pkg("prov", "0.1", provides=["owfa.org.v1"])
+        repo = self.git_pkg("prov", "0.1", provides=["owfa.net.v1"])
         self.index([("prov", f"repo: {repo}, version: 0.1, trust: reviewed-3rd-party, members: prov, "
                              f"commit: {'0' * 40}")])
         result = self.run_kernel("install", "prov")
@@ -238,7 +238,7 @@ class CapabilityTests(unittest.TestCase):
         self.assertFalse((self.root / ".owfa/plugins/domains/probe").exists())
 
     def test_commit_pin_match_installs(self):
-        repo = self.git_pkg("prov", "0.1", provides=["owfa.org.v1"])
+        repo = self.git_pkg("prov", "0.1", provides=["owfa.net.v1"])
         self.index([("prov", f"repo: {repo}, version: 0.1, trust: reviewed-3rd-party, members: prov, "
                              f"commit: {self.git_head(repo)}")])
         result = self.run_kernel("install", "prov")
@@ -285,26 +285,26 @@ class CapabilityTests(unittest.TestCase):
             "members: [weird]\ndepends: [framework]\n", encoding="utf-8")
         result = self.run_kernel("install", "weird", "--path", str(suite))
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("kind (platform) must be 'suite' or 'domain-family'", result.stdout)
+        self.assertIn("kind (platform) must be 'suite', 'protocol' or 'domain-family'", result.stdout)
 
     # ---- provides command (instance view) ----
 
     def test_kernel_provides_reports_satisfaction(self):
-        self.pkg_dir("prov", caps="provides: [owfa.org.v1, prov.util.v1]")
+        self.pkg_dir("prov", caps="provides: [owfa.net.v1, prov.util.v1]")
         self.assertEqual(self.install_path("prov").returncode, 0)
-        self.pkg_dir("needr", caps="needs: [owfa.org.v1]")
+        self.pkg_dir("needr", caps="needs: [owfa.net.v1]")
         self.assertEqual(self.install_path("needr", "--yes").returncode, 0)
         result = self.run_kernel("provides")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("pkg prov: provides owfa.org.v1, prov.util.v1", result.stdout)
+        self.assertIn("pkg prov: provides owfa.net.v1, prov.util.v1", result.stdout)
         # unverified (--path) provides are annotated as such
         self.assertIn("trust: unknown — unverified provides", result.stdout)
-        self.assertIn("needs owfa.org.v1 — satisfied by UNVERIFIED provides", result.stdout)
+        self.assertIn("needs owfa.net.v1 — satisfied by UNVERIFIED provides", result.stdout)
         # uninstall is not a capability convergence point: the need goes unsatisfied
         # (red validate) while the uninstall itself succeeds — the instance view reports it
         self.assertEqual(self.run_kernel("uninstall", "prov", "--yes").returncode, 0)
         result = self.run_kernel("provides")
-        self.assertIn("needs owfa.org.v1 — NOT satisfied: capability missing entirely", result.stdout)
+        self.assertIn("needs owfa.net.v1 — NOT satisfied: capability missing entirely", result.stdout)
 
 
 if __name__ == "__main__":
