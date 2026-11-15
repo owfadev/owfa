@@ -154,6 +154,31 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# --- kernel parameterization (kernel-home spec v2, step 1 — behavior-preserving) ---
+# OWFA_HOME (G3): the user-level substrate root. The env var wins over the
+# default ~/.owfa so CI containers, test sandboxes and multi-user SSH sessions
+# can each point at their own root. This step only defines the constants and
+# the resolution — no behavior migrates onto them yet (user-level serving,
+# registry-cache order G4 and the user-level journal land in step 2).
+OWFA_HOME_ENV = "OWFA_HOME"
+
+
+def _owfa_home():
+    raw = os.environ.get(OWFA_HOME_ENV)
+    if raw:
+        return os.path.abspath(os.path.expanduser(raw))
+    return os.path.join(os.path.expanduser("~"), ".owfa")
+
+
+OWFA_HOME = _owfa_home()
+OWFA_HOME_KERNEL_DIR = os.path.join(OWFA_HOME, "kernel")                    # user-level kernel home (G1 multi-version in step 2+)
+OWFA_HOME_KERNEL_SCRIPT = os.path.join(OWFA_HOME_KERNEL_DIR, "owfa_kernel.py")
+OWFA_HOME_KERNEL_VERSION = os.path.join(OWFA_HOME_KERNEL_DIR, "VERSION")   # Q1a five-carrier anchor
+OWFA_HOME_REGISTRY_CACHE = os.path.join(OWFA_HOME, "registry-cache.yaml")  # G4 user-level cache slot (order documented, unused this step)
+OWFA_HOME_WORKSPACES = os.path.join(OWFA_HOME, "workspaces.yaml")          # machine workspace registry (step 2)
+OWFA_HOME_JOURNAL_DIR = os.path.join(OWFA_HOME, "journal")                 # user-level event journal (Q5a/M3, step 2)
+
 PLUGINS_DIR = os.path.join(ROOT, ".owfa", "plugins")
 COMMANDS_DIR = os.path.join(ROOT, ".owfa", "command")
 CONNECTORS_DIR = os.path.join(ROOT, "connectors")
@@ -164,10 +189,46 @@ MIGRATIONS_DIR = os.path.join(ROOT, ".owfa", "migrations")   # kernel zone: stag
 LEDGER = os.path.join(MIGRATIONS_DIR, "pending.json")          # kernel-owned warning ledger (never a plugin surface)
 JOURNAL = os.path.join(ROOT, ".owfa", "kernel-journal.log")    # mechanical event journal, one line per op
 
+
+def _apply_root(root):
+    """--root override (step 1): re-derive every ROOT-based path constant.
+
+    The __file__-derived default is unchanged; --root only reroutes where the
+    kernel reads/writes — the user-level channel (bin/owfa.js F1 dispatch)
+    uses it to serve a WORKSPACE.yaml tree from ~/.owfa/kernel/.
+    """
+    global ROOT, PLUGINS_DIR, COMMANDS_DIR, CONNECTORS_DIR, SKILLS_DIR, AGENTS_MD
+    global REGISTRY, MIGRATIONS_DIR, LEDGER, JOURNAL, CHECK_SKILL
+    ROOT = os.path.abspath(root)
+    PLUGINS_DIR = os.path.join(ROOT, ".owfa", "plugins")
+    COMMANDS_DIR = os.path.join(ROOT, ".owfa", "command")
+    CONNECTORS_DIR = os.path.join(ROOT, "connectors")
+    SKILLS_DIR = os.path.join(ROOT, ".agents", "skills")
+    AGENTS_MD = os.path.join(ROOT, "AGENTS.md")
+    REGISTRY = os.path.join(ROOT, ".owfa", "protocol", "registry.yaml")
+    MIGRATIONS_DIR = os.path.join(ROOT, ".owfa", "migrations")
+    LEDGER = os.path.join(MIGRATIONS_DIR, "pending.json")
+    JOURNAL = os.path.join(ROOT, ".owfa", "kernel-journal.log")
+    CHECK_SKILL = os.path.join(COMMANDS_DIR, "owfa-check", "SKILL.md")
+
 # manifest's seven fields (id / version / depends / updated / attachment / fields / inject) + optional commands
 REQUIRED_KEYS = ["id", "version", "depends", "updated", "attachment", "fields", "inject"]
-INJECT_START = "<!-- wiki-inject:start -->"
-INJECT_END = "<!-- wiki-inject:end -->"
+# --- C3 vocabulary parameterization (kernel-home spec §4.5, step 1) ---
+# The wiki container name and the INJECT marker id were hard-coded prose in
+# _check_transports and the marker strings — in a multi-protocol kernel that is
+# a defect. Both are now module-level constants; the defaults are unchanged, so
+# behavior is byte-identical (this step only removes the scattered hardcoding).
+WIKI_DIR_NAME = "wiki"        # the protocol data container _check_transports reads declarations from
+INJECT_MARKER = "wiki-inject"  # the AGENTS.md injection-region marker id
+
+
+def inject_markers(marker=None):
+    """(start, end) marker comments derived from the marker id (C3)."""
+    m = INJECT_MARKER if marker is None else marker
+    return f"<!-- {m}:start -->", f"<!-- {m}:end -->"
+
+
+INJECT_START, INJECT_END = inject_markers()
 CHECK_SKILL = os.path.join(COMMANDS_DIR, "owfa-check", "SKILL.md")  # v0.4 rename: the check command master is owfa-check/ (owner: framework) — the pre-rename constant silently skipped the check-inject projection
 CHECK_INJECT_START = "<!-- check-inject:start -->"
 CHECK_INJECT_END = "<!-- check-inject:end -->"
@@ -370,14 +431,15 @@ def _check_transports(name, m, errors, warnings):
     installed = bool(recommends) and os.path.isdir(os.path.join(CONNECTORS_DIR, str(recommends)))
     declared = False
     if isinstance(declaration, str) and declaration.strip():
-        page = os.path.join(ROOT, "wiki", declaration)
+        # C3: the wiki container name is a module constant, not inline prose
+        page = os.path.join(ROOT, WIKI_DIR_NAME, declaration)
         if os.path.exists(page):
             body = open(page, encoding="utf-8").read()
             declared = bool(re.search(r"(?m)^transport:\s*\S", body))
     if contract and not installed and not declared:
         warnings.append(
             f"{name}/: transport contract '{contract}' has no provider — install connectors/{recommends} "
-            f"or declare an active transport in wiki/{declaration} (the domain degrades to guidance until then)"
+            f"or declare an active transport in {WIKI_DIR_NAME}/{declaration} (the domain degrades to guidance until then)"
         )
 
 
@@ -628,7 +690,7 @@ def do_inject(plugins):
     text = open(AGENTS_MD, encoding="utf-8").read()
     m = re.search(re.escape(INJECT_START) + r"\n(.*?)" + re.escape(INJECT_END), text, re.S)
     if not m:
-        print("[error] AGENTS.md: inject markers (wiki-inject:start/end) not found")
+        print(f"[error] AGENTS.md: inject markers ({INJECT_MARKER}:start/end) not found")
         return False
     region = m.group(1)
     first = region.find("<!-- plugin:")
@@ -2294,15 +2356,30 @@ def _vline(x):
     return _vt(x)[:2]
 
 
+# M3 (kernel-home spec §4.5): journal line cap — pure append below, this is the
+# independent compaction threshold (unchanged from the historical 500)
+JOURNAL_MAX_LINES = 500
+
+
 def _journal(op, detail):
+    # M3 (kernel-home spec §4.5, step 1): pure append instead of the historical
+    # read-modify-write whole file; the cap became an independent post-write
+    # compaction. Safe only under the single-writer assumption — multi-process
+    # concurrency is explicitly NOT a goal here; the user-level journal
+    # (shared across workspaces) gets real concurrency treatment in step 2.
     import datetime
     line = f"{datetime.datetime.now().isoformat(timespec='seconds')} {op} {detail}"
+    with open(JOURNAL, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+    # compaction: over the cap → trim to the newest JOURNAL_MAX_LINES lines
     try:
-        old = open(JOURNAL, encoding="utf-8").read().splitlines() if os.path.exists(JOURNAL) else []
+        with open(JOURNAL, encoding="utf-8") as f:
+            lines = f.read().splitlines()
     except OSError:
-        old = []
-    old.append(line)
-    open(JOURNAL, "w", encoding="utf-8").write("\n".join(old[-500:]) + "\n")
+        return
+    if len(lines) > JOURNAL_MAX_LINES:
+        with open(JOURNAL, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines[-JOURNAL_MAX_LINES:]) + "\n")
 
 
 def _load_ledger():
@@ -2655,20 +2732,43 @@ def do_plan(spec, args):
     return 0
 
 
+def _take_root(argv):
+    """Step 1 (--root, global): strip `--root <path>` / `--root=<path>` from argv, return the path or None."""
+    for i, a in enumerate(argv):
+        if a == "--root":
+            if i + 1 >= len(argv):
+                print("[error] --root requires a path argument")
+                sys.exit(2)
+            path = argv[i + 1]
+            del argv[i:i + 2]
+            return path
+        if a.startswith("--root="):
+            path = a.split("=", 1)[1]
+            del argv[i]
+            return path
+    return None
+
+
 def main():
-    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    argv = sys.argv[1:]
+    # step 1 (kernel-home spec): --root is a global flag consumed before the
+    # subcommand dispatch — the user-level channel passes it to pin the tree
+    root = _take_root(argv)
+    if root:
+        _apply_root(root)
+    cmd = argv[0] if argv else ""
     if cmd == "plan":
-        return do_plan(sys.argv[2] if len(sys.argv) > 2 else "", sys.argv[3:])
+        return do_plan(argv[1] if len(argv) > 1 else "", argv[2:])
     if cmd == "install":
-        return do_install(sys.argv[2] if len(sys.argv) > 2 else "", sys.argv[3:])
+        return do_install(argv[1] if len(argv) > 1 else "", argv[2:])
     if cmd == "uninstall":
-        return do_uninstall(sys.argv[2] if len(sys.argv) > 2 else None, sys.argv[3:])
+        return do_uninstall(argv[1] if len(argv) > 1 else None, argv[2:])
     if cmd == "list-remote":
         return do_list_remote()
     if cmd == "migrate":
-        return do_migrate(sys.argv[2] if len(sys.argv) > 2 else None, sys.argv[3:])
+        return do_migrate(argv[1] if len(argv) > 1 else None, argv[2:])
     if cmd == "upgrade":
-        return do_upgrade(sys.argv[2] if len(sys.argv) > 2 else None, sys.argv[3:])
+        return do_upgrade(argv[1] if len(argv) > 1 else None, argv[2:])
     _led = _load_ledger()
     _orphans = []
     if os.path.isdir(MIGRATIONS_DIR):
@@ -2730,7 +2830,7 @@ def main():
         do_pkg_ls(pkgs, plugins)
         return 0
     if cmd == "residual":
-        return do_residual(sys.argv[2] if len(sys.argv) > 2 else None, pkgs)
+        return do_residual(argv[1] if len(argv) > 1 else None, pkgs)
     if cmd == "provides":
         if errors:
             for e in errors:
@@ -2745,13 +2845,13 @@ def main():
     if cmd == "audit":
         for e in errors:
             print(e)
-        return do_audit(plugins, sys.argv[2] if len(sys.argv) > 2 else None)
+        return do_audit(plugins, argv[1] if len(argv) > 1 else None)
     if cmd not in ("validate", "inject", "registry", "deploy", "all"):
         print(__doc__)
         return 2
     scope = None
-    if len(sys.argv) > 3 and sys.argv[2] == "--scope":
-        scope = sys.argv[3]
+    if len(argv) > 2 and argv[1] == "--scope":
+        scope = argv[2]
         if scope not in pkgs:
             print(f"[error] --scope {scope}: no such package (see: kernel pkg)")
             return 1
