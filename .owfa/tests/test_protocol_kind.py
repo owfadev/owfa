@@ -408,6 +408,61 @@ class ProtocolKindTests(unittest.TestCase):
         bare_line = [l for l in result.stdout.splitlines() if l.startswith("  bare")][0]
         self.assertNotIn("[protocol:", bare_line)
 
+    # ---- 15. step2 review Lows: plan display, scope-mode member needs, R7 reverse ----
+
+    def test_plan_protocol_rootless_and_without_refused(self):
+        """Low 1: kind:protocol plans through the suite (rootless) branch, and a
+        --without preview on protocol members surfaces R6 all-or-nothing instead
+        of a suggested command install will surely refuse."""
+        repo = self.git_proto_pkg("pw", "0.1")
+        self.index([("pw", f"repo: {repo}, version: 0.1, trust: reviewed-3rd-party, members: pwm, "
+                          "kind: protocol, protocol: vaultwiki, provides: vaultwiki.org.v1")])
+        result = self.run_kernel("plan", "pw", "--without", "pwm")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("kind: protocol vaultwiki (rootless, all-or-nothing", result.stdout)
+        self.assertIn("baseline: none — rootless protocol", result.stdout)
+        self.assertIn("subset preview refused", result.stdout)
+        self.assertIn("R6 all-or-nothing", result.stdout)
+        suggested = [l for l in result.stdout.splitlines() if l.startswith("[plan] suggested:")][0]
+        self.assertNotIn("--without", suggested)
+        # json shape carries the refusal too (the consent wizard consumes it)
+        rj = self.run_kernel("plan", "pw", "--without", "pwm", "--json")
+        plan = json.loads(rj.stdout)
+        self.assertIn("refused", plan["subset_preview"])
+        self.assertNotIn("--without", plan["suggested_command"])
+
+    def test_member_needs_grammar_tolerated_in_scope_mode(self):
+        """Low 3: member-level needs grammar violations degrade to warnings in
+        --scope single-package mode (mirroring the package-level downgrade)
+        instead of failing the scoped validate."""
+        # plant a domain-family package whose member carries a bad needs entry
+        # (install would refuse it; the planted shape is exactly what scope mode
+        # has to tolerate)
+        self.pkg_src("fam", ["fam", "fam-a"], member_needs={"fam-a": ["BAD CAP!"]})
+        dst = self.root / ".owfa/plugins/domains/fam"
+        shutil.copytree(self.source / "famsrc", dst)
+        scoped = self.run_kernel("validate", "--scope", "fam")
+        self.assertEqual(scoped.returncode, 0, scoped.stdout + scoped.stderr)
+        self.assertIn("member-level needs share the package-level grammar", scoped.stdout)
+        self.assertIn("tolerated in single-package mode", scoped.stdout)
+        # full graph still refuses the same shape
+        full = self.run_kernel("validate")
+        self.assertEqual(full.returncode, 1)
+        self.assertIn("[error] fam-a/PLUGIN.yaml: needs entry 'BAD CAP!'", full.stdout)
+
+    def test_r7_reverse_plain_package_id_equals_installed_protocol(self):
+        """Low 4: R7 is bidirectional — installing a plain package whose id equals
+        an installed protocol's id is refused too."""
+        self.pkg_src("pw", ["pwm"], kind="protocol", protocol="vaultwiki",
+                     provides=["vaultwiki.org.v1"])
+        self.assertEqual(self.install_path("pw").returncode, 0)
+        self.pkg_src("vaultwiki", ["vaultwiki"])  # plain domain-family, no protocol field
+        result = self.install_path("vaultwiki")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("package id equals the protocol id declared by PKG pw", result.stdout)
+        self.assertIn("R7", result.stdout)
+        self.assertFalse((self.root / ".owfa/plugins/domains/vaultwiki").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
