@@ -52,6 +52,7 @@ The performance budget for volumetric fog on low-end machines?
 
 ## Changelog
 
+- 0.11 2026-11-15: manifest path fix — `.owfa/plugins/sessions/` → `.owfa/plugins/domains/personal/sessions/` (stale pre-split deployment path)
 - 0.10 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.9 2026-09-23: added the wiki dependency edge — inner plugins attach to wiki, aligning with the domain 0.1 declaration; missed in the 2026-09-22 domainization batch
 - 0.8 2026-09-13: made the usage sample pointer explicit — added the `.owfa/plugins/sessions/PLUGIN.md` path, zero priors
