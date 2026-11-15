@@ -13,6 +13,7 @@
 | 默认协议：谱系、槽位、词汇、成员名册 | [owfa-personal 文档](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/protocol.md) |
 | 日常使用循环（默认协议） | [owfa-personal usage](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/usage.md) |
 | 写plugin或包 | [packages.md](packages.md) + [developer.md](developer.md) |
+| 从外部调用协议——ABI：四语义、compat 区间 | [abi.md](abi.md) |
 | 装机 / 升级实例（手动路径、各通道） | [deployment.md](deployment.md) |
 | 发版——框架或包 | [releasing.md](releasing.md) |
 | 把 0.3 旧实例迁到 0.4 | [conversion.md](conversion.md) |
@@ -22,4 +23,5 @@
 - [naming.md](naming.md) —— 命名史：OWFA、`owfadev`、被冻结的 `owfa` npm 名。
 - [sandbox.md](sandbox.md) —— 沙盒：什么在哪里运行、什么永不被触碰。
 - [agent-behavior.md](agent-behavior.md) —— agent 行为自检。
+- [abi.md](abi.md) —— 协议 ABI：四语义调用契约、compat 区间、R11 合格线。
 - [map.md](map.md) —— map 机制：vault 资产 → wiki 代理页。

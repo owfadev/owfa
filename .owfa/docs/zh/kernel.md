@@ -26,7 +26,7 @@
 | 字段 | 内核用途 | 源码 |
 |---|---|---|
 | `id` | 必须等于目录名（`889-890`） | |
-| `kind` | `suite`（rootless：无家族根、免闭包法则）与 `domain-family`（默认）；present/compat/平坦图/id 法则两者同守（`916-979`） | |
+| `kind` | `suite`（rootless：无家族根、免闭包法则）与 `domain-family`（默认）；present/compat/平坦图/id 法则两者同守（`916-979`）；`protocol` 另加 step2 形状法则与（0.4.6 起）R11 两态 ABI 合格线（[abi.md](abi.md)） | |
 | `version` | A.B.C；安装时对 INDEX 行核验（`1421-1424`），`upgrade` 比对 | |
 | `compat` | `>= X.Y` 下限，对 `.owfa/VERSION` 锚点核验（`framework_version`，`896-908`；检查 `973-979`、安装 `1409-1414`） | |
 | `members` | 插件花名册；子集安装必须依赖封闭（`948-969`） | |
