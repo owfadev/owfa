@@ -14,14 +14,12 @@
 | 名字：OWFA 展开、两名两职、撞名政策 | [zh/naming.md](naming.md) |
 | 把存量（拆分前扁平）实例转入包时代 | [zh/conversion.md](conversion.md) —— 一条命令（`npx owfadev upgrade`），含 staging 断点警示 |
 | 实例 git 用法（快照、红线、恢复） | instance-git plugin（personal 套件成员；正仓 [owfa-personal](https://github.com/owfadev/owfa-personal)，内嵌副本 `payloads/personal/instance-git/`） |
-| 框架机制：投影、桥、注入、inject 层级 | [zh/mechanics.md](mechanics.md) |
-| (un)install 历史、包生命周期 | [zh/mechanics.md](mechanics.md) §7 + [zh/packages.md](packages.md) |
+| 内核机制：包、能力、投影、注入、生命周期 | [zh/kernel.md](kernel.md) |
+| (un)install 历史、包生命周期 | [zh/kernel.md](kernel.md) §7 + [zh/packages.md](packages.md) |
 | 第三方视角：开发 → 发布 → 安装 → 更新 → 卸载；名称治理 | [zh/packages.md](packages.md) + [zh/developer.md](developer.md) |
 | 试验：sandbox 或本地 | [zh/sandbox.md](sandbox.md) |
 | 开发规则、commit 流、模板 + 实例工作流 | [CONTRIBUTING.md](https://github.com/owfadev/owfa/blob/master/CONTRIBUTING.md) —— 模板仓根部（实例去那里读，不自留副本） |
-| 日常使用循环 | [zh/usage.md](usage.md) |
-| 框架是什么、入门 | [zh/intro.md](intro.md) |
+| 日常使用循环（默认协议） | [owfa-personal: usage](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/usage.md) |
+| 默认协议是什么：谱系、槽位、词汇 | [owfa-personal: protocol](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/protocol.md) |
 | 包侧 plugin 文档（bb 家族、lark 家族……） | 归属 `owfa-*` 仓的 plugin 母本 |
 | AGENTS.md 种子 / log 种子示例 | [zh/agents-example.md](agents-example.md)、[zh/log-example.md](log-example.md) |
-| 仓库主页文案底稿 | [zh/home.md](home.md) |
-| 研究笔记（landscape、user-profile） | 英文正本 [research-landscape.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/research-landscape.md)、[research-user-profile.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/research-user-profile.md) |

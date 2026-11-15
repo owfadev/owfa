@@ -21,7 +21,7 @@ npm 包名是 **`owfadev`**（`owfa` 这个名字被 npm 相似性策略冻结�
 
 然后在 workspace 根目录开一个 agent 会话，随便丢一个文件进 `vault/`，说一句 **"owfa-map"**——agent 会把这个资产登记成 wiki 代理页（SHA-256、镜像路径、index/hot/log 联动）。首次运行同时会建好派生页。再跟一句 "owfa-check" 审计实例健康状态。
 
-至此 workspace 已经活了。日常用法见 [usage.md](usage.md)。
+至此 workspace 已经活了。日常用法见默认协议的[使用指南](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/usage.md)。
 
 ## 手动部署
 

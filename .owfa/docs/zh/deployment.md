@@ -183,7 +183,7 @@ git init && git add -A && git commit -m "init: OWFA workspace"   # 建议
 | 讲解 / 出题 / 认知档案 | 课程学习全家（需课程 domain，如 cuhksz） |
 | kernel 参考 | kernel 用法与机制 |
 
-日常循环——库务、课程学习、协作开发——见 [usage.md](usage.md)。机制见 [mechanics.md](mechanics.md)；flag 以 kernel 参考 skill 为权威。
+日常循环——库务、课程学习、协作开发——见默认协议文档（[owfa-personal: usage](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/usage.md)）。内核机制见 [kernel.md](kernel.md)；flag 以 kernel 参考 skill 为权威。
 
 ## 7. package——查找与安装
 

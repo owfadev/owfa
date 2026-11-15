@@ -21,7 +21,7 @@ The npm package is **`owfadev`** (the name `owfa` is frozen by npm's similarity 
 
 Now open an agent session at the workspace root, drop any file into `vault/`, and say **"owfa-map"** — the agent registers the asset as a wiki proxy page (SHA-256, mirror path, index/hot/log linkage). First run also builds the derived pages. Follow up with "owfa-check" to audit the instance's health.
 
-That's it — the workspace is live. Daily usage is covered in [usage.md](usage.md).
+That's it — the workspace is live. Daily usage is covered by the default protocol's [usage guide](https://github.com/owfadev/owfa-personal/blob/master/docs/usage.md).
 
 ## Manual deployment
 

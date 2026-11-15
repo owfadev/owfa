@@ -82,9 +82,8 @@ Contributions are welcome, and packages are the intended surface: a new capabili
 - [`.owfa/docs/developer.md`](.owfa/docs/developer.md) — developer guide: where a plugin lands (the three-path table), the dev loop, registration and discovery
 - [`.owfa/docs/releasing.md`](.owfa/docs/releasing.md) — the npm channel and release runbook: pipeline, five-artifact version invariant, merge discipline
 - [`.owfa/docs/conversion.md`](.owfa/docs/conversion.md) — 0.3→0.4 conversion and migrations: staging, resume caveats, the conversion algebra
-- [`.owfa/docs/mechanics.md`](.owfa/docs/mechanics.md) — mechanics: each mechanism one level deeper, with a domain-family walkthrough; read before touching the framework
-- [`.owfa/docs/usage.md`](.owfa/docs/usage.md) — usage guide: the three work loops (library keeping, course learning, collaborative development)
-- [`.owfa/docs/intro.md`](.owfa/docs/intro.md) — introduction: why this framework, narrative & lineage
+- [`.owfa/docs/kernel.md`](.owfa/docs/kernel.md) — kernel mechanics: packages, capabilities, projections, budgets, lifecycle; read before touching the framework
+- [default protocol docs](https://github.com/owfadev/owfa-personal/blob/master/docs/protocol.md) — the protocol this suite implements: lineage (llmwiki → vault-wiki → OWFA default), slots, vocabulary, member roster, and the three work loops
 - [`.owfa/docs/naming.md`](.owfa/docs/naming.md) — the name: canonical expansion, what each word commits to, two names two jobs, collision policy
 
 ## License

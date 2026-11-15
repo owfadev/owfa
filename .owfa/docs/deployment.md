@@ -183,7 +183,7 @@ Open the agent at the workspace root; it reads `AGENTS.md` and `.agents/skills/`
 | teach / quiz / cognition profile | course-learning family (needs a course domain, e.g. cuhksz) |
 | kernel reference | kernel usage and mechanics |
 
-The daily loops — library keeping, course learning, collaborative development — are in [usage.md](usage.md). Mechanics are in [mechanics.md](mechanics.md); the kernel reference skill is authoritative for flags.
+The daily loops — library keeping, course learning, collaborative development — are documented by the default protocol ([owfa-personal: usage.md](https://github.com/owfadev/owfa-personal/blob/master/docs/usage.md)). Kernel mechanics are in [kernel.md](kernel.md); the kernel reference skill is authoritative for flags.
 
 ## 7. Packages — finding and installing
 

@@ -2,14 +2,16 @@
 
 Reader: anyone approaching OWFA — first-time users, operators of existing instances, and plugin/package authors.
 
-This documentation set is layered. [quickstart.md](quickstart.md) gets you running in five minutes; [intro.md](intro.md) explains what OWFA is; [usage.md](usage.md) covers day-to-day work; [mechanics.md](mechanics.md) goes into how the machinery actually operates (manifests, projections, bridges); [packages.md](packages.md) and [developer.md](developer.md) serve those who extend the system; [deployment.md](deployment.md) and [releasing.md](releasing.md) cover installation operations and the release pipeline; [conversion.md](conversion.md) handles the 0.3 → 0.4 migration. Chinese mirrors live under [zh/](zh/README.md).
+This documentation set covers the **kernel and the channel** (protocol-agnostic). It is layered: [quickstart.md](quickstart.md) gets you running in five minutes; [kernel.md](kernel.md) goes into how the kernel actually operates (packages, capabilities, projections, budgets, lifecycle); [packages.md](packages.md) and [developer.md](developer.md) serve those who extend the system; [deployment.md](deployment.md) and [releasing.md](releasing.md) cover installation operations and the release pipeline; [conversion.md](conversion.md) handles the 0.3 → 0.4 migration. The **default protocol** (the llmwiki-descended organization scheme, shipped as the personal suite) documents itself in the [owfa-personal repo](https://github.com/owfadev/owfa-personal/blob/master/docs/protocol.md) — protocol.md, usage.md, and the 21 member PLUGIN.md files. Chinese mirrors live under [zh/](zh/README.md).
 
 ## Where to go
 
 | I want to… | Read |
 |---|---|
 | Use it — get a workspace running fast | [quickstart.md](quickstart.md) |
-| Understand how it works — kernel, plugins, projections, bridges | [mechanics.md](mechanics.md) |
+| Understand how it works — kernel, packages, capabilities, projections | [kernel.md](kernel.md) |
+| The default protocol: lineage, slots, vocabulary, member roster | [owfa-personal docs](https://github.com/owfadev/owfa-personal/blob/master/docs/protocol.md) |
+| Day-to-day usage loops (default protocol) | [owfa-personal usage](https://github.com/owfadev/owfa-personal/blob/master/docs/usage.md) |
 | Write plugins or packages | [packages.md](packages.md) + [developer.md](developer.md) |
 | Install or upgrade an instance (manual path, channels) | [deployment.md](deployment.md) |
 | Publish the framework or a package | [releasing.md](releasing.md) |

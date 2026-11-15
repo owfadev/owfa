@@ -82,9 +82,8 @@ npm 包名是 `owfadev`——`npx owfa` 不可用（名字被 npm 相似性策�
 - [developer.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/developer.md) — 开发者指南：插件落位三路径表、开发循环、注册与发现
 - [releasing.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/releasing.md) — npm 通道与发布手册：流水线、五载体版本不变量、合并纪律
 - [conversion.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/conversion.md) — 0.3→0.4 转换与迁移：staging、续传注意事项、转换代数
-- [mechanics.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/mechanics.md) — 机制：每个机制再深一层，附域家族走查；动框架前先读
-- [usage.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/usage.md) — 使用指南：三种工作循环（库务、课程学习、协作开发）
-- [intro.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/intro.md) — 导论：为什么是这个框架，叙事与谱系
+- [kernel.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/kernel.md) — 内核机制：包、能力、投影、预算、生命周期；动框架前先读
+- [默认协议文档](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/protocol.md) — 本套件实现的协议：谱系（llmwiki → vault-wiki → OWFA 默认）、槽位、词汇、成员名册与三种工作循环
 - [naming.md](https://github.com/owfadev/owfa/blob/master/.owfa/docs/zh/naming.md) — 命名：本义展开、每个词的承诺、两名两职、撞名对策
 
 ## 许可
