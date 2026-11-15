@@ -6,13 +6,13 @@
 
 **OWFA** (One Workspace For All agents) is an open-source agent workspace: out-of-the-box on first install, continuously maintainable over time, and pluginized end to end. One workspace — the directory you own, holding `vault/` (real assets), `wiki/` (md proxies and native notes) and `AGENTS.md` (the constitution) — is the standing context that every agent you use re-enters instead of being re-introduced each session. The agent reads and writes with zero priors per the SASU-L disclosure order; md plus plain files are the foundation, and Obsidian and friends are replaceable viewers. New capabilities land as packages — every package is listed in the registry through a human-review gate, so contributions are welcome: build a domain package for the sources you use and file a one-line PR to list it (see [Contributing](#contributing)).
 
-> Status: **alpha** — capability-wise a prototype matured by real daily use; distribution-wise still young, with few outside users. **Current release: v0.4.1** (v0.4.0 and v0.4.1 both released 2026-11-14). v0.4 is the core split: the release tree ships the kernel plus the embedded **personal** suite (21 plugin members) only — domain packages (cuhksz, lark, email, bili, project, …) moved to their own `owfa-*` repos and install on demand from the [registry](https://github.com/owfadev/owfa-registry). The npm package is **`owfadev`** (the name `owfa` is frozen by npm's similarity policy; the package exposes both `owfa` and `owfadev` bins). `.owfa/VERSION` tracks the kernel contract, not product maturity.
+> Status: **alpha** — capability-wise a prototype matured by real daily use; distribution-wise still young, with few outside users. **Current release: see [`owfa version`](https://www.npmjs.com/package/owfadev)** — the running version lives in `.owfa/VERSION` / the npm page, not in this sentence. v0.4 is the core split: the release tree ships the kernel plus the embedded **personal** suite (21 plugin members) only — domain packages (cuhksz, lark, email, bili, project, …) moved to their own `owfa-*` repos and install on demand from the [registry](https://github.com/owfadev/owfa-registry). The npm package is **`owfadev`** (the name `owfa` is frozen by npm's similarity policy; the package exposes both `owfa` and `owfadev` bins). `.owfa/VERSION` tracks the kernel contract, not product maturity.
 
 ## Why OWFA
 
 Two conveniences, one principle.
 
-**Stop hand-pointing.** Without a workspace, every session you re-explain: where the files are, what that course page means, which video you watched, what you decided last week. OWFA inverts this — information registers itself into the wiki (map, save, domain packages), and the agent goes and finds it. The value is convenience in the plainest sense: the pointing you used to do by hand becomes retrieval the agent does itself.
+**Stop hand-pointing.** Without a workspace, every session you re-explain: where the files are, what that course page means, which video you watched, what you decided last week. OWFA inverts this — information registers itself into the wiki (owfa-map, owfa-save, domain packages), and the agent goes and finds it. The value is convenience in the plainest sense: the pointing you used to do by hand becomes retrieval the agent does itself.
 
 **Any harness, your context.** OWFA ships as AGENTS.md + skills, not as a service — so it is indifferent to which agent harness reads them. Run it in one harness today, switch tomorrow, or run two at once: the workspace, the memory and the plugins come with you. The package line makes this concrete: the `bili` package (with its autonomous agent member) turns Bilibili into a queryable archive — raised in one harness, it runs just as well in any other that reads AGENTS.md. You are renting a harness, not adopting a walled garden.
 
@@ -24,12 +24,12 @@ Two conveniences, one principle.
 
 Let an AI coding agent run a "personal wiki" for you:
 
-- Drop assets into `vault/`, any format — md, txt, csv, pdf, images. The **map** command registers each as an md proxy page under `wiki/vault/`, with SHA-256, metadata and links
-- Insights and decisions from conversations are distilled by the **save** command into native notes under `wiki/notes/`; session backbone pages go to `wiki/sessions/`
-- The **query** command reads the hot cache and indexes first, then answers with wikilink-cited results
-- Index, tags, hot cache and the run log are all maintained automatically by the derived layer; the **check** command audits library health; the **plugin** command installs/uninstalls packages
+- Drop assets into `vault/`, any format — md, txt, csv, pdf, images. The **owfa-map** command registers each as an md proxy page under `wiki/vault/`, with SHA-256, metadata and links
+- Insights and decisions from conversations are distilled by the **owfa-save** command into native notes under `wiki/notes/`; session backbone pages go to `wiki/sessions/`
+- The **owfa-query** command reads the hot cache and indexes first, then answers with wikilink-cited results
+- Index, tags, hot cache and the run log are all maintained automatically by the derived layer; the **owfa-check** command audits library health; the **owfa-plugin** command installs/uninstalls packages
 - External sources attach as domains: lark and email land as pointers or archive pages; calendar manages the timeline; project manages project containers; cuhksz pulls courseware, assignments and grades via cuhksz-cli; bilibili answers on demand via bili-cli. Translation happens outside domains; inside the wiki everything interlinks
-- The **profile** command maintains a living cognition file about the user: assertions carry evidence, preferences expire; read it before any personalization
+- The **owfa-profile** command maintains a living cognition file about the user: assertions carry evidence, preferences expire; read it before any personalization
 
 ## Core concepts
 
@@ -69,6 +69,8 @@ The npm package is `owfadev` — `npx owfa` does not work (the name is frozen un
 `init` is additive (existing content untouched; an existing `AGENTS.md` keeps its text and gains only the injection region). Upgrading from 0.3: `npx owfadev upgrade` walks the core-split conversion (attic rescue → staging → rootless personal suite). Framework upgrades replace `.owfa/` and `.agents/skills/` — instance data is never touched; the migration ledger, journal and registry cache are kept.
 
 First use: open an agent session at the workspace root, drop a file into `vault/` and say "owfa-map" to the agent.
+
+Since 0.4.8 there is also a **user-level kernel channel**: `owfa init --user-level` (or `owfa adopt` on an existing workspace) installs the kernel once under `$OWFA_HOME/kernel/<ver>/` instead of per-workspace, marks the workspace with `.owfa/WORKSPACE.yaml`, and registers it in a machine-wide workspace registry (`owfa workspaces list / rescan`). The full mechanics are in [deployment.md](.owfa/docs/deployment.md).
 
 ## Contributing
 

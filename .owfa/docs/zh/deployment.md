@@ -58,7 +58,7 @@ kernel **不是**服务、守护进程或 pip 包。它是纯标准库 Python �
 
 | 通道 | 命令 | 状态 |
 |---|---|---|
-| npm | `npx owfadev init my-workspace` | **已上线**——包名 `owfadev`（双 bin `owfa` + `owfadev`，provenance 已启用）；成文时 0.4.1 |
+| npm | `npx owfadev init my-workspace` | **已上线**——包名 `owfadev`（双 bin `owfa` + `owfadev`，provenance 已启用）；现行版本以 npm 页面为准 |
 | npm，冻结名 | `npx owfa init …` | **不可用**——npm 以相似性政策（太近 `ow`/`ora`）冻结了 `owfa`；`npx owfa` 解析不到 |
 | git，克隆即实例 | `git clone https://github.com/owfadev/owfa.git my-workspace` | 现在可用 |
 | git，嵌入既有 vault | 在别处克隆模板，拷 `.owfa/` + `.agents/skills/` | 现在可用 |
@@ -153,6 +153,24 @@ python3 .owfa/scripts/owfa_kernel.py pkg        # 已装 package + 未认领残�
 ```
 
 Windows 上 `python` 可能是 `py -3`；CLI 依次探测 `python3`、`python`、`py -3`。设 `OWFA_PYTHON=/path/to/python3` 可覆盖。kernel 缺失说明 Core 拷贝不完整——重拷树，不要去「pip install」任何东西。
+
+### 4.4 用户级内核与机器注册表
+
+自 0.4.8 起，内核可以**每台机器装一份**，而非每个工作区一份——用户级内核通道（kernel-home spec v2）：
+
+```bash
+owfa init <dir> --user-level   # 在用户级通道上新建工作区
+owfa install-kernel            # 把本通道的 kernel master 装进 $OWFA_HOME/kernel/<X.Y.Z>/
+owfa adopt <path>              # 把既有 legacy 树迁上该通道（幂等）
+owfa workspaces list           # 机器工作区注册表
+owfa workspaces rescan [--under DIR]   # 从盘上标记重建注册表索引
+```
+
+- **`init --user-level`** 把内核装进 `$OWFA_HOME/kernel/<ver>/`（一版一目录、多版共存、对通道 master 做 sha256 校验），写工作区标记 `.owfa/WORKSPACE.yaml` 并登记工作区——工作区树**不再**携带 `scripts/` 载荷，也没有树内 `VERSION`。缺省（不带旗标）仍是 legacy 每树一份的通道。
+- **`adopt <path>`** 迁移 legacy 树：停泊树内 `scripts/`、写标记、登记、经新内核 validate——全有或全无；已 adopt 的工作区是 no-op。
+- **`$OWFA_HOME`**（默认 `~/.owfa`）是用户级基座根：`kernel/<ver>/` 放已装内核，`kernel/current` 指向最新，`workspaces.yaml` 是机器注册表。设 `OWFA_HOME` 环境变量可让 CI 容器或测试沙箱各用各的根。
+- **`.owfa/WORKSPACE.yaml` 是事实源**——极简标记（`kernel_compat` 下限；协议身份永不写入，由已装协议包推导）。**`~/.owfa/workspaces.yaml` 只是索引**（路径、uuid、kernel/compat 快照）。`owfa workspaces rescan` 扫盘上 `WORKSPACE.yaml` 标记重建索引（有界扫描，默认在用户主目录下）；自 0.4.8 起，rescan 还会从盘上刷新每行的 kernel/compat 快照。`list` 对悬空路径惰性注销并提示重新 adopt。
+- 工作区自己的 `.owfa/scripts/owfa_kernel.py` 变成一个轻量**弃用宿主转发器**，以 `--root` 钉住工作区、exec 用户级内核（面向 agent 的口径仍是 `python .owfa/scripts/owfa_kernel.py`）；0.5.0 退役。
 
 ## 5. 首次运行
 
@@ -264,7 +282,7 @@ npx owfadev upgrade --backup   # 在 .owfa/backup/<version>-<timestamp>/ 留一�
 
 从新模板修订重拷 `.owfa/` 与 `.agents/skills/`（先看 diff，勿在待迁移之上盲拷），然后 `kernel all`。实例 git 快照即回滚路径。
 
-框架版本锚在 `.owfa/VERSION`——读文件本身，别信文档里引用的数字（成文时 0.4.1）；升级可能 stage 目标侧语义迁移，同样的三面警告与 `kernel migrate` 流程。五载体等式（`.owfa/VERSION` == `package.json` == git tag == npm == GitHub Release）由 release gate 强制——见 [releasing.md](releasing.md)。
+框架版本锚在 `.owfa/VERSION`——读文件本身，别信文档里引用的数字；升级可能 stage 目标侧语义迁移，同样的三面警告与 `kernel migrate` 流程。五载体等式（`.owfa/VERSION` == `package.json` == git tag == npm == GitHub Release）由 release gate 强制——见 [releasing.md](releasing.md)。
 
 ## 9. 卸载
 
@@ -306,7 +324,7 @@ npx owfadev upgrade --backup   # 在 .owfa/backup/<version>-<timestamp>/ 留一�
 - **能拷整个 `.agents/` 树吗？** 能；本仓库的 `.agents/` 只有 `skills/`。
 - **Windows？** 纯标准库、无硬编码路径；CLI 探测 `py -3`。Git Bash 与 PowerShell 皆可。
 - **离线？** 联网机上 `npm pack`，拷 `.tgz`，`npm install -g ./owfa-x.y.z.tgz`，再 `owfa init`。package 可拷 `domains/<pkg>/` 后用 `all` 收敛。
-- **多工作区？** 一目录一实例，互相独立。CLI 可 init/upgrade 任意路径。
+- **多工作区？** 一目录一实例，互相独立，且 `owfa workspaces list` 一览无余——用户级通道维护机器注册表（`~/.owfa/workspaces.yaml`），收录每个 adopt / `--user-level` init 的工作区，`rescan` 可从盘上重建索引。legacy 通道的工作区就是彼此独立的树；CLI 可 init/upgrade 任意路径。
 - **plugin 从哪来？** registry 索引；未索引仓库可用 `--yes` 装（trust: unknown）。package 模型与 `PKG.yaml` 见 [packages.md](packages.md)。
 
 ## 附录——命令速查

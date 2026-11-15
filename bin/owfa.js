@@ -1600,7 +1600,7 @@ function usage() {
 the owfa framework's install and upgrade channel
 
 usage:
-  owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--force] [--user-level]
+  owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--without m,n] [--force] [--user-level]
       deploy a fresh workspace (framework ${FRAMEWORK_VERSION}); additive to existing content;
       two-stage: kernel payload, then the core suite (default: embedded blessed copy,
       offline; --core none skips it; --core <pkg-id> installs from the registry)

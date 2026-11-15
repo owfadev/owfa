@@ -18,7 +18,7 @@ The gate is [`scripts/verify-release.js`](https://github.com/owfadev/owfa/blob/m
 - no `preinstall`/`install`/`postinstall` scripts;
 - the actual packlist (`npm pack --dry-run --json`) must contain the required payload — including `.owfa/VERSION`, the kernel, `payloads/personal/PKG.yaml`, the embedded suite masters — and must not contain dev/local state (`test/`, `scripts/`, `.github/`, `__pycache__`, `pending.json`, `kernel-journal.log`, `registry-cache.yaml`, instance `vault/`/`wiki/`, `.owfa/plugins/core/`, or the suite-owned command masters under `.owfa/command/`).
 
-A release that would break the equation is refused before publish, not repaired after. Current line: 0.4.1 (tags v0.4.0 and v0.4.1, both 2026-11-14).
+A release that would break the equation is refused before publish, not repaired after. Current line: read `.owfa/VERSION` (or `owfa version`); do not pin release numbers in docs.
 
 ## Framework release runbook
 
