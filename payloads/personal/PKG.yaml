@@ -1,11 +1,13 @@
 schema_version: 1
 id: personal
-kind: suite
-version: 0.1.1
+kind: protocol
+protocol: vaultwiki
+version: 0.1.2
 compat: ">= 0.4"
 members: [calendar, cron, device, domain, hot, index, instance-git, language, link, log, mapping, notes, sessions, structure, tag, tmp, todo, trust, user-profile, vault, wiki]
 depends: [framework]
 skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]
+provides: [vaultwiki.org.v1]
 uninstall:
   anchors: [wiki/profile.md, wiki/language.md, wiki/structure.md, wiki/calendar.md, wiki/todo.md, wiki/cron/]
   retains: [vault/, wiki/]
