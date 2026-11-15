@@ -106,13 +106,19 @@ class CompatMatchTests(unittest.TestCase):
         self.assertFalse(k.compat_match(f"{next_major}.0.1", f"<{next_major}"))
 
     def test_and_composition_requires_every_comparator(self):
-        interval = ">=0.4 <0.5"
-        self.assertTrue(k.compat_match("0.4.6", interval))
-        self.assertFalse(k.compat_match("0.5.0", interval))
-        self.assertFalse(k.compat_match("0.3.9", interval))
-        # a narrower AND never widens: adding =0.4 excludes other minors' patches
-        self.assertFalse(k.compat_match("0.4.6", ">=0.4 <0.5 =0.4.5"))
-        self.assertTrue(k.compat_match("0.4.5", ">=0.4 <0.5 =0.4.5"))
+        # anchors derived from the fixture VERSION line (grammar example, but the
+        # line numbers stay bump-proof): >=THIS <NEXT admits this line's patches,
+        # rejects the next line and the line below
+        interval = f">={THIS_LINE} <{NEXT_MINOR}"
+        this_patch = f"{MAJOR}.{MINOR}.{PATCH}"
+        prev_patch = f"{MAJOR}.{MINOR}.{max(PATCH - 1, 0)}"
+        self.assertTrue(k.compat_match(this_patch, interval))
+        self.assertFalse(k.compat_match(f"{NEXT_MINOR}.0", interval))
+        if MINOR:  # fixture sits on minor >= 1 (0.4.x) — the minor-below anchor exists
+            self.assertFalse(k.compat_match(f"{MAJOR}.{MINOR - 1}.9", interval))
+        # a narrower AND never widens: adding =prev excludes other patches
+        self.assertFalse(k.compat_match(this_patch, f">={THIS_LINE} <{NEXT_MINOR} ={prev_patch}"))
+        self.assertTrue(k.compat_match(prev_patch, f">={THIS_LINE} <{NEXT_MINOR} ={prev_patch}"))
 
     def test_illegal_intervals_raise(self):
         for bad in ["", "   ", "1.0", ">=1.0.0.0", "=x.y", "1.0 <2.0",
@@ -197,10 +203,32 @@ class R11TwoStateTests(unittest.TestCase):
         self.proto_pkg("pw", abi_yaml=None)
         result = self.install("pw")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("kind:protocol without abi block — ABI becomes mandatory at 0.5.0 (R11)", result.stdout)
+        # warning copy rides the fixture VERSION line: the flip point is the next
+        # minor (0.5.0 while the fixture is 0.4.x) — bump-proof
+        self.assertIn(f"kind:protocol without abi block — ABI becomes mandatory at {NEXT_MINOR}.0 (R11)", result.stdout)
         result = self.run_kernel("validate")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("[warning] PKG pw: kind:protocol without abi block", result.stdout)
+
+    # ---- the 0.5.0 flip: missing block escalates warning -> error ----
+
+    def test_absent_abi_block_flips_to_error_at_0_5_0(self):
+        # guard the R11 switch: inject the framework version (no real VERSION
+        # bump) — from the 0.5 line the missing block is an error, the copy
+        # carries the injected version, and the 0.4.x window stays a warning
+        errs, warns = k.abi_block_issues("pw", {}, default_framework_version=(0, 5, 0))
+        self.assertTrue(errs and not warns)
+        self.assertIn("kind:protocol without abi block", errs[0])
+        self.assertIn("mandatory at 0.5", errs[0])
+        # boundary: 0.4.9 (last of the window) still warns with the 0.4.x copy
+        errs, warns = k.abi_block_issues("pw", {}, default_framework_version=(0, 4, 9))
+        self.assertFalse(errs)
+        self.assertEqual(len(warns), 1)
+        self.assertIn("becomes mandatory at 0.5.0", warns[0])
+        # and the live fixture version (0.4.x today) behaves as the window
+        errs, warns = k.abi_block_issues("pw", {})
+        self.assertFalse(errs)
+        self.assertEqual(len(warns), 1)
 
     # ---- state 2: block present but illegal -> error ----
 

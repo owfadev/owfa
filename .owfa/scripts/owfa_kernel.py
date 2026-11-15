@@ -1339,16 +1339,25 @@ ABI_SEMANTICS = ("list", "get", "search", "recent")
 ABI_BLOCK_KEYS = ("semantics", "search_lang", "addr_doc")
 
 
-def abi_block_issues(pid, pkg, pkg_root=None):
+def abi_block_issues(pid, pkg, pkg_root=None, default_framework_version=None):
     """R11 two-state ABI validation for one kind:protocol package; returns (errors, warnings).
 
     pkg_root (the package directory — installed tree at validate time, staged source
     at install time) enables the proto_query.py presence check; pass None to check
-    the declaration only."""
+    the declaration only.
+
+    default_framework_version injects the framework version for tests (a tuple in
+    framework_version() shape); production callers omit it and read .owfa/VERSION.
+    From 0.5.0 the missing-abi-block finding flips warning → error (R11: ABI is
+    mandatory from the 0.5.0 line)."""
     errs, warns = [], []
     abi = pkg.get("abi")
     if "abi" not in pkg or abi is None:
-        warns.append(f"PKG {pid}: kind:protocol without abi block — ABI becomes mandatory at 0.5.0 (R11)")
+        fw = default_framework_version if default_framework_version is not None else framework_version()
+        if fw is not None and fw >= (0, 5):
+            errs.append(f"PKG {pid}: kind:protocol without abi block — ABI is mandatory at {fw[0]}.{fw[1]}{f'.{fw[2]}' if len(fw) > 2 else ''}+ (R11)")
+        else:
+            warns.append(f"PKG {pid}: kind:protocol without abi block — ABI becomes mandatory at 0.5.0 (R11)")
         return errs, warns
     if not isinstance(abi, dict):
         errs.append(f"PKG {pid}: abi block must be a mapping with semantics/search_lang keys (R11)")
