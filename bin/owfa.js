@@ -52,7 +52,34 @@ const PRESERVED = [
 // small utilities
 // ---------------------------------------------------------------------------
 
+// F1 (kernel-home spec v2, step 0) — user-level kernel home resolution.
+// G3 isolation: env OWFA_HOME wins over the default ~/.owfa, so CI containers,
+// sandboxes and multi-user SSH sessions each get their own substrate root.
+// This step only defines the resolution and the dual-target kernel() dispatch;
+// nothing existing changes unless a workspace carries .owfa/WORKSPACE.yaml.
+function owfaHome() {
+  return process.env.OWFA_HOME
+    ? path.resolve(process.env.OWFA_HOME)
+    : path.join(os.homedir(), ".owfa");
+}
+
+// The user-level-channel workspace marker (spec §2): a tree carrying
+// .owfa/WORKSPACE.yaml declares itself served by the user-level kernel.
+function hasWorkspaceMarker(target) {
+  return fs.existsSync(path.join(target, ".owfa", "WORKSPACE.yaml"));
+}
+
 function readVersion(root) {
+  // F1 dual-target version source: a WORKSPACE.yaml workspace anchors the
+  // five-carrier equation on the user-level kernel (Q1a) — read its VERSION,
+  // not the tree's. Every other instance keeps reading the in-tree VERSION.
+  if (hasWorkspaceMarker(root)) {
+    try {
+      return fs.readFileSync(path.join(owfaHome(), "kernel", "VERSION"), "utf8").trim();
+    } catch {
+      return null;
+    }
+  }
   // ".meta" is the frozen 0.3 layout — a historical constant, safe to inline
   // here (LEGACY_META is declared later and readVersion runs at module init).
   for (const dir of [".owfa", ".meta"]) {
@@ -524,9 +551,20 @@ function pythonOrFail() {
 
 function kernel(target, kernelArgs) {
   const py = pythonOrFail();
-  const script = path.join(target, ".owfa", "scripts", "owfa_kernel.py");
-  if (!fs.existsSync(script)) fail(`no kernel at ${rel(target, script)} — is this an OWFA instance?`);
-  const res = spawnSync(py.cmd, [...py.args, script, ...kernelArgs], {
+  // F1 dual-target dispatch: a WORKSPACE.yaml workspace with a user-level
+  // kernel installed (owfaHome()/kernel/owfa_kernel.py) is served by that
+  // kernel, pointed at the tree via --root; anything else keeps the legacy
+  // in-tree path — existing instances see zero change (behavior-preserving).
+  let script;
+  let args = kernelArgs;
+  if (hasWorkspaceMarker(target) && fs.existsSync(path.join(owfaHome(), "kernel", "owfa_kernel.py"))) {
+    script = path.join(owfaHome(), "kernel", "owfa_kernel.py");
+    args = ["--root", target, ...kernelArgs];
+  } else {
+    script = path.join(target, ".owfa", "scripts", "owfa_kernel.py");
+    if (!fs.existsSync(script)) fail(`no kernel at ${rel(target, script)} — is this an OWFA instance?`);
+  }
+  const res = spawnSync(py.cmd, [...py.args, script, ...args], {
     cwd: target,
     stdio: "inherit",
     // Instances should not accumulate bytecode; the framework tree stays clean.
@@ -723,6 +761,18 @@ function cmdInit(args) {
 
 function cmdUpgrade(args) {
   const target = path.resolve(args._[0] || ".");
+  // M1 anti-stomp guard (kernel-home spec §4.5): a workspace registered in the
+  // user-level channel (.owfa/WORKSPACE.yaml) must not be tree-replaced by this
+  // legacy channel — the two channels would clobber each other's kernel state.
+  // Refuse and point at the user-level upgrade (that `owfa upgrade` lands in
+  // step 2; here the refusal text is the stub).
+  if (hasWorkspaceMarker(target)) {
+    fail(
+      `${target} carries .owfa/WORKSPACE.yaml — it is served by the user-level kernel channel, ` +
+        `which this legacy tree channel refuses to upgrade (M1 anti-stomp guard). ` +
+        `Use the user-level channel instead: \`owfa upgrade\` (user-level upgrade command — kernel-home step 2).`
+    );
+  }
   const local = readVersion(target);
   if (!local) fail(`${target} is not an OWFA instance (no .owfa/VERSION or .meta/VERSION) — run \`owfa init\` first`);
   const legacyLayout = !fs.existsSync(path.join(target, ".owfa", "VERSION"));
@@ -803,6 +853,9 @@ function cmdDoctor(args) {
   out(`owfa ${PKG.version} (channel framework ${FRAMEWORK_VERSION})`);
   out(`node ${process.version}`);
   out(`python ${py ? py.version || `${py.cmd} ${py.args.join(" ")}` : "NOT FOUND"}`);
+  // G3: report which substrate root this machine serves the workspace from —
+  // env override vs default — so isolation misconfiguration is visible.
+  out(`owfa-home ${owfaHome()}${process.env.OWFA_HOME ? " (OWFA_HOME)" : " (default ~/.owfa)"}`);
   out(`target ${target}`);
   if (!local) fail("not an OWFA instance (no .owfa/VERSION) — run `owfa init` first");
   out(`instance framework ${local}`);

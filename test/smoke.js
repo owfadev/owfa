@@ -515,6 +515,29 @@ try {
     assert.ok(!fs.existsSync(path.join(inst, ".owfa-migrate")), "conversion scratch not cleaned");
   });
 
+  // kernel-home steps 0+1 (F1/M1/G3, spec §6): the dual-target channel is
+  // opt-in via .owfa/WORKSPACE.yaml — without that marker everything must
+  // behave exactly as before, even with OWFA_HOME pointed at an isolated
+  // substrate root (G3). This is the behavior-preservation铁证 for step 0.
+  step("no WORKSPACE.yaml + OWFA_HOME set: legacy channel unchanged (F1/G3)", () => {
+    const home = path.join(tmpRoot, "owfa-home");
+    fs.mkdirSync(path.join(home, "kernel"), { recursive: true });
+    const env = { ...process.env, OWFA_HOME: home };
+    // earlier steps leave `empty` at a stale VERSION (0.2) for the --check
+    // fixture — resync to the channel version so doctor can validate green
+    fs.writeFileSync(path.join(empty, ".owfa", "VERSION"), FW, "utf8");
+    const d = spawnSync(process.execPath, [BIN, "doctor", empty], { cwd: tmpRoot, encoding: "utf8", env });
+    assert.strictEqual(d.status, 0, "doctor failed under OWFA_HOME override: " + d.stdout + d.stderr);
+    assert.ok(
+      new RegExp(`owfa-home ${home.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\(OWFA_HOME\\)`).test(d.stdout),
+      "doctor does not report the OWFA_HOME override (G3): " + d.stdout
+    );
+    // no marker → the in-tree kernel serves the workspace; the user-level home
+    // (empty here) is never consulted, and the legacy upgrade channel still runs
+    const u = spawnSync(process.execPath, [BIN, "upgrade", empty, "--check"], { cwd: tmpRoot, encoding: "utf8", env });
+    assert.strictEqual(u.status, 0, "read-only upgrade failed under OWFA_HOME override: " + u.stdout + u.stderr);
+  });
+
   console.log(`\nsmoke: ${failures ? failures + " failure(s)" : "all green"} (owfa ${PKG.version}, framework ${FW})`);
 } finally {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
