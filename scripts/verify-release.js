@@ -61,6 +61,7 @@ const REQUIRED = [
   ".owfa/command/owfa-query/SKILL.md",
   "bin/owfa.js",
   "payloads/personal/PKG.yaml",
+  "payloads/personal/pipeline.py",
   "payloads/personal/README.md",
   "payloads/personal/wiki/PLUGIN.yaml",
   "payloads/personal/command/owfa-map/SKILL.md",

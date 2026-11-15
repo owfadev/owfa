@@ -31,6 +31,16 @@ fi
 rm -rf "$DEST"
 mkdir -p "$DEST"
 cp -r "$TMP"/. "$DEST"/
+# --- step-1 guards (suite 0.1.1): pipeline lives at the package root ---
+if [ ! -f "$DEST/pipeline.py" ]; then
+  echo "sync-blessed: FATAL — $DEST/pipeline.py missing (suite package root must carry its machinery)" >&2
+  exit 1
+fi
+if grep -rq --exclude=pipeline.py "\.owfa/scripts/pipeline\.py" "$DEST"; then
+  echo "sync-blessed: FATAL — stale host-path literals under $DEST (upstream must use the suite path)" >&2
+  exit 1
+fi
+
 rm -f "$DEST/README.md"
 
 cat > "$DEST/README.md" <<'EOF'

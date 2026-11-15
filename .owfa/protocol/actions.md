@@ -1,7 +1,7 @@
 # Action discipline: path zones × action tiers
 
-> The semantic shape of permissions: this table does not rely on code for "enforcement", but deterministic structural operations are entrusted to scripts (`.owfa/scripts/owfa_kernel.py`: compliance / dependencies / injection / registry / copy sync; `.owfa/scripts/pipeline.py`: index / tags rebuild, hot / log rolling, post-write self-attestation), while semantic judgment is entrusted to the LLM; the agent consults this table before acting, and check audits afterwards from script output and git traces.
-> Four execution principles: deterministic structural operations go through scripts, semantic judgment through the LLM; rules spell out in plain text "how to do" rather than "what it is"; if one read suffices, there is no second scan (call frugality); write commands must close with `pipeline.py verify` self-attestation (the minimal attester form: the LLM executes, the script attests).
+> The semantic shape of permissions: this table does not rely on code for "enforcement", but deterministic structural operations are entrusted to scripts (`.owfa/scripts/owfa_kernel.py`: compliance / dependencies / injection / registry / copy sync; `the suite-provided pipeline, `.owfa/plugins/domains/personal/pipeline.py` (deprecated host copy `.owfa/scripts/pipeline.py` until 0.5.0): index / tags rebuild, hot / log rolling, post-write self-attestation), while semantic judgment is entrusted to the LLM; the agent consults this table before acting, and check audits afterwards from script output and git traces.
+> Four execution principles: deterministic structural operations go through scripts, semantic judgment through the LLM; rules spell out in plain text "how to do" rather than "what it is"; if one read suffices, there is no second scan (call frugality); write commands must close with the pipeline's `verify` self-attestation (the minimal attester form: the LLM executes, the script attests; the pipeline is suite machinery — with the personal suite since 0.1.1).
 
 ## Path zones
 
@@ -17,7 +17,7 @@
 
 | Tier | Typical actions | How executed |
 |---|---|---|
-| Mechanical-auto | index / tags / registry rebuild, injection-region rebuild, hot window eviction, log archival routing, hash recalculation, query log lines, command copy sync, post-write self-attestation | Execute directly (whatever scripts can do goes through scripts: `owfa_kernel.py` and `pipeline.py`), no asking |
+| Mechanical-auto | index / tags / registry rebuild, injection-region rebuild, hot window eviction, log archival routing, hash recalculation, query log lines, command copy sync, post-write self-attestation | Execute directly (whatever scripts can do goes through scripts: `owfa_kernel.py` (framework) and the suite pipeline), no asking |
 | Mechanical-confirm | tag merges (batch edits to plugin fields), reserved-field migration, tmp over-age cleanup (present list, delete after confirmation) | Present the list, execute after confirmation |
 | Semantic-report | note-merge suggestions, near-duplicate alerts, staleness judgments on proxy descriptions | Report the differences; the human decides |
 | Always-human | deletion, history rewriting, changes to existing `vault/` files, rewriting note bodies | Commands never execute these; ghost-writing on explicit user instruction must leave a log trace |
@@ -39,4 +39,4 @@ The criterion: touching "plugin-owned fields or regenerable pages" → mechanica
 - **hot**: ≤25 entries, <5 days, ≤200 characters per entry. Write hot entries via `pipeline.py hot <type> "<one-liner>"`—out-of-window entries are evicted and over-long entries truncated automatically before writing
 - **Index / registry**: on deviation from reality → rebuild directly inside check (`pipeline.py index` / `tags`; `owfa_kernel.py all`), no asking
 - **Vocabulary**: before writing tags, map / save first reads `wiki/tags.md` (the derived zone is the vocabulary), preferring to reuse existing words; near-duplicate merging is a mechanical-confirm item
-- **Parameter ownership**: mechanical parameters such as rolling windows defer to the `pipeline.py` source (the script source is the rule list), while plugin PLUGIN.md files keep the semantic explanations—commands and docs do not re-copy the numbers
+- **Parameter ownership**: mechanical parameters such as rolling windows defer to the pipeline source (suite package root) (the script source is the rule list), while plugin PLUGIN.md files keep the semantic explanations—commands and docs do not re-copy the numbers

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Derived-layer post-write pipeline: index / tags / hot / log / verify.
+"""DEPRECATED HOST COPY — retires in 0.5.0. Since suite 0.1.1 the pipeline ships with
+the personal suite at the package root (instance path:
+.owfa/plugins/domains/personal/pipeline.py); the kernel never calls it. This
+framework-tree copy is a one-version compatibility shim for reverse-order upgrades
+(framework before suite). Do not edit here — source of truth: owfadev/owfa-personal.
+
+Derived-layer post-write pipeline: index / tags / hot / log / verify.
 
 Positioning (.owfa/protocol/actions.md execution principles): deterministic structural
 operations go to this script; semantic judgment goes to the LLM. Rebuild and rolling

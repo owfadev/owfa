@@ -20,7 +20,7 @@ Read: registry (`.owfa/protocol/registry.yaml`, field and value-set anchor), tru
 2. **Judge signals** (criteria in the user-profile usage block below): if this session's and recent observations do not qualify, report and exit — never force a write
 3. Assemble the update: incremental assertions (new value replaces old + body trace) or construction / consolidation (whole-page rewrite) — construction and consolidation **present a profile preview** (assertions / evidence / layers) and wait for user confirmation
 4. Write the page (layered placement and stale_after renewal per the usage block below)
-5. **Post-write pipeline** (deterministic, mechanical and automatic, no prompting): execute each plugin's write calls in injection-region order, then finish with `python .owfa/scripts/pipeline.py verify` (post-write self-verification; on failure, go back and fix); then commit per the commit discipline (`画像: <one line>`, see the vocabulary in `.owfa/protocol/actions.md`)
+5. **Post-write pipeline** (deterministic, mechanical and automatic, no prompting): execute each plugin's write calls in injection-region order, then finish with `python .owfa/plugins/domains/personal/pipeline.py verify` (post-write self-verification; on failure, go back and fix); then commit per the commit discipline (`画像: <one line>`, see the vocabulary in `.owfa/protocol/actions.md`)
 6. Report: what was updated / the evidence chain / which layer it landed in
 
 ## Prohibitions
@@ -62,14 +62,14 @@ Output language takes the default key of the language declaration page `wiki/lan
 <!-- /usage:trust -->
 
 <!-- usage:index -->
-- Post-write rebuild (mechanical, automatic): `python .owfa/scripts/pipeline.py index` (index — overflow-offloading scheme, including deletion of obsolete old indexes after merge-back) and the same script's `tags` (tag reverse index); LLMs never hand-write indexes
+- Post-write rebuild (mechanical, automatic): `python .owfa/plugins/domains/personal/pipeline.py index` (index — overflow-offloading scheme, including deletion of obsolete old indexes after merge-back) and the same script's `tags` (tag reverse index); LLMs never hand-write indexes
 <!-- /usage:index -->
 
 <!-- usage:hot -->
-- Writing entries (mechanical, automatic): `python .owfa/scripts/pipeline.py hot <type> "<wikilink + one-sentence essence>"` (type value set same as log, see the log block of the AGENTS injection region); window eviction and truncation are performed by the script
+- Writing entries (mechanical, automatic): `python .owfa/plugins/domains/personal/pipeline.py hot <type> "<wikilink + one-sentence essence>"` (type value set same as log, see the log block of the AGENTS injection region); window eviction and truncation are performed by the script
 <!-- /usage:hot -->
 
 <!-- usage:log -->
-- Writing lines (mechanical, automatic): `python .owfa/scripts/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
+- Writing lines (mechanical, automatic): `python .owfa/plugins/domains/personal/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
 <!-- /usage:log -->
 <!-- cmd-inject:end -->
