@@ -58,7 +58,7 @@
 | 概念件 | trust · tag · link · language · hot · index · log · todo · tmp · domain | 读库内既有页 | 声明式——manifest 字段即物种定义 | 无连接器、常无领土；`trust`（无目录）与 `domain`（其信息种类就是 inner/outer 区分本身）是极限案例 |
 | 容器件 | wiki · notes · sessions · vault · diary · structure · mapping | 用户自写/落位 | 注册制+派生层 | 领土在此是真实的存放形式需求，不是身份 |
 | 连接器域 | cuhksz · lark · email · bili · github | connector CLI | 适配器契约+信任上限 | 凭据留在库外（红线）；缓存领土是存放，不是身份 |
-| 方法件 | bridge · bb-map · bb-teach · bb-quiz | 桥/ABI、映射产物、认知档案 | 纯方法，零落页代码 | `bridge` 是公式的零点——零领土零词条，生产验证过 |
+| 方法件 | bridge · bb-map · bb-teach · bb-quiz | 桥/ABI、映射产物、认知档案 | 纯方法，零落页代码 | `bridge` 是公式的零点——零领土零词条，生产验证过；bb-track 刻意不在此行——它把认知读数落在页上，是带领土的处理，不是纯方法 |
 | 受信自主体 | bili-pet | 喂料评分+debrief | 站立同意+写白名单+账本 | 已声明的例外类，不是事故：同意配额是物种定义的一部分 |
 
 两个值得点名引用的判例：**`trust` 证明领土不在公式里**（一个没有目录的完整插件），**`bridge` 证明公式的最小值**（一个仅由文档与方法定义的物种）。新插件应能说清自己延伸哪一行；哪行都不沾的是设计问题，不是公式的失败。
