@@ -58,7 +58,7 @@ All channels deploy the same Core tree; pick by environment, not by feature.
 
 | Channel | Command | Status |
 |---|---|---|
-| npm | `npx owfadev init my-workspace` | **live** — the package `owfadev` (dual bins `owfa` + `owfadev`, provenance enabled); 0.4.1 at the time of writing |
+| npm | `npx owfadev init my-workspace` | **live** — the package `owfadev` (dual bins `owfa` + `owfadev`, provenance enabled); the current version is whatever the npm page says |
 | npm, frozen name | `npx owfa init …` | **unavailable** — npm froze `owfa` under its similarity policy (too close to `ow`/`ora`); `npx owfa` does not resolve |
 | git, clone-as-instance | `git clone https://github.com/owfadev/owfa.git my-workspace` | works today |
 | git, embed into an existing vault | clone the template elsewhere, copy `.owfa/` + `.agents/skills/` | works today |
@@ -153,6 +153,24 @@ python3 .owfa/scripts/owfa_kernel.py pkg        # installed packages + the uncla
 ```
 
 On Windows, `python` may be `py -3`; the CLI probes `python3`, `python`, then `py -3`. Set `OWFA_PYTHON=/path/to/python3` to override. If the kernel is missing, the Core copy is incomplete — recopy the tree, do not "pip install" anything.
+
+### 4.4 User-level kernel & machine registry
+
+Since 0.4.8 the kernel can live once per **machine** instead of once per workspace — the user-level kernel channel (kernel-home spec v2):
+
+```bash
+owfa init <dir> --user-level   # fresh workspace on the user-level channel
+owfa install-kernel            # install this channel's kernel master into $OWFA_HOME/kernel/<X.Y.Z>/
+owfa adopt <path>              # migrate an existing legacy tree onto the channel (idempotent)
+owfa workspaces list           # the machine workspace registry
+owfa workspaces rescan [--under DIR]   # rebuild the registry index from disk markers
+```
+
+- **`init --user-level`** installs the kernel into `$OWFA_HOME/kernel/<ver>/` (one directory per version, multi-version coexistence, sha256-verified against the channel master), writes the workspace marker `.owfa/WORKSPACE.yaml`, and registers the workspace — the workspace tree carries **no** `scripts/` payload and no tree `VERSION`. The default (without the flag) stays the legacy per-tree channel.
+- **`adopt <path>`** migrates a legacy tree: it parks the tree's own `scripts/`, writes the marker, registers, and validates through the new kernel — all-or-nothing; an already-adopted workspace is a no-op.
+- **`$OWFA_HOME`** (default `~/.owfa`) is the user-level substrate root: `kernel/<ver>/` holds the installed kernels, `kernel/current` points at the latest, and `workspaces.yaml` is the machine registry. Set the `OWFA_HOME` env var to give CI containers or test sandboxes their own root.
+- **`.owfa/WORKSPACE.yaml` is the source of truth** for a workspace on this channel — a minimal marker (`kernel_compat` floor; protocol identity is never written, it derives from installed protocol packages). **`~/.owfa/workspaces.yaml` is only the index** (path, uuid, kernel/compat snapshot). `owfa workspaces rescan` rebuilds the index by scanning disk `WORKSPACE.yaml` markers (bounded scan, default under the user's home); since 0.4.8 it also refreshes each row's kernel/compat snapshot from disk. `list` lazily unregisters dangling paths with a re-adopt hint.
+- The workspace's own `.owfa/scripts/owfa_kernel.py` becomes a thin **deprecated host forwarder** that execs the user-level kernel with `--root` pinned to the workspace (agent-facing surfaces keep saying `python .owfa/scripts/owfa_kernel.py`); it retires in 0.5.0.
 
 ## 5. First run
 
@@ -267,7 +285,7 @@ npx owfadev upgrade --backup   # keep a copy under .owfa/backup/<version>-<times
 
 Re-copy `.owfa/` and `.agents/skills/` from the new template revision (review the diff, do not blind-copy over pending migrations), then `kernel all`. The instance git snapshot is the rollback path.
 
-Framework versions are anchored by `.owfa/VERSION` — read the file itself rather than any number quoted in docs (0.4.1 at the time of writing); a target-side semantic migration can be staged by an upgrade, with the same tri-face warning and `kernel migrate` flow. The version equation across the five carriers (`.owfa/VERSION` == `package.json` == git tag == npm == GitHub Release) is enforced by the release gate — see [releasing.md](releasing.md).
+Framework versions are anchored by `.owfa/VERSION` — read the file itself rather than any number quoted in docs; a target-side semantic migration can be staged by an upgrade, with the same tri-face warning and `kernel migrate` flow. The version equation across the five carriers (`.owfa/VERSION` == `package.json` == git tag == npm == GitHub Release) is enforced by the release gate — see [releasing.md](releasing.md).
 
 ## 9. Uninstall
 
@@ -309,7 +327,7 @@ Framework versions are anchored by `.owfa/VERSION` — read the file itself rath
 - **Can I copy the whole `.agents/` tree?** Yes; this repository's `.agents/` contains only `skills/`.
 - **Windows?** Pure stdlib, no hardcoded paths; the CLI probes `py -3`. Git Bash or PowerShell both work.
 - **Offline?** `npm pack` the CLI on a connected machine, copy the `.tgz`, `npm install -g ./owfa-x.y.z.tgz`, then `owfa init`. Packages can be copied as `domains/<pkg>/` and converged with `all`.
-- **Multiple workspaces?** One instance per directory; they are independent. The CLI can init/upgrade any path.
+- **Multiple workspaces?** One instance per directory; they are independent, and `owfa workspaces list` shows them all — the user-level channel keeps a machine registry (`~/.owfa/workspaces.yaml`) of every adopted/init-`--user-level` workspace, with `rescan` to re-index from disk. Legacy-channel workspaces are simply independent trees; the CLI can init/upgrade any path.
 - **Where do plugins come from?** The registry index; unindexed repos are installable with `--yes` (trust: unknown). See [packages.md](packages.md) for the package model and `PKG.yaml`.
 
 ## Appendix — command cheatsheet

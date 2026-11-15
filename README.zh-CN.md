@@ -6,13 +6,13 @@
 
 **OWFA**（One Workspace For All agents）是一个开源的 agent 工作区：开箱即用、可持续维护、端到端插件化。一个工作区——你拥有的那个目录，装着 `vault/`（真实资产）、`wiki/`（md 投影与原生笔记）和 `AGENTS.md`（章程）——是你所有 agent 反复进入的常驻上下文，而不是每次会话重新自我介绍。agent 按 SASU-L 披露次序零先验地读写；md 与纯文本文件是地基，Obsidian 等只是可替换的查看器。新能力以 package 落地——每个 package 经 registry 的人工审核门上架，欢迎贡献：为你使用的信息源写一个域 package，向 registry 提一行 PR 即可上架（见[参与贡献](#参与贡献)）。
 
-> 状态：**alpha**——能力面经真实日常使用打磨；分发面仍年轻，外部用户尚少。**现行版本 v0.4.1**（v0.4.0 与 v0.4.1 均发布于 2026-11-14）。v0.4 完成核心拆分：发布树只含内核与内嵌 **personal** 套件（21 个插件成员）——域包（cuhksz、lark、email、bili、project……）迁入各自的 `owfa-*` 仓，按需经 [registry](https://github.com/owfadev/owfa-registry) 安装。npm 包名为 **`owfadev`**（`owfa` 之名被 npm 相似性策略冻结；包同时暴露 `owfa` 与 `owfadev` 两个 bin）。`.owfa/VERSION` 锚定的是内核契约，不是产品成熟度。
+> 状态：**alpha**——能力面经真实日常使用打磨；分发面仍年轻，外部用户尚少。**现行版本以 `owfa version` / [npm 页面](https://www.npmjs.com/package/owfadev)为准**——运行版本住在 `.owfa/VERSION` 与 npm 页里，不钉在本句。v0.4 完成核心拆分：发布树只含内核与内嵌 **personal** 套件（21 个插件成员）——域包（cuhksz、lark、email、bili、project……）迁入各自的 `owfa-*` 仓，按需经 [registry](https://github.com/owfadev/owfa-registry) 安装。npm 包名为 **`owfadev`**（`owfa` 之名被 npm 相似性策略冻结；包同时暴露 `owfa` 与 `owfadev` 两个 bin）。`.owfa/VERSION` 锚定的是内核契约，不是产品成熟度。
 
 ## 为什么是 OWFA
 
 两重便利，一条原则。
 
-**别再用手指数路。** 没有工作区时，每次会话你都在重新解释：文件在哪、那门课的页面什么意思、哪个视频看过了、上周定了什么。OWFA 把这个方向倒过来——信息自己登记进 wiki（map、save、域 package），agent 自己去找。价值就是最朴素的那种便利：原本需要你手动指向的信息，变成 agent 自己能找到的答案。
+**别再用手指数路。** 没有工作区时，每次会话你都在重新解释：文件在哪、那门课的页面什么意思、哪个视频看过了、上周定了什么。OWFA 把这个方向倒过来——信息自己登记进 wiki（owfa-map、owfa-save、域 package），agent 自己去找。价值就是最朴素的那种便利：原本需要你手动指向的信息，变成 agent 自己能找到的答案。
 
 **任意 harness，你的上下文。** OWFA 以 AGENTS.md + 技能的形态交付，不是一项服务——所以它不挑哪个 agent harness 来读。今天在一个 harness 里跑，明天换一个，或者同时跑两个：工作区、记忆与插件都跟着你走。package 这条线把这点说得最具体：`bili` 包（含其自主 agent 成员）把 B 站变成可查询的档案——在一个 harness 里养起来的东西，在任何读 AGENTS.md 的 harness 里同样养得起来。你租用的是 harness，不是投进一座围墙花园。
 
@@ -24,12 +24,12 @@
 
 让 AI 编码 agent 替你经营一座「个人 wiki」：
 
-- 资产随手丢进 `vault/`，任何格式——md、txt、csv、pdf、图片。**map** 命令把每件资产登记为 `wiki/vault/` 下的 md 投影页，带 SHA-256、元数据与链接
-- 对话中的洞见与决策由 **save** 命令蒸馏为 `wiki/notes/` 下的原生笔记；会话骨架页进 `wiki/sessions/`
-- **query** 命令先读热缓存与索引，再以 wikilink 引用作答
-- 索引、标签、热缓存与运行日志由派生层自动维护；**check** 命令体检库健康；**plugin** 命令装卸 package
+- 资产随手丢进 `vault/`，任何格式——md、txt、csv、pdf、图片。**owfa-map** 命令把每件资产登记为 `wiki/vault/` 下的 md 投影页，带 SHA-256、元数据与链接
+- 对话中的洞见与决策由 **owfa-save** 命令蒸馏为 `wiki/notes/` 下的原生笔记；会话骨架页进 `wiki/sessions/`
+- **owfa-query** 命令先读热缓存与索引，再以 wikilink 引用作答
+- 索引、标签、热缓存与运行日志由派生层自动维护；**owfa-check** 命令体检库健康；**owfa-plugin** 命令装卸 package
 - 外部信息源以 domain 接入：lark 与 email 落为指针或归档页；calendar 管时间线；project 管项目容器；cuhksz 经 cuhksz-cli 拉课件、作业与成绩；bilibili 经 bili-cli 按需应答。翻译发生在域外；域内一切互链
-- **profile** 命令维护一份关于用户的活认知档案：断言带证据，偏好会过期；任何个性化决策前先读它
+- **owfa-profile** 命令维护一份关于用户的活认知档案：断言带证据，偏好会过期；任何个性化决策前先读它
 
 ## 核心概念
 
@@ -69,6 +69,8 @@ npm 包名是 `owfadev`——`npx owfa` 不可用（名字被 npm 相似性策�
 `init` 是加法的（既有内容不动；已有 `AGENTS.md` 保留原文，只追加注入区）。从 0.3 升级：`npx owfadev upgrade` 走核心拆分转换（attic 救援 → staging → rootless personal 套件）。框架升级替换 `.owfa/` 与 `.agents/skills/`——实例数据永不触碰；迁移台账、journal 与 registry 缓存保留。
 
 第一次使用：在工作区根开一个 agent 会话，丢一个文件进 `vault/`，对 agent 说「owfa-map」。
+
+自 0.4.8 起另有**用户级内核通道**：`owfa init --user-level`（或对既有工作区 `owfa adopt`）把内核一次性装进 `$OWFA_HOME/kernel/<ver>/` 而非每个工作区一份，以 `.owfa/WORKSPACE.yaml` 标记工作区，并登记进机器级工作区注册表（`owfa workspaces list / rescan`）。完整机制见 [deployment.md](.owfa/docs/zh/deployment.md)。
 
 ## 参与贡献
 

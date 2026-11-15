@@ -29,7 +29,7 @@
 |---|---|---|---|
 | 产品 | **OWFA** | README、npm 页、文档 | 品牌 |
 | 框架 | **OWFA Core** | `.owfa/` + `.agents/skills/` | 被装进工作区的本体 |
-| 安装器 | **OWFA CLI** | `bin/owfa.js`（npm 包 `owfadev`） | 取树、`init`、`upgrade`、`doctor`、`add` |
+| 安装器 | **OWFA CLI** | `bin/owfa.js`（npm 包 `owfadev`） | 取树；子命令：`init / install-kernel / adopt / workspaces / upgrade / doctor / add / list / pkg / version` |
 | 引擎 | **kernel** | `.owfa/scripts/owfa_kernel.py` | validate / inject / registry / deploy / install 机制 |
 | plugin 层 | **core** | owfa-personal 套件包（通道内嵌于 `payloads/personal/`） | 原 21 个框架 plugin |
 | 扩展 | **package** | `.owfa/plugins/domains/<pkg>/` | domain 家族（cuhksz、lark、email、bili、project……） |

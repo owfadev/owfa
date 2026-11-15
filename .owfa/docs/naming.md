@@ -29,7 +29,7 @@ The name answers the project's actual starting pain: an agent that must be re-in
 |---|---|---|---|
 | Product | **OWFA** | README, npm page, docs | the brand |
 | Framework | **OWFA Core** | `.owfa/` + `.agents/skills/` | the body that is installed into a workspace |
-| Installer | **OWFA CLI** | `bin/owfa.js` (npm package `owfadev`) | fetch the tree, `init`, `upgrade`, `doctor`, `add` |
+| Installer | **OWFA CLI** | `bin/owfa.js` (npm package `owfadev`) | fetch the tree; subcommands: `init / install-kernel / adopt / workspaces / upgrade / doctor / add / list / pkg / version` |
 | Engine | **kernel** | `.owfa/scripts/owfa_kernel.py` | validate / inject / registry / deploy / install mechanics |
 | Plugin tier | **core** | the owfa-personal suite package (embedded at `payloads/personal/` in the channel) | the 21 former framework plugins |
 | Extension | **package** | `.owfa/plugins/domains/<pkg>/` | domain families (cuhksz, lark, email, bili, project…) |
