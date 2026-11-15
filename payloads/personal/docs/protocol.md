@@ -26,7 +26,7 @@ A domain's internal rules can look deceptively protocol-like (a course domain's 
 | **Can it be removed?** | Remove it and the workspace is no longer this workspace | Uninstall the domain; the workspace is unharmed |
 | **Does it provide cross-cutting services?** | Derived layer, retrieval, check rules, distillation zones — shared by all | No; domain derivations land through the protocol's services (conclusions enter notes via bridges, retrieved via the protocol's index) |
 
-The kernel, in turn, owns the *mechanisms* (manifest syntax, projections, [package/capability engine](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [kernel mechanics](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md), check machinery) and is protocol-agnostic: it enforces whatever rules the installed packages declare. In one sentence — **the kernel is the machinery, the protocol is the landlord's law, a domain is a tenant with its own charter**.
+The kernel, in turn, owns the *mechanisms* (manifest syntax, projections, [package/capability engine](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [kernel mechanics](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md), check machinery) and is protocol-agnostic: it enforces whatever rules the installed packages declare. In one sentence — **the kernel is the machinery, the protocol is this workspace's law, a domain is a defined information kind with its own charter**.
 
 ## The Shape of the Slots
 
