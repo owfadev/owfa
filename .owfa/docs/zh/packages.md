@@ -88,6 +88,24 @@ PKG.yaml 是**最小 YAML 子集**——顶层标量、`key: []`、block list、
 
 实例侧 v1 要求全员在场——每个成员都在盘上；subset 语法（`installed ⊆ members`、非空、依赖闭包、domain-family 根强制）定死，`--without` 因此永不破坏校验器：`kernel install <pkg> --without a,b`（及 `owfa add <pkg> --without a,b`）今天就能装入经校验的子集——已装成员在 validate 里带 `suite subset install` 注记。它的承诺是语义的——零注入、零 skill 面、零凭据——而非物理的。
 
+## kind: protocol —— step2 形状裁定（R1–R11）
+
+`kind: protocol` + `protocol: <id>` 成对声明即构成**协议包**（protocol package）——一个工作区协议的持有者。形状裁定自 step2（0.4.5/0.4.6）起生效（正文以 step2-spec v2 为准），因 kernel.md 与 abi.md 按编号引用，此处一次性列举：
+
+| # | 裁定（除注明外均由 validate 强制） |
+|---|---|
+| R1 | `kind: protocol` ⇔ `protocol:` 字段在场——这对要么一起声明，要么都不声明 |
+| R2 | 协议包恰供给一个 `<protocol>.org.v<N>` org 能力（普通能力允许，前缀按 R4 = 协议 id 或包 id） |
+| R3 | 协议包无根（完整继承 kind:suite 纪律：无根、跳过闭包法则、全员在场） |
+| R4 | 能力前缀只有两个合法来源：包 id 或该包的 `protocol:` id；协议 id 不得为 `owfa`（保留） |
+| R5 | uninstall：retains 必须覆盖每个数据 skeleton 目录（未覆盖 validate 警告）；「工作区无协议——空壳」提示落在 uninstall 输出 + doctor，不在 validate |
+| R6 | 全有或全无：`--without` 或成员级 needs 剪枝触及协议成员即拒绝整个包（子集安装只属于 domain family） |
+| R7 | members 非空；协议 id 与已装包 id 及其他协议 id 均不冲突；协议 id ≠ owfa |
+| R8 | org 能力演化：每个协议任意时刻恰有一个 `<proto>.org.v<N>`（v1+v2 并存 = 错误）；upgrade = 原位替换，无共存窗口 |
+| R9 | org 能力（`*.org.v*`）为协议包专属：非协议包供给任何 org 能力即 validate 错误；一工作区一协议随之自动成立 |
+| R10 | 成员级 needs 受信任门控（只有 trust ≥ reviewed 的供给满足；不受信 = 不满足 → R6 语义）；文法 = CAPABILITY_RE；`owfa.*` 保留 |
+| R11 | 两态 ABI 合格线（0.4.6 起强制；0.5.0 起为错误）——见 [abi.md §4](abi.md) |
+
 ## 能力（capability）
 
 包级 `needs` / `provides`（v0.4）。语法，由 `validate` 机检：
