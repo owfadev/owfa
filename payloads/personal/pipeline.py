@@ -62,7 +62,7 @@ if os.path.isfile(_cur):
     try:
         _ver = open(_cur, encoding="utf-8").read().strip()
         if _ver:
-            sys.path.insert(0, os.path.join(_home, "kernel", _ver))
+            sys.path.append(os.path.join(_home, "kernel", _ver))   # append: in-tree scripts stay FIRST (legacy trees keep their own wikilib)
     except OSError:
         pass
 sys.path.insert(0, _here)
