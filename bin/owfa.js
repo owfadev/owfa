@@ -366,6 +366,25 @@ function installKernel() {
   return ver;
 }
 
+// B (spec §2/C1): the workspace marker is minimal-YAML — kernel_compat is the
+// single key; protocol identity is deliberately NOT written (it derives from
+// the installed protocol packages — C1 single source of truth). At most
+// comment lines ride along.
+function writeWorkspaceMarker(target, floorVersion) {
+  const file = path.join(target, ".owfa", "WORKSPACE.yaml");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(
+    file,
+    [
+      `# OWFA workspace marker — served by the user-level kernel (kernel-home spec v2 §2).`,
+      `# Protocol identity derives from the installed protocol packages (C1) — never written here.`,
+      `kernel_compat: ">= ${floorVersion}"`,
+      ``,
+    ].join("\n"),
+    "utf8"
+  );
+}
+
 function readVersion(root) {
   // F1 dual-target version source (step 2): a WORKSPACE.yaml workspace anchors
   // the five-carrier equation on the user-level kernel (Q1a) — read the
@@ -463,7 +482,7 @@ function rescueLegacyBackup(target) {
   if (fs.readdirSync(owfa).length === 0) fs.rmSync(owfa, { recursive: true });
 }
 
-function copyPayload(target, { replace = false } = {}) {
+function copyPayload(target, { replace = false, userLevel = false } = {}) {
   // M1 (kernel-home spec v2 §4.5): the legacy channel must never re-plant the
   // in-tree framework over a user-level-channel workspace — a replace would
   // both dual-plant the kernel and silently drop the WORKSPACE.yaml marker.
@@ -475,6 +494,13 @@ function copyPayload(target, { replace = false } = {}) {
     const base = path.basename(src);
     if (base === "__pycache__" || base.endsWith(".pyc") || base === ".DS_Store") return false;
     if (base === "smoke-tmp") return false;
+    // B (Q1a/Q2a, step 2): the user-level channel plants no tree kernel —
+    // .owfa/scripts/ and .owfa/VERSION live in $OWFA_HOME/kernel/<ver>/
+    // instead (install-kernel); the tree keeps everything else.
+    if (userLevel) {
+      const r = path.relative(path.join(CLI_ROOT, ".owfa"), src);
+      if (r === "VERSION" || r.startsWith(`scripts${path.sep}`)) return false;
+    }
     return true;
   };
   for (const entry of PAYLOAD) {
@@ -945,6 +971,10 @@ function reportPending(target) {
 function cmdInit(args) {
   const target = path.resolve(args._[0] || ".");
   const force = args.flags.has("force");
+  // B (kernel-home spec v2 §2, step 2): --user-level installs the kernel into
+  // $OWFA_HOME, writes the WORKSPACE.yaml marker and registers the workspace.
+  // The default (no flag) is byte-for-byte the legacy tree channel.
+  const userLevel = args.flags.has("user-level");
   const hasOwfa = fs.existsSync(path.join(target, ".owfa"));
   const hasLegacyMeta = fs.existsSync(path.join(target, LEGACY_META));
   if (hasLegacyMeta && !hasOwfa) {
@@ -980,22 +1010,38 @@ function cmdInit(args) {
     );
   }
 
-  out(`OWFA init — framework ${FRAMEWORK_VERSION} → ${target}`);
+  out(`OWFA init${userLevel ? " (user-level)" : ""} — framework ${FRAMEWORK_VERSION} → ${target}`);
   if (!hasOwfa && fs.existsSync(path.join(target, ".agents", "skills"))) {
     out("note: .agents/skills/ exists — framework skill copies are updated in place, other skills stay untouched");
   }
   if (hasOwfa) out("warning: --force replaces the framework trees; instance vault/ and wiki/ are untouched");
-  copyPayload(target, { replace: hasOwfa });
-  // P1 (review): the shim is part of the 0.4 layout for EVERY instance shape —
-  // released 0.3 packages (cuhksz/lark/github) still instruct .meta/ paths,
-  // fresh instances included.
-  if (ensureMetaShim(target) === "created") {
+  let kernelVer = null;
+  if (userLevel) {
+    // A: the user-level kernel first — convergence below dispatches onto it
+    out(`user-level kernel: installing into ${path.join(owfaHome(), "kernel")} (G3 home: ${owfaHome()})`);
+    kernelVer = installKernel();
+    out(`user-level kernel: ${kernelVer} at ${kernelVersionDir(kernelVer)} (hash-verified, Q7)`);
+  }
+  copyPayload(target, { replace: hasOwfa, userLevel });
+  if (userLevel) {
+    // B: marker + registry — the new shape's identity pair
+    writeWorkspaceMarker(target, FRAMEWORK_VERSION);
+    out(`workspace marker: .owfa/WORKSPACE.yaml written (kernel_compat >= ${FRAMEWORK_VERSION}; protocol identity derives from installed packages — C1)`);
+    registerWorkspace(target, kernelVer);
+    out(`registry: workspace registered in ${registryPath()}`);
+  } else if (ensureMetaShim(target) === "created") {
+    // P1 (review): the shim is part of the 0.4 layout for EVERY legacy instance
+    // shape — released 0.3 packages (cuhksz/lark/github) still instruct .meta/
+    // paths, fresh instances included. User-level workspaces skip it: nothing
+    // 0.3-era will ever point into a tree born on the new channel.
     out("shim: .meta → .owfa written — 0.3-era package paths keep working (retires in 0.5)");
   }
   out(`agents.md: ${ensureAgents(target, name)}`);
 
   out("");
-  out("converging projections (python .owfa/scripts/owfa_kernel.py all)");
+  out(userLevel
+    ? `converging projections (user-level kernel ${kernelVer} all --root)`
+    : "converging projections (python .owfa/scripts/owfa_kernel.py all)");
   if (kernel(target, ["all"]) !== 0) {
     const pending = pendingPackages(target);
     if (pending.length) {
@@ -1350,10 +1396,13 @@ function usage() {
 the owfa framework's install and upgrade channel
 
 usage:
-  owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--force]
+  owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--force] [--user-level]
       deploy a fresh workspace (framework ${FRAMEWORK_VERSION}); additive to existing content;
       two-stage: kernel payload, then the core suite (default: embedded blessed copy,
       offline; --core none skips it; --core <pkg-id> installs from the registry)
+      --user-level (kernel-home spec v2, step 2): install the kernel into
+      $OWFA_HOME/kernel/<ver>/, write .owfa/WORKSPACE.yaml and register the
+      workspace — no tree scripts/ or tree VERSION; the default stays legacy
   owfa install-kernel
       install this channel's kernel master into $OWFA_HOME/kernel/<X.Y.Z>/
       (multi-version coexistence, G1; sha256-verified against the master, Q7)
@@ -1392,7 +1441,11 @@ const COMMAND_HELP = {
         "in the channel tarball (offline); --core none skips stage ②; --core <pkg-id> installs\n" +
         "the suite from the registry (online; the kernel's trust gate stays interactive).\n" +
         "--packages installs further registry packages; --without prunes members (dependency-closed subsets only).\n" +
-        "--force re-copies the framework trees over an existing instance (instance data is never touched).",
+        "--force re-copies the framework trees over an existing instance (instance data is never touched).\n" +
+        "--user-level (kernel-home spec v2 step 2) serves the workspace from the user-level kernel\n" +
+        "($OWFA_HOME/kernel/<ver>/): installs the kernel, writes .owfa/WORKSPACE.yaml (kernel_compat\n" +
+        "floor = channel version; protocol identity derives from installed packages, C1) and registers\n" +
+        "the workspace in $OWFA_HOME/workspaces.yaml. The tree gets no scripts/ and no VERSION.",
   "install-kernel": "usage: owfa install-kernel\n\n" +
         "install this channel's kernel master (owfa_kernel.py + wikilib.py + VERSION) into\n" +
         "$OWFA_HOME/kernel/<X.Y.Z>/ — versions coexist (G1); `kernel/current` tracks the latest\n" +
@@ -1417,7 +1470,7 @@ const COMMAND_HELP = {
 };
 
 const COMMAND_FLAGS = {
-  init: ["force", "help", "h", ...FLAG_VALUE],
+  init: ["force", "user-level", "help", "h", ...FLAG_VALUE],
   "install-kernel": ["help", "h"],
   adopt: ["help", "h"],
   workspaces: ["under", "help", "h"],
