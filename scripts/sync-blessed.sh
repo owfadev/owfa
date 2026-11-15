@@ -36,8 +36,8 @@ if [ ! -f "$DEST/pipeline.py" ]; then
   echo "sync-blessed: FATAL — $DEST/pipeline.py missing (suite package root must carry its machinery)" >&2
   exit 1
 fi
-if grep -rq --exclude=pipeline.py "\.owfa/scripts/pipeline\.py" "$DEST"; then
-  echo "sync-blessed: FATAL — stale host-path literals under $DEST (upstream must use the suite path)" >&2
+if grep -rq --exclude=pipeline.py --exclude-dir=docs "\.owfa/scripts/pipeline\.py" "$DEST"; then
+  echo "sync-blessed: FATAL — stale host-path literals under $DEST outside pipeline.py/docs (manifests must use the suite path; docs may mention the deprecated host copy)" >&2
   exit 1
 fi
 
