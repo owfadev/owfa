@@ -499,7 +499,7 @@ function copyPayload(target, { replace = false, userLevel = false } = {}) {
     // instead (install-kernel); the tree keeps everything else.
     if (userLevel) {
       const r = path.relative(path.join(CLI_ROOT, ".owfa"), src);
-      if (r === "VERSION" || r.startsWith(`scripts${path.sep}`)) return false;
+      if (r === "VERSION" || r === "scripts" || r.startsWith(`scripts${path.sep}`)) return false;
     }
     return true;
   };
@@ -1245,9 +1245,11 @@ function cmdDoctor(args) {
   // layout-shim health (review P2 on the layout PR): a renamed/copied instance
   // leaves the Windows junction pointing at the old absolute path; a real .meta
   // directory means the 0.3 layout was never migrated. doctor reports; upgrade heals.
+  // Marker workspaces (step 2) never carry the shim — nothing 0.3-era points
+  // into a tree born on the user-level channel.
   const owfaDir = path.join(target, ".owfa");
   const metaPath = path.join(target, LEGACY_META);
-  if (fs.existsSync(owfaDir)) {
+  if (fs.existsSync(owfaDir) && !hasWorkspaceMarker(target)) {
     // lstat, not existsSync: a dangling shim must reach the stale branch, not
     // silently skip the whole check (review P2, PR #57 round 2).
     let mst = null;
@@ -1444,7 +1446,7 @@ function cmdAdopt(args) {
   out(`user-level kernel: ${kernelVer} at ${kernelVersionDir(kernelVer)}`);
   // ③ park the tree scripts (the upgrade park precedent — M2): the hold is the
   // only copy between set-aside and green validate
-  fs.mkdirSync(path.dirname(hold), { recursive: true });
+  fs.mkdirSync(hold, { recursive: true });
   fs.renameSync(scriptsDir, path.join(hold, "scripts"));
   const treeVersionFile = path.join(target, ".owfa", "VERSION");
   if (fs.existsSync(treeVersionFile)) fs.renameSync(treeVersionFile, path.join(hold, "VERSION"));

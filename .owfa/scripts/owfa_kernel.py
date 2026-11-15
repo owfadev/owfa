@@ -976,7 +976,15 @@ def framework_version():
     releases (versioning scheme, 0.4 — the anchor carries the full release)."""
     vpath = os.path.join(ROOT, ".owfa", "VERSION")
     if not os.path.exists(vpath):
-        return None
+        # kernel-home step 2 (spec Q1a): a WORKSPACE.yaml workspace anchors the
+        # five-carrier equation on the user-level kernel — this kernel's own
+        # VERSION (next to __file__ under $OWFA_HOME/kernel/<X.Y.Z>/) is the
+        # anchor. Legacy trees keep requiring the in-tree VERSION.
+        if not os.path.exists(os.path.join(ROOT, ".owfa", "WORKSPACE.yaml")):
+            return None
+        vpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
+        if not os.path.exists(vpath):
+            return None
     m = re.fullmatch(r"\s*(\d+)\.(\d+)(?:\.(\d+))?\s*", open(vpath, encoding="utf-8").read())
     if not m:
         return None
