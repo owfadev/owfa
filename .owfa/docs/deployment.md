@@ -254,8 +254,9 @@ npx owfadev upgrade            # replace .owfa/ + .agents/skills/ with the chann
 # A package whose PKG shape the old kernel cannot parse (kind: protocol since 0.4.3,
 # capability namespaces) will fail `kernel upgrade <pkg>` on an old kernel — and a
 # failed package upgrade must never leave you mid-way (see issue #72 for the one
-# real incident). The reverse order (suite first) was the v0.4.1–0.4.2 guidance and
-# applied to packages the old kernel could still parse.
+# real incident). The reverse order (suite first) was the v0.4.1–0.4.2 de-facto practice
+# (docs were silent on order then; attested by the host-shim comment), valid only
+# for packages the old kernel could still parse.
 npx owfadev upgrade --check    # read-only report
 npx owfadev upgrade --backup   # keep a copy under .owfa/backup/<version>-<timestamp>/
 ```
