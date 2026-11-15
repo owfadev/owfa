@@ -28,7 +28,7 @@ Since v0.4, plugins travel with **packages**. The install unit is the directory:
 | `id` | must equal the directory name (`889-890`) | |
 | `kind` | `suite` (rootless: no family root, no closure laws) vs `domain-family` (default); presence/compat/flat-graph/id laws apply to both (`916-979`) | |
 | `version` | A.B.C; compared against INDEX rows at install (`1421-1424`) and `upgrade` | |
-| `compat` | `>= X.Y` floor checked against `.owfa/VERSION` (`framework_version`, `896-908`; check `973-979`, install `1409-1414`) | |
+| `compat` | `>= X.Y` or `>= X.Y.Z` floor checked against `.owfa/VERSION` (`compat_floor`: two segments = minor-line floor — every X.Y.z passes; three segments = patch floor — X.Y.Z+ or higher minor) | |
 | `members` | the plugin roster; subset installs must stay dependency-closed (`948-969`) | |
 | `skeleton` | instance directories install mkdirs mechanically — the kernel hardcodes no layout; path-escape guard included (`1559-1564`) | |
 | `connectors` | in-repo directories copied to `connectors/` at install (`1510-1519`), removed at uninstall (`1616-1627`) | |
