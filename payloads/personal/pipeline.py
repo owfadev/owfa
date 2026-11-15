@@ -51,7 +51,20 @@ if os.path.basename(_here) == "scripts":
 else:
     ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_here)))  # .../personal -> domains -> plugins -> .owfa -> root is one more up
     ROOT = os.path.dirname(ROOT)
-sys.path.insert(0, os.path.join(ROOT, ".owfa", "scripts"))    # wikilib is a framework-level shared library
+# wikilib is a framework-level shared library. Resolution order:
+#   1. in-tree scripts (legacy layout / framework host shim era — retires 0.5.0)
+#   2. the user-level kernel home (kernel-home step 2: $OWFA_HOME/kernel/<ver>/,
+#      `current` pointer names the latest installed version)
+sys.path.insert(0, os.path.join(ROOT, ".owfa", "scripts"))
+_home = os.environ.get("OWFA_HOME") or os.path.join(os.path.expanduser("~"), ".owfa")
+_cur = os.path.join(_home, "kernel", "current")
+if os.path.isfile(_cur):
+    try:
+        _ver = open(_cur, encoding="utf-8").read().strip()
+        if _ver:
+            sys.path.insert(0, os.path.join(_home, "kernel", _ver))
+    except OSError:
+        pass
 sys.path.insert(0, _here)
 import wikilib
 WIKI = os.path.join(ROOT, "wiki")

@@ -167,6 +167,7 @@ function parseYamlScalar(s) {
 function loadRegistry() {
   const workspaces = [];
   let cur = null;
+  let malformed = 0;
   try {
     const text = fs.readFileSync(registryPath(), "utf8");
     for (const raw of text.split("\n")) {
@@ -179,9 +180,13 @@ function loadRegistry() {
       }
       const kv = raw.match(/^\s+([A-Za-z_][\w-]*):\s*(.+)$/);
       if (kv && cur) cur[kv[1]] = parseYamlScalar(kv[2]);
+      else if (!m && !kv && !/^\w+:\s*$/.test(raw)) malformed += 1;   // N2: non-parseable line — counted, warned below (bare top-level keys like "workspaces:" are structure, not garbage)
     }
   } catch {
     /* absent registry = empty list */
+  }
+  if (malformed > 0) {
+    out(`warning: workspaces registry had ${malformed} malformed line(s) — treated as absent; run \`owfa workspaces rescan\` to rebuild from disk (G2)`);
   }
   return workspaces;
 }
@@ -197,8 +202,8 @@ function saveRegistry(list) {
   for (const e of list) {
     lines.push(`  - id: ${e.id}`);
     lines.push(`    path: ${e.path}`);
-    lines.push(`    kernel: ${e.kernel || ""}`);
-    if (e.compat) lines.push(`    compat: ">= ${e.compat}"`);
+    if (e.kernel) lines.push(`    kernel: ${e.kernel}`);
+    if (e.compat) lines.push(`    compat: ${JSON.stringify(String(e.compat).replace(/^>=\s*/, ">= "))}`);
     lines.push(`    registered: ${e.registered || ""}`);
   }
   fs.writeFileSync(file, lines.join("\n") + "\n", "utf8");
@@ -281,6 +286,9 @@ function rescanRegistry(under) {
     for (const d of entries) {
       if (d.isDirectory() && !PRUNE.has(d.name)) stack.push([path.join(dir, d.name), depth + 1]);
     }
+  }
+  if (budget === 0 && stack.length > 0) {
+    out(`warning: rescan hit the directory budget (20000) under ${root} — deeper workspaces were NOT scanned; narrow the scan with --under <dir> (N4)`);
   }
   const old = loadRegistry();
   const byPath = new Map(old.map((e) => [e.path, e]));
@@ -370,6 +378,40 @@ function installKernel() {
 // single key; protocol identity is deliberately NOT written (it derives from
 // the installed protocol packages — C1 single source of truth). At most
 // comment lines ride along.
+// P2 (review, spec §3/Q2a): the single-file host forwarder. Agent-facing
+// surfaces (skills, docs) still say `python .owfa/scripts/owfa_kernel.py`;
+// on a user-level workspace that file is this forwarder, which execs the
+// user-level kernel with --root. Retires in 0.5.0 along with the pipeline
+// host shim (same ruling).
+function plantKernelForwarder(target) {
+  const shim = path.join(target, ".owfa", "scripts", "owfa_kernel.py");
+  fs.mkdirSync(path.dirname(shim), { recursive: true });
+  fs.writeFileSync(shim, `#!/usr/bin/env python3
+"""DEPRECATED HOST FORWARDER (kernel-home Q2a) — retires in 0.5.0.
+
+This workspace is served by the user-level kernel; this file only forwards
+agent-invoked legacy paths. Resolution: $OWFA_HOME/kernel/<current pointer>.
+"""
+import os, sys
+_home = os.environ.get("OWFA_HOME") or os.path.join(os.path.expanduser("~"), ".owfa")
+_target = None
+try:
+    _ver = open(os.path.join(_home, "kernel", "current"), encoding="utf-8").read().strip()
+    if _ver:
+        _candidate = os.path.join(_home, "kernel", _ver, "owfa_kernel.py")
+        if os.path.exists(_candidate):
+            _target = _candidate
+except OSError:
+    pass
+if _target is None:
+    sys.exit("host forwarder: no user-level kernel under " + _home + " — run: owfa install-kernel")
+_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.execv(sys.executable, [sys.executable, _target, "--root", _root] + sys.argv[1:])
+`);
+  fs.chmodSync(shim, 0o755);
+  return shim;
+}
+
 function writeWorkspaceMarker(target, floorVersion) {
   const file = path.join(target, ".owfa", "WORKSPACE.yaml");
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -487,8 +529,7 @@ function copyPayload(target, { replace = false, userLevel = false } = {}) {
   // in-tree framework over a user-level-channel workspace — a replace would
   // both dual-plant the kernel and silently drop the WORKSPACE.yaml marker.
   if (hasWorkspaceMarker(target)) {
-    err(`refused: ${target} carries .owfa/WORKSPACE.yaml (user-level channel) — the legacy init/upgrade payload must not replace it; use the user-level channel (owfa upgrade)`);
-    process.exit(1);
+    fail(`refused: ${target} carries .owfa/WORKSPACE.yaml (user-level channel) — the legacy init/upgrade payload must not replace it; use the user-level channel (owfa upgrade)`);
   }
   const skip = (src) => {
     const base = path.basename(src);
@@ -1049,6 +1090,10 @@ function cmdInit(args) {
     }
     fail("kernel convergence failed — the framework tree is incomplete; nothing was deleted, fix and rerun");
   }
+  if (userLevel) {
+    plantKernelForwarder(target);
+    out("shim: .owfa/scripts/owfa_kernel.py forwarder planted (retires in 0.5.0) — legacy agent paths keep working");
+  }
 
   // ---- stage ②: the core suite ----
   let suiteNote;
@@ -1336,7 +1381,15 @@ function cmdList() {
 
 function cmdPkg() {
   const target = process.cwd();
-  if (!readVersion(target)) fail(`${target} is not an OWFA instance — run \`owfa init\` first`);
+  if (!readVersion(target)) {
+    if (hasWorkspaceMarker(target)) {
+      // N1: a marker workspace with no resolvable kernel — distinguish "not an
+      // instance" from "floor unsatisfiable" instead of sending users in a loop.
+      const installed = installedKernels();
+      fail(`${target} is a user-level workspace whose kernel_compat floor is not satisfied by any installed kernel${installed.length ? ` (installed: ${installed.join(", ")})` : " (none installed)"} — lower the floor in .owfa/WORKSPACE.yaml or run: owfa install-kernel`);
+    }
+    fail(`${target} is not an OWFA instance — run \`owfa init\` first`);
+  }
   return kernel(target, ["pkg"]);
 }
 
@@ -1414,8 +1467,20 @@ function cmdAdopt(args) {
   const target = path.resolve(args._[0] || ".");
   const markerFile = path.join(target, ".owfa", "WORKSPACE.yaml");
   const hold = path.join(target, ".owfa", "migrations", "kernel-exit-hold");
-  // idempotent anchor (M2): WORKSPACE.yaml in place = already adopted
+  // idempotent anchor (M2): WORKSPACE.yaml in place = already adopted.
+  // P3 (review): a kill between marker-write and hold-clear leaves a permanent
+  // dangling hold — resume instead of a blind no-op: validate green, then clear.
   if (fs.existsSync(markerFile)) {
+    const staleHold = path.join(target, ".owfa", "migrations", "kernel-exit-hold");
+    if (fs.existsSync(staleHold)) {
+      out(`resuming interrupted adopt: leftover hold detected — validating before clearing`);
+      if (kernel(target, ["validate"]) !== 0) {
+        fail(`adopt resume: user-level validate failed — the hold at ${staleHold} is KEPT (rollback safety); inspect and rerun after fixing`);
+      }
+      fs.rmSync(staleHold, { recursive: true, force: true });
+      out(`hold cleared after green validate — adopt complete`);
+      return 0;
+    }
     out(`already adopted: ${target} carries .owfa/WORKSPACE.yaml — nothing to do`);
     return 0;
   }
@@ -1458,8 +1523,13 @@ function cmdAdopt(args) {
     registerWorkspace(target, kernelVer);
     out("validating through the user-level kernel (kernel validate --root)");
     if (kernel(target, ["validate"]) !== 0) throw new Error("kernel validate failed (see above)");
+    plantKernelForwarder(target);   // P2: only after green — the shim occupies .owfa/scripts and must never block a rollback rename
   } catch (e) {
     try {
+      const shimFile = path.join(scriptsDir, "owfa_kernel.py");
+      if (fs.existsSync(scriptsDir) && fs.readdirSync(scriptsDir).length > 0) {
+        fs.rmSync(scriptsDir, { recursive: true, force: true });   // partial-shim guard (P2 review)
+      }
       if (fs.existsSync(markerFile)) fs.rmSync(markerFile, { force: true });
       unregisterWorkspace(target, `adopt rollback (${e.message})`);
       fs.mkdirSync(path.dirname(scriptsDir), { recursive: true });

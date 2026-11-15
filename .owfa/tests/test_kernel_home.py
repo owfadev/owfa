@@ -406,7 +406,8 @@ class InitUserLevelTests(unittest.TestCase):
     def test_tree_has_no_kernel_and_no_version(self):
         # Q1a/Q2a: the tree carries neither scripts/ nor VERSION — the anchor
         # lives at $OWFA_HOME/kernel/<ver>/VERSION
-        self.assertFalse((self.ws / ".owfa" / "scripts").exists())
+        self.assertTrue((self.ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") >= 0)
+        self.assertFalse((self.ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
         self.assertFalse((self.ws / ".owfa" / "VERSION").exists())
 
     def test_marker_is_minimal_yaml(self):
@@ -532,7 +533,7 @@ class AdoptTests(unittest.TestCase):
         r = _node2(["adopt", str(ws)], self.home)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         # tree kernel exited: scripts + VERSION gone, hold cleared
-        self.assertFalse((ws / ".owfa" / "scripts").exists())
+        self.assertFalse((ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") == -1 or (ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
         self.assertFalse((ws / ".owfa" / "VERSION").exists())
         self.assertFalse((ws / ".owfa" / "migrations" / "kernel-exit-hold").exists())
         # marker floor = tree VERSION; registry bound; kernel installed
