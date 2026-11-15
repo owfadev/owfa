@@ -2041,14 +2041,52 @@ def _upgrade_action(pkg, args):
     # old PKG rides along as prev_pkgm so the capability preflight boards the PROSPECTIVE
     # graph — mid-upgrade the disk lacks the package and its provides, and the sole
     # provider of a needed capability must be upgradable without a false refusal)
+    # issue #72: the uninstall->install sequence must be atomic. Park the old
+    # masters before the uninstall half runs; if the install half fails, restore
+    # them and re-converge so the journal sweep never sees a completed first
+    # half (old package gone) as orphaned residue. An upgrade-hold ledger marker
+    # also keeps the sweep off the parked state if the process dies mid-way.
+    import tempfile
+    park = tempfile.mkdtemp(prefix=f"owfa-upgrade-{pkg}-")
+    shutil.copytree(pkg_dir, os.path.join(park, pkg))
+    _led0 = _load_ledger()
+    _led0[pkg] = {"kind": "upgrade-hold", "from": old_ver, "to": new_ver, "items": []}
+    _save_ledger(_led0)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         ok1 = do_uninstall(pkg, ["--yes"])
         ok2 = do_install(pkg + ("" if path else ""), (["--path", path] if path else []), prev_version=old_ver, prev_pkgm=old_pkgm) if ok1 == 0 else 1
     if ok2 != 0:
         print(buf.getvalue())
-        print("[error] reinstall failed — state may be partial, rerun kernel validate")
+        try:
+            os.makedirs(os.path.dirname(pkg_dir), exist_ok=True)  # uninstall rmdirs empty containers
+            shutil.copytree(os.path.join(park, pkg), pkg_dir)
+            led = _load_ledger()
+            if led.get(pkg, {}).get("kind") in ("upgrade-hold", "teardown"):
+                del led[pkg]  # our hold marker / the uninstall's teardown premise vanished with the package's return
+                _save_ledger(led)
+                _banner_set(led)
+            os.makedirs(os.path.join(MIGRATIONS_DIR, pkg), exist_ok=True)
+            try:  # dormant roster copy rides the rollback (install keeps one too)
+                shutil.copyfile(os.path.join(pkg_dir, "PKG.yaml"), os.path.join(MIGRATIONS_DIR, pkg, "PKG.yaml"))
+            except OSError:
+                pass
+            shutil.rmtree(park, ignore_errors=True)
+            _journal("upgrade-rollback", f"{pkg} install failed — old v{old_ver} restored (issue #72)")
+            print(f"[upgrade] reinstall failed — {pkg} rolled back to v{old_ver} unchanged (issue #72: a failed upgrade is non-destructive, all-or-nothing); projections rebuilt below")
+            converge("install")
+        except OSError as e:
+            # restore itself failed: keep the hold marker so the sweep refuses to
+            # touch the parked state, and say so loudly
+            _journal("upgrade-hold", f"{pkg} rollback failed ({e}) — old masters parked, sweep held back (issue #72)")
+            print(f"[error] reinstall failed AND rollback failed ({e}) — old {pkg} v{old_ver} stays parked; rerun `kernel upgrade {pkg} --yes` (the sweep will not touch it, issue #72)")
         return 1
+    shutil.rmtree(park, ignore_errors=True)
+    _led9 = _load_ledger()
+    if _led9.get(pkg, {}).get("kind") == "upgrade-hold":  # no teardown/migration rewrote it — clear the marker
+        del _led9[pkg]
+        _save_ledger(_led9)
+        _banner_set(_led9)
     # report: member version deltas + changelog excerpts
     new_members = {}
     for m in new_pkgm.get("members") or []:
@@ -2484,8 +2522,14 @@ def main():
         for d in sorted(os.listdir(MIGRATIONS_DIR)):
             if d == "pending.json" or not os.path.isdir(os.path.join(MIGRATIONS_DIR, d)):
                 continue
-            if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") != "teardown":
+            if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") not in ("teardown", "upgrade-hold"):
                 _orphans.append(d)  # staged dormant PKG marks presence; absent package + no teardown = orphan residue
+    # issue #72: an interrupted upgrade parks the old package under an
+    # upgrade-hold marker — the sweep must refuse it and say so (all-or-nothing:
+    # a failed upgrade is rolled back, never swept)
+    _holds = sorted(k for k, v in _led.items() if v.get("kind") == "upgrade-hold")
+    if _holds:
+        print(f"[pending] interrupted upgrade hold: {', '.join(_holds)} — rerun `kernel upgrade <pkg> --yes`; the parked old package is protected from the sweep (issue #72)")
     for k in _orphans:  # self-healing: migrate-kind entries die with the package; residue gets mechanically swept too
         _led.pop(k, None)
         _pkg_dir = os.path.join(MIGRATIONS_DIR, k)
