@@ -39,10 +39,16 @@ class ProtocolKindTests(unittest.TestCase):
         self.source.mkdir()
         self.env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
         self.env.pop("PYTHONPATH", None)
-        result = self.run_kernel("install", "personal", "--path", str(FRAMEWORK / "payloads" / "personal"))
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = self.run_kernel("all")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def install_blessed(self):
+        """Install the embedded blessed suite (itself a protocol package since 0.4.3).
+        Protocol-shape tests must NOT have it installed: their synthetic package is
+        the workspace's sole protocol (R9 one-protocol-per-workspace)."""
+        result = self.run_kernel("install", "personal", "--path", str(FRAMEWORK / "payloads" / "personal"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result
 
     def run_kernel(self, *args):
         return subprocess.run(
@@ -172,6 +178,7 @@ class ProtocolKindTests(unittest.TestCase):
     # ---- 3. R4/R7: protocol id reserved word + clash with an installed package id ----
 
     def test_protocol_id_owfa_reserved_and_package_id_clash(self):
+        self.install_blessed()  # the clash target: an installed package named personal
         self.pkg_src("pw", ["pwm"], kind="protocol", protocol="owfa",
                      provides=["owfa.org.v1"])
         result = self.install_path("pw")
