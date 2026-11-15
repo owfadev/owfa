@@ -11,11 +11,11 @@ rewritten freely — the agent never edits outside the injection region.>
 ## Layout
 
 <vault root>: `vault/` real assets · `wiki/` the md world
-· `.owfa/` + `.agents/skills/` the framework body (packages under `.owfa/plugins/domains/`).
+· `.owfa/` + `.agents/skills/` the framework body (packages land under `.owfa/plugins/domains/` via `kernel install`; the default init installs the embedded personal suite offline).
 
 ## Git
 
-Instance snapshots follow the instance-git plugin (core) — the agent commits at transaction close (`type: summary`); beyond that contract, git usage is the human's own.
+Instance snapshots follow the instance-git plugin (personal suite member, owfa-personal) — the agent commits at transaction close (`type: summary`); beyond that contract, git usage is the human's own.
 
 <!-- wiki-inject:start -->
 

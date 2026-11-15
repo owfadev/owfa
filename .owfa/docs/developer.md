@@ -1,16 +1,18 @@
 # Developer guide: writing plugins & packages
 
-> Where a plugin lives is decided by its `depends`, not by taste — and the dev loop is the same wherever it lives: clone → branch → hack → `--path` install into a sandbox → PR.
+Reader: anyone contributing a plugin or package to the OWFA ecosystem.
+
+Where a plugin lives is decided by its `depends`, not by taste — and the dev loop is the same wherever it lives: clone → branch → hack → `--path` install into a sandbox → PR. Mechanism detail (PKG.yaml fields, capabilities, channels and trust, the install/uninstall contract, versioning, registry line format) lives in [packages.md](packages.md) — this page is only the landing table, the loop, and discovery.
 
 ## Where does my plugin land?
 
 | Your plugin is… | It lands… | Trust gate |
 |---|---|---|
 | a **domain member** (depends chain reaches a domain root, e.g. bb-family) | that domain package's repo — PR there. Not a choice: the family closure claims it mechanically (`PKG.members` must include you or validate errors) | package maintainers |
-| a **new domain** of its own | your own repo as a package (`PKG.yaml`, see [packages.md](packages.md)) + a one-line PR to the [registry](https://github.com/owfadev/owfa-registry) | the registry PR — the human-review gate (inject text and connectors are the security faces, #12) |
-| **cross-cutting / non-domain** (global piece) | the core suite package repo (**owfa-personal**, since the v0.4 split) — PR there | owner review (charter-level, highest bar) |
+| a **new domain** of its own | your own repo as a package (`PKG.yaml`, see [packages.md](packages.md)) + a one-line PR to the [registry](https://github.com/owfadev/owfa-registry) | the registry PR — the human-review gate (inject text and connectors are the security faces) |
+| **cross-cutting / non-domain** (global piece) | the blessed suite package repo (**owfadev/owfa-personal**) — PR there | owner review (charter-level, highest bar) |
 
-A single plugin never ships bare — the package is the distribution unit. A lone plugin is a single-member package (12 lines of PKG.yaml, see email/bili/project). Users prune with `--without` (subset grammar), so contributing into a big package never forces users to install all of it.
+A single plugin never ships bare — the package is the distribution unit. A lone plugin is a single-member package (a dozen lines of PKG.yaml, see owfa-email / owfa-bili / owfa-project).
 
 ## The dev loop
 
@@ -19,12 +21,12 @@ A single plugin never ships bare — the package is the distribution unit. A lon
 3. **Integration-test without a monorepo**: in the sandbox (or any instance),
    ```
    cd test-repo
-   python .owfa/scripts/owfa_kernel.py install <pkg> --path /path/to/your/clone
-   python .owfa/scripts/owfa_kernel.py validate --scope <pkg>
+   python3 .owfa/scripts/owfa_kernel.py install <pkg> --path /path/to/your/clone
+   python3 .owfa/scripts/owfa_kernel.py validate --scope <pkg>
    ```
    `--path` installs the local clone (channel C); iterate freely — reinstall after uninstalling, or just re-copy
 4. **PR** — one thing per commit, `模块: 概述`; self-check per [CONTRIBUTING](../../CONTRIBUTING.md) (framework root: `validate`; sandbox: `all`)
-5. **Release** (package repos): bump PKG.yaml `version`, tag `<pkg>-v<X.Y>`, then bump the registry line — two small PRs, on purpose: the registry never freezes with the framework
+5. **Release** (package repos): bump PKG.yaml `version`, tag `<pkg>-vA.B.C`, then the registry line PR — two small steps, on purpose: the registry never freezes with the framework
 
 ## Discovery: how people (and agents) find your work
 

@@ -1,6 +1,6 @@
 # Deployment
 
-> Reader: anyone installing OWFA into a directory (an Obsidian vault, a notes folder, any workspace), or the agent doing it for you. This is the full guide — components, channels, first run, packages, upgrades, troubleshooting. The five-minute path is [quickstart.md](quickstart.md); the channel's design and release record is [distribution.md](distribution.md).
+> Reader: anyone installing OWFA into a directory (an Obsidian vault, a notes folder, any workspace), or the agent doing it for you. This is the full guide — components, channels, first run, packages, upgrades, troubleshooting. The five-minute path is [quickstart.md](quickstart.md); the release runbook lives in [releasing.md](releasing.md). Since v0.4.1 the install-facing content of the former distribution page — channel commands, `init`/`upgrade` behavior — lives here; the sections that absorbed it are marked *(absorbed from distribution.md)*.
 
 ## 1. What gets installed
 
@@ -30,8 +30,8 @@ my-workspace/
 │   ├── notes/  sessions/  vault/
 │   └── index.md  tags.md  hot.md  log.md   # derived, rebuilt by the pipeline
 ├── .owfa/                     # OWFA Core (kernel-only tree since the v0.4 split)
-│   ├── VERSION                # framework anchor (0.4.0)
-│   ├── scripts/               # kernel + pipeline + wikilib
+│   ├── VERSION                # framework anchor — this file is the source of truth for the deployed version (never trust hardcoded numbers elsewhere)
+│   ├── scripts/               # kernel + wikilib (pipeline: suite-owned since 0.1.1, deprecated host shim here)
 │   ├── plugins/domains/       # installed packages — the embedded personal suite (21 members) lands here on init; the channel itself ships no plugins
 │   ├── command/               # framework command masters (suite-owned commands ride with their package)
 │   └── docs/                  # this guide and friends
@@ -58,30 +58,37 @@ All channels deploy the same Core tree; pick by environment, not by feature.
 
 | Channel | Command | Status |
 |---|---|---|
-| npm, target name | `npx owfa init my-workspace` | **name application pending** (npm froze `owfa` as too similar to `ow`/`ora`) |
-| npm, fallback name | `npx owfadev init my-workspace` | same CLI, bins `owfa` + `owfadev`; to be published if the name is not granted |
+| npm | `npx owfadev init my-workspace` | **live** — the package `owfadev` (dual bins `owfa` + `owfadev`, provenance enabled); 0.4.1 at the time of writing |
+| npm, frozen name | `npx owfa init …` | **unavailable** — npm froze `owfa` under its similarity policy (too close to `ow`/`ora`); `npx owfa` does not resolve |
 | git, clone-as-instance | `git clone https://github.com/owfadev/owfa.git my-workspace` | works today |
 | git, embed into an existing vault | clone the template elsewhere, copy `.owfa/` + `.agents/skills/` | works today |
 | template + instance (developers) | a template clone + a separate instance | see [CONTRIBUTING.md](../../CONTRIBUTING.md) |
 
-> Until the npm name is served by the registry, the git channel is the working path. Do not treat `npx owfa` as live before `npm view owfa version` returns a version.
->
-> The org rename executed 2026-10-26 (`AIE3905-Wuwa` → `owfadev`, `vault-wiki` → `owfa`); old repository URLs redirect, old org/API paths 404.
+> The npm channel is served by the registry under the name `owfadev`; all install examples must use `npx owfadev`. The org rename executed 2026-10-26 (`AIE3905-Wuwa` → `owfadev`, `vault-wiki` → `owfa`); old repository URLs redirect, old org/API paths 404.
 
 ## 4. Install
 
-### 4.1 npm channel — one command
+### 4.1 npm channel — one command *(absorbed from distribution.md)*
 
 ```bash
-npx owfa init my-workspace          # target; once the name is granted
-# or, while the name is pending:
-npx owfadev init my-workspace       # fallback package, same CLI
+npx owfadev init my-workspace
 cd my-workspace
-npx owfa doctor                     # target: python, framework, markers, kernel validate
-npx owfadev doctor                  # fallback: same check through the fallback package
+npx owfadev doctor            # python, framework, markers, kernel validate — never writes
 ```
 
-**Command forms.** `npx <package> <verb>` needs no global install. A global install (`npm i -g owfa` or `npm i -g owfadev`) puts **both** `owfa` and `owfadev` on `PATH`. The rest of this guide writes `owfa <verb>` for the CLI and `kernel …` for the Python engine; substitute `npx owfa` / `npx owfadev` if you are not installing globally.
+**Command forms.** `npx owfadev <verb>` needs no global install. A global install (`npm i -g owfadev`) puts **both** `owfa` and `owfadev` on `PATH`. The full CLI surface:
+
+```
+owfa init [dir] [--name NAME] [--packages a,b] [--force]
+owfa upgrade [dir] [--check] [--backup] [--force]
+owfa doctor [dir]
+owfa add <pkg> [--yes] [--without a,b]
+owfa list
+owfa pkg
+owfa version
+```
+
+The rest of this guide writes `owfa <verb>` for the CLI and `kernel …` for the Python engine; substitute `npx owfadev` if you are not installing globally. The package is zero-dependency with no lifecycle scripts — `npm install` executes nothing from it; Python remains the only runtime dependency of the framework (Node is needed to *install*, not to *use*).
 
 `init` is two-stage by default (the v0.4 final shape — this is the only shape the channel ships):
 
@@ -176,7 +183,7 @@ Open the agent at the workspace root; it reads `AGENTS.md` and `.agents/skills/`
 | teach / quiz / cognition profile | course-learning family (needs a course domain, e.g. cuhksz) |
 | kernel reference | kernel usage and mechanics |
 
-The daily loops — library keeping, course learning, collaborative development — are in [usage.md](usage.md). Mechanics are in [mechanics.md](mechanics.md); the kernel reference skill is authoritative for flags.
+The daily loops — library keeping, course learning, collaborative development — are documented by the default protocol ([owfa-personal: usage.md](https://github.com/owfadev/owfa-personal/blob/master/docs/usage.md)). Kernel mechanics are in [kernel.md](kernel.md); the kernel reference skill is authoritative for flags.
 
 ## 7. Packages — finding and installing
 
@@ -239,21 +246,21 @@ python3 .owfa/scripts/owfa_kernel.py uninstall <pkg> --yes
 
 ## 8. Upgrade the framework
 
-### npm channel
+### npm channel *(absorbed from distribution.md)*
 
 ```bash
-npx owfa upgrade            # replace .owfa/ + .agents/skills/ with the channel's version
-npx owfa upgrade --check    # read-only report
-npx owfa upgrade --backup   # keep a copy under .owfa/backup/<version>-<timestamp>/
+npx owfadev upgrade            # replace .owfa/ + .agents/skills/ with the channel's version
+npx owfadev upgrade --check    # read-only report
+npx owfadev upgrade --backup   # keep a copy under .owfa/backup/<version>-<timestamp>/
 ```
 
-`upgrade` preserves the instance-local kernel state (`.owfa/migrations/pending.json`, `.owfa/kernel-journal.log`, `.owfa/registry-cache.yaml`), replaces local edits under the two framework trees (instance hotfixes belong in git), and reruns `all`. A pending semantic migration blocks convergence and is reported with the exact `migrate` command.
+`upgrade` compares the instance's `.owfa/VERSION` with the tarball's (refuses downgrades unless `--force`), preserves the instance-local kernel state (`.owfa/migrations/pending.json`, `.owfa/kernel-journal.log`, `.owfa/registry-cache.yaml`), replaces local edits under the two framework trees (instance hotfixes belong in git), and reruns `all`. A pending semantic migration blocks convergence and is reported with the exact `migrate` command.
 
 ### git channel
 
 Re-copy `.owfa/` and `.agents/skills/` from the new template revision (review the diff, do not blind-copy over pending migrations), then `kernel all`. The instance git snapshot is the rollback path.
 
-Framework versions are anchored by `.owfa/VERSION` (0.4.0); a target-side semantic migration can be staged by an upgrade, with the same tri-face warning and `kernel migrate` flow.
+Framework versions are anchored by `.owfa/VERSION` — read the file itself rather than any number quoted in docs (0.4.1 at the time of writing); a target-side semantic migration can be staged by an upgrade, with the same tri-face warning and `kernel migrate` flow. The version equation across the five carriers (`.owfa/VERSION` == `package.json` == git tag == npm == GitHub Release) is enforced by the release gate — see [releasing.md](releasing.md).
 
 ## 9. Uninstall
 
@@ -266,8 +273,8 @@ Framework versions are anchored by `.owfa/VERSION` (0.4.0); a target-side semant
 |---|---|
 | `Python 3.9+ not found` | install Python 3, or set `OWFA_PYTHON`; the installer is Node-only, the runtime is Python |
 | `already contains .owfa/` | it is an instance — `owfa upgrade`; `--force` re-copies the trees |
-| `npx` runs an old version | `npx owfa@latest …`; npm caches by version range |
-| `publish` / `npx` 403 on `owfa` | the name is frozen on similarity grounds; use the `owfadev` fallback or wait for the application |
+| `npx` runs an old version | `npx owfadev@latest …`; npm caches by version range |
+| `npx owfa` fails / 404 | the name is frozen on npm's similarity grounds and does not resolve; use `npx owfadev` (dual bins) — all install examples use it |
 | upgrade blocked by pending migrations | run `kernel migrate <pkg>`, perform the semantic step, then `--clear` |
 | AGENTS markers missing | the AGENTS shell lost the `wiki-inject:start/end` pair; restore both, then `kernel all` |
 | Windows: `python` opens the Store | install Python 3 and ensure `py -3` or `python3` works; `OWFA_PYTHON` overrides |
@@ -282,7 +289,7 @@ Framework versions are anchored by `.owfa/VERSION` (0.4.0); a target-side semant
 | `wiki/` | markdown world, proxies, notes, sessions | yes, via commands; derived pages are rebuilt |
 | `wiki/index.md`, `tags.md`, `hot.md`, `log.md` | derived layer | no — the pipeline rewrites them |
 | `.owfa/plugins/` | Core plugins + installed packages | no — framework authoring |
-| `.owfa/scripts/` | kernel, pipeline, wikilib | no — framework authoring |
+| `.owfa/scripts/` | kernel, wikilib (pipeline — suite-owned, deprecated host shim until 0.5.0) | no — framework authoring |
 | `.owfa/command/` | command masters | no |
 | `.agents/skills/` | deployed skill copies | no — `kernel deploy` syncs them |
 | `.owfa/migrations/` | staged semantic migrations + ledger | no — kernel zone |
@@ -302,10 +309,10 @@ Framework versions are anchored by `.owfa/VERSION` (0.4.0); a target-side semant
 
 | Goal | Command |
 |---|---|
-| Install (target name) | `npx owfa init <dir>` |
-| Install (fallback name) | `npx owfadev init <dir>` |
-| Health check | `npx owfa doctor <dir>` |
-| Framework upgrade | `npx owfa upgrade <dir>` (or `--check` / `--backup`) |
+| Install | `npx owfadev init <dir>` |
+| Health check | `npx owfadev doctor <dir>` |
+| CLI / channel version | `npx owfadev version` |
+| Framework upgrade | `npx owfadev upgrade <dir>` (or `--check` / `--backup`) |
 | Package catalog | `owfa list` / `kernel list-remote` |
 | Installed packages | `owfa pkg` / `kernel pkg` |
 | Install a package | `owfa add <pkg>` / `kernel install <pkg> --yes` |

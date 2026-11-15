@@ -1,205 +1,198 @@
 # Packages
 
-> Design record of the split-improvement phase (2026-10-12 → 10-13: binding round issue #20, discovery/download/update, teardown). Mechanism and — more importantly — the reasons behind each decision. Authoritative mechanics live in the kernel (`owfa_kernel.py`) and in the `PKG.yaml` declarations; this page explains why they are shaped this way.
+Reader: package authors, instance maintainers, and anyone who wants to know what `install` / `uninstall` actually do.
 
-## Layout: directory == package
+The package is the distribution and install unit. This page is the consolidated reference: package layout, every `PKG.yaml` field, suite vs domain-family semantics, the capability mechanism, install channels and trust, the install/uninstall/residual contract, versioning and tags, and the registry line format. The kernel (`.owfa/scripts/owfa_kernel.py`) and the `PKG.yaml` declarations are authoritative; this page explains the mechanism and the reasons. It absorbs the former `plugin-lifecycle.md` (the develop → publish → be found → install → update → uninstall arc) and the name-governance rules.
 
-`.owfa/plugins/` is two-level:
+## Package layout: directory == package
+
+The v0.4 framework tree ships **no plugins** — kernel, 6 framework command masters (`.owfa/command/`), protocol artifacts (`.owfa/protocol/`), and the embedded blessed suite copy at `payloads/personal/`. Connectors travel with their packages (cuhksz-cli in owfa-cuhksz, mail-cli in owfa-email, bili-cli in owfa-bili); their SKILL.md files land in `.agents/skills/` via kernel deploy.
+
+In an instance, installed packages live under `.owfa/plugins/domains/` — one directory per package, the directory boundary == install unit:
 
 ```
-.owfa/plugins/
-└── domains/         # one directory per package = the install unit
-    ├── personal/    #   the embedded suite (21 former core plugins) — installed by a default init
-    ├── cuhksz/      #   PKG.yaml + 8 plugin masters
-    ├── lark/        #   PKG.yaml + 4 plugin masters
-    ├── email/  bili/  project/
+.owfa/plugins/domains/
+ ├── personal/    # the blessed suite (kind: suite) — installed by default init
+ ├── cuhksz/      # PKG.yaml + plugin masters + connectors/cuhksz-cli
+ ├── email/  bili/  project/  ...
 ```
 
-The **directory boundary == tier boundary == package boundary** — the same structure fact expressed once. Projections stay id-keyed and flat (`.owfa/command/`, `.agents/skills/`, registry, the AGENTS injection region): packages regroup masters, not projections, so deploy/inject/registry needed no redesign.
+Projections stay id-keyed and flat (`.owfa/command/`, `.agents/skills/`, the registry, the AGENTS injection region): packages regroup masters, not projections, so deploy/inject/registry needed no redesign.
 
-| Unit | Members | Connectors | Depends |
+| Package (repo) | Kind | Members | Connectors |
 |---|---|---|---|
-| framework (the channel tree) | none — since the v0.4.0 split the channel ships no plugins (kernel + framework commands only) | — | — |
-| personal (suite) | 21: the former core plugins, incl. the explicit vault/mapping/structure exception — the default domain is constitutional infrastructure, the mapping proxy layer belongs to the wiki body; embedded at `payloads/personal/`, canonical repo **owfa-personal** | — | framework |
-| cuhksz | cuhksz · bb · bb-map · bb-track · bb-teach · bb-quiz · sis · registry | bb-cli, sis-cli | framework |
-| lark | lark · lark-docs · lark-im · lark-calendar | lark-cli (external) | framework |
-| email | email | mail-cli | framework |
-| bili | bili | bili-cli | framework |
-| project | project | — | framework |
+| framework (the channel tree) | — | none — kernel + framework commands only | — |
+| personal (**owfadev/owfa-personal**) | suite | 21 plugins (the former core, incl. the vault/mapping/structure boot exception) + 3 own commands (owfa-map / owfa-save / owfa-profile) | — |
+| owfa-cuhksz | domain-family | cuhksz · bb · bb-map · bb-track · bb-teach · bb-quiz · sis · registry | cuhksz-cli (aggregates bb\|sis) |
+| owfa-lark / owfa-email / owfa-bili / owfa-project / owfa-github / owfa-diary / owfa-qq | domain-family | per their PKG.yaml | lark-cli / mail-cli / bili-cli / — / gh / — / qq-cli |
 
-Why the vault-exception matters: a naive "all domains are packages" split would ship the default domain out of the framework — but every instance boots on vault/mapping/structure before any other package exists. Since the v0.4.0 split these boot plugins ride as members of the embedded personal suite that the default init installs (exceptions declared, not shipped as framework files).
+Why the vault exception matters: a naive "all domains are packages" split would ship the default domain out of the framework — but every instance boots on vault/mapping/structure before any other package exists. Since the v0.4 split these boot plugins ride as members of the embedded personal suite (exceptions declared, not shipped as framework files). The framework copy stays in sync via `scripts/sync-blessed.sh`, which pulls tag-mode `personal-v[0-9]*` releases from owfa-personal into `payloads/personal/`.
 
-## PKG.yaml
+## PKG.yaml — every field
+
+The blessed suite, verbatim (`payloads/personal/PKG.yaml`):
 
 ```yaml
 schema_version: 1
-id: cuhksz
-version: 0.1            # release ordinal, rides the git tag — NOT tied to member versions
-compat: ">= 0.2"        # framework version floor, checked against .owfa/VERSION
-members: [cuhksz, bb, bb-map, bb-quiz, bb-teach, bb-track, sis, registry]
-connectors:             # tri-state:
-  - name: bb-cli        #   in-repo: path (code ships with the package)
-    path: connectors/bb-cli
-  - name: lark-cli      #   external: maintained outside (declaration only)
-    external: true
-  - name: gh            #   system: a preinstalled binary (capability + version expectation, no code)
-    system: true
-    expect: ">= 2.0"
-depends: [framework]    # v1 flat graph — no package-to-package edges
-uninstall:              # declaration, never executable hooks
-  retains: [wiki/cuhksz/, cuhksz/]       # data zones never touched by the kernel
-  credentials: [~/.bb-cli/, ~/.sis-cli/] # prompted, never auto-deleted
-  bridges: [profile#domain-cognition]    # semantic registration points to check
-  processes: []                          # long-running executors to stop
+id: personal
+kind: suite
+version: 0.1.0
+compat: ">= 0.4"
+members: [calendar, cron, device, domain, hot, index, instance-git, language, link, log, mapping, notes, sessions, structure, tag, tmp, todo, trust, user-profile, vault, wiki]
+depends: [framework]
+skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]
+uninstall:
+  anchors: [wiki/profile.md, wiki/language.md, wiki/calendar.md, wiki/todo.md, wiki/cron/]
+  retains: [vault/, wiki/]
+  credentials: []
+  bridges: []
+  processes: []
+disclosure: "Purely local information organization (calendar / todo / notes / sessions / vault proxies / tags / index / logs / cron intents); no network services, no credentials, no external data sources — all content stays on this machine's repository."
 ```
 
-## Invariants
+Field by field (the personal line is the example throughout):
 
-**Authoring side (D1): `members` == the maximal family closure.** The kernel computes the closure (depends chains reaching the package root) and diffs it against the declaration both ways — drift is a validate error.
-
-*Why declare at all, when the closure is computable?* Because **the depends graph is live and a package is a versioned anchor**. A closure-derived package would silently change contents as the graph evolves — the same tag would ship different things at different times. The declared roster pins contents to the version; reconciliation turns structural drift into a commit-time error instead of an install-time surprise. Redundant, but self-verifying — the third application of the owner×commands dual-declaration pattern.
-
-**Site side (D5): v1 requires full presence** — every member on disk. The subset grammar is fixed now so it never breaks the validator later: `installed ⊆ members`, non-empty, dependency-closed, root mandatory. Prunability classes:
-
-| Class | Example | Rule |
+| Field | Meaning | personal value |
 |---|---|---|
-| leaf consumers | bb-teach, bb-quiz | freely prunable — nothing depends on them |
-| structural members | bb, bb-map, bb-track | prunable only together with their dependents (the closure rule enforces it) |
-| family root | cuhksz | never prunable — owns territory, identity page, roster line |
-| connectors | bb-cli | prunable when no installed member consumes it |
+| `schema_version` | manifest format version (1) — versioned once, shared with the upcoming behavior contracts | `1` |
+| `id` | package id; must equal the directory name and the registry key | `personal` |
+| `kind` | `suite` \| `domain-family` (default when absent) | `suite` |
+| `version` | the package's own `A.B.C` release semantics — rides the `<pkg>-vA.B.C` git tag, never lockstep with the framework and not tied to member versions | `0.1.0` |
+| `compat` | framework version floor, machine-checked against `.owfa/VERSION` | `">= 0.4"` |
+| `members` | the declared plugin roster; for domain-family it must equal the maximal family closure (see below) | 21 ids |
+| `depends` | v1 flat graph — `[framework]`, no package-to-package edges | `[framework]` |
+| `skeleton` | instance directories the package needs; install mkdirs them mechanically (the kernel hardcodes no layout — default init's four dirs come from this line) | `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/` |
+| `uninstall.anchors` | teardown anchor surfaces added to the kernel floor (the AGENTS.md handwritten region) for the residual scan; additive only, a directory anchor expands to the .md files inside it | `wiki/profile.md` … `wiki/cron/` |
+| `uninstall.retains` | data zones never touched by the kernel — reported at uninstall, never deleted | `vault/`, `wiki/` |
+| `uninstall.credentials` | credential locations — prompted, never auto-deleted | `[]` |
+| `uninstall.bridges` | semantic registration points to check at teardown | `[]` |
+| `uninstall.processes` | long-running executors to stop | `[]` |
+| `needs` / `provides` | package-scale capabilities (plugin level deliberately unsupported) — see below | — (declares `provides: owfa.org.v1` in its registry row) |
+| `disclosure` | the one-line privacy/behavior disclosure shown by `plan` before consent | the quoted line above |
 
-`--without` is a reserved parameter (v1 reports not-yet-open). Its promise is semantic — zero injection, zero skill surface, zero credentials — not physical: a cached clone of reviewed code is not an exposure surface, so sparse download stays an optimization outside the contract. Family-root roster lines are capability catalogs; **skill presence is the call-time truth** (tolerant degradation, no dynamic reassembly of inject text).
+Packages that ship connectors additionally declare a `connectors:` list (tri-state): in-repo (`name` + `path: connectors/<id>` — code ships with the package), external (`external: true` — declaration only), or system (`system: true` + `expect: ">= 2.0"` — a preinstalled binary, capability + version expectation, no code). Example from owfa-cuhksz: `cuhksz-cli` in-repo; owfa-lark: `lark-cli` external; `gh` system.
 
-## Versions (D2)
+The `uninstall:` block is a **declaration, never executable hooks** — no third execution surface (after inject text and connectors) running at a privileged moment; deletion knowledge becomes reviewable data.
 
-Versioning is **five layers under one principle**: a layer carries release semantics (`A.B.C`) only when a tag or the registry addresses it — the other layers are ordinals or anchors answering *how much has this changed*, not *which release is this*.
+PKG.yaml is a **minimal YAML subset** — top-level scalars, `key: []`, block lists, one-level block mappings; anything richer is silently dropped, so keep declarations flat.
 
-| Layer | Version | Semantics | Mechanically consumed by |
-|---|---|---|---|
-| framework / channel | `A.B.C` — `.owfa/VERSION` == `package.json` == tag `vA.B.C` == npm | **A** project status (`0` = alpha) · **B** architecture line (schema / contract / layout — the language `compat` floors speak) · **C** in-line updates | release gate, `upgrade` decision, compat floors |
-| core plugins | `X.Y` | organ revision ordinals — bump on contract or behavior change; with the v0.4 split they are members of the **owfa-personal** package: no release granularity of their own, they ship with the package's `A.B.C` and are addressed by its `personal-vA.B.C` tags | format check (`X.Y`), injection headers, the owfa-personal registry row |
-| packages | `A.B.C` | the domain's own release semantics, independent of the framework (never lockstep) | tags `{pkg}-vA.B.C`, registry rows, migrations |
-| member plugins | `X.Y` | organ revision ordinals, same as core plugins; bump only the members that changed | format check, injection headers |
-| connectors | repo-internal anchors | engineering changelog — never enters registry / tags / PKG version semantics (the kernel never reads it) | none |
+## kind: suite — rootless semantics
 
-**Bump rules** (packages; the framework follows the same semantics):
+`kind: suite` declares a **rootless** package: N parallel members, no family root plugin and none required (the owfa-personal shape). Consequences:
 
-- **A** moves only at graduation — the owner's call, when a domain's contract (landing strategy / write model / trust model) has survived real use without structural change. Kernel-forced adaptation is **not** an A event: the kernel-generation coupling lives in the `compat` floor (machine-checked), and the forced change classifies as B or C by what it did to the package's own contract.
-- **B** = the domain contract changed: member roster, disclosure / manifest schema, **data or page shape**, trust model, compat floor. B is the only carrier of semantic migrations — migration files are named by B-line pairs (`0.2-to-0.3`) and stage when the upgrade crosses lines (`prev_line <= from_line < new_line`).
-- **C** = updates inside a stable architecture: connector behavior fixes, skill copy, query-side additions. C never carries migrations — **a change that moves data or page shape is B, not C** (the honesty line that keeps C cheap). C is unbounded: `0.3.11`, `0.3.100` — numeric, no letters.
-- The `X.Y` layers keep `X` at `0` while the project is alpha.
-- **C counts releases, not organ changes**: any shipped payload change requires a new release number (a changed tree under an unchanged number is the anchor-equal bug this scheme kills), but organ revisions batch freely — three member plugins of a package changing is one C bump of the owning package, not three. Release cadence is the maintainer's choice; the only invariant is changed-tree ⇒ new-number.
+- **no synthetic root** — the kernel does not invent a root plugin for the package;
+- **no synthetic dependency edges** — members do not get edges to a phantom root; `depends` stays the flat v1 graph;
+- the **family-root / closure laws do not apply**: the family closure method (members == closure of depends chains reaching the package root) is the **domain-family** invariant only. A suite's `members` roster is presence-checked (subset discipline) but not closure-diffed.
 
-**Sync duties**: framework side — `.owfa/VERSION` == `package.json` == `v`tag == npm == GitHub release notes (the release gate refuses drift). Package side — `PKG.yaml` version == `{pkg}-v`tag == registry row (the kernel refuses drift at install / upgrade), migrations staged by the version pair.
+Absent `kind` = the classic domain-family behavior (default): the kernel computes the family closure and diffs it against `members` both ways — drift is a validate error. Why declare at all, when the closure is computable? Because the depends graph is live and a package is a versioned anchor: a closure-derived package would silently change contents as the graph evolves. The declared roster pins contents to the version.
 
-## Kernel surface
+Site side, v1 requires full presence — every member on disk; the subset grammar (`installed ⊆ members`, non-empty, dependency-closed, root mandatory for domain-family) is fixed so `--without` never breaks the validator: `kernel install <pkg> --without a,b` (and `owfa add <pkg> --without a,b`) installs a validated subset today — installed members get a `suite subset install` note in validate. Its promise is semantic — zero injection, zero skill surface, zero credentials — not physical.
+
+## Capabilities
+
+Package-scale `needs` / `provides` (v0.4). The grammar, mechanically checked by `validate`:
+
+```
+<namespace>.<capability>.v<ordinal>     e.g. owfa.org.v1
+^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*\.v\d+$
+```
+
+- **Prefix must equal the declaring package id** — a non-`owfa.*` capability's first name segment must equal the package id (`validate` rejects anything else); non-declarer namespaces are refused.
+- **`owfa.*` is framework-owned** — those names are defined only in the framework repository; the registry review gate polices ownership at index PR time. Framework-granted exceptions exist: personal's `owfa.org.v1`.
+- **Exact-name matching** — `needs: owfa.org.v1` is satisfied only by `provides: owfa.org.v1`, never by a sibling capability or a different ordinal; a v2 provider leaves a v1 need unsatisfied (reported distinctly as a version mismatch).
+- **Exclusive slot** — at most one installed provider per exact capability name; two installed packages providing the same name is a validate error.
+- **Dual supply is legal across ordinals** — the same base capability at different ordinals (`x.cap.v1` and `x.cap.v2`) may coexist installed; exact-name matching keeps them distinct slots.
+- **Trust-gated needs** — only provides at trust ≥ reviewed count (`framework-bundled`, `reviewed-3rd-party`); the **registry INDEX row is the trust source**, so `--path` and owner-repo direct installs (trust: unknown) leave their provides unverified and a need they cover stays red.
+- **`--yes` overrides at install, journaled** — the override is recorded in the kernel journal; it does not rewrite trust.
+
+Convergence points: install preflight (prospective set — upgrade boards installed − old + new provides), `validate` (full-graph error, `--scope` warning), `upgrade` (prospective). **Uninstall is deliberately not a point**: removing the last provider leaves a red `validate` while the uninstall itself succeeds (intentional asymmetry).
+
+Name governance generally stops collisions at three mechanical layers: (1) plugin id — validate errors on duplicates and install preflight rejects an incoming member id already installed; (2) package id — the registry `INDEX.yaml` is keyed by package id, ownership decided at the index PR; (3) command names — owner × commands mutual declaration, bidirectionally checked, so two packages cannot silently ship the same command.
+
+## Install channels and trust
+
+| Channel | Form | Trust |
+|---|---|---|
+| A — registry | `kernel install <pkg>` (optionally `<pkg>@<tag>`) | from the index row: `framework-bundled` / `reviewed-3rd-party` install without a prompt; anything else needs `--yes` |
+| B — unindexed repo | `kernel install <owner>/<repo> --yes` | unknown — `--yes` is the trust gate; the registry PR is how a package earns reviewed trust |
+| C — local path | `kernel install <pkg> --path ./dir` | you reviewed it by hand; no registry involved |
+
+Trust levels: `framework-bundled` / `reviewed-3rd-party` / `unknown`. The default init's offline step is channel C: `kernel install personal --path payloads/personal`.
+
+Publishing (the package author's arc): author PKG.yaml → bump `version` → tag `<pkg>-vA.B.C` → open the one-line registry PR. The tag, the PKG version, and the registry row must agree — the kernel refuses drift at install/upgrade. The last two steps (tag, registry PR) are deliberately separate small PRs: the registry never freezes with the framework.
+
+## Install / uninstall / residual — the contract
+
+Subcommands (package lifecycle, 8 total incl. `migrate` — see [conversion.md](conversion.md)):
 
 | Command | What it does |
 |---|---|
-| `validate` | full graph + package reconciliation (closure diff, presence, flat graph, compat vs VERSION) |
-| `validate --scope <pkg>` | single-package tolerant mode (D3): deps absent outside the package degrade to warnings — the CI shape for package repos post-split, run with a framework checkout alongside |
-| `pkg` | package inventory: members, connectors, plugins unclaimed by any package (after the core split there is no implicit core remainder — the mechanism remains for loose plugins) |
-| `residual <pkg>` | D6 residual scan: greps handwritten AGENTS region + profile/language/calendar/todo/cron anchors for member references (the kernel-managed injection region is skipped — it is cleaned mechanically) |
-| `install <pkg>[@tag]` | resolve the [registry](https://github.com/owfadev/owfa-registry) index (members reconciled against PKG.yaml) → trust gate → clone → prospective manifest/budget preflight → copy masters/connectors/commands → converge. `install <owner/repo> --yes` installs an unindexed repository (trust: unknown); `--path <dir>` installs a local one (channel C) |
-| `uninstall <pkg> --yes` | D6 four-clear (masters/commands/connectors/skills) + convergence + residual scan + retains/credentials reminders — data never touched |
-| `list-remote` | index table with installed marks |
-| `plan <pkg>` | dependency disclosure before a package lands |
-| `migrate [<pkg>] [--clear] [--force]` | pending semantic migrations: status / clear (author verify + teardown residual gate; use-and-delete) — see [Migrations](#migrations-the-algebra-0--x--y--0) below |
-| `upgrade` | reconciliation report (local vs index); applying runs a **silent reinstall** per package (never cascaded) — member deltas, changelog excerpts, chained migration staging |
+| `plan <pkg>` | dependency disclosure before a package lands: trust level, package disclosure, baseline/optional members, connectors, suggested command. One-shot, never interactive — the *agent* runs the consent conversation; the kernel only discloses |
+| `install <pkg>[@tag]` | resolve the registry index (members reconciled against PKG.yaml) → trust gate → clone → prospective manifest/budget preflight → copy masters/connectors/commands → converge |
+| `uninstall <pkg> --yes` | mechanical four-clear (masters / commands / connectors / skills) + convergence + residual scan + retains/credentials reminders — data never touched |
+| `residual <pkg>` | standalone residual scan: greps the anchor surfaces (AGENTS handwritten region + the package's `uninstall.anchors` pages — profile/language/calendar/todo/cron for the personal suite, per its PKG.yaml) for member references — word-boundary, deliberately broad; the kernel-managed injection region is skipped (cleaned mechanically) |
+| `list-remote` | registry index table with installed marks |
+| `upgrade` / `upgrade <pkg> --yes` | read-only reconciliation report; applying is a **silent reinstall** per package (never cascaded) — member deltas, changelog excerpts, chained migration staging |
+| `pkg` | package inventory: members, connectors, plugins unclaimed by any package |
 
-*Why scope mode exists before the split:* after the split the framework repo and each package repo no longer contain the full graph — validate would be blind exactly where it matters most. Absence-tolerance turns "plugin missing" from an error into a listed warning, keeping every repo self-checkable.
+**Install failure handling.** Before copying, `install` stages the prospective masters in a temp directory with the actual install filter and checks manifest/dependency rules and the existing UTF-8 injection budget against the combined (installed + incoming) set; a rejection exits 1 **before** any file changes (a caller's `--path` source is retained; downloaded temp sources are discarded). After the copy, convergence runs; failure there is *not* transactional rollback — inspect, fix, `kernel validate`. A package declaring a first-run semantic migration installs mechanically but leaves `validate` red and a banner up until the semantic step is done and cleared (`kernel migrate <pkg> --clear`).
 
-### Install failure handling
+**Uninstall contract.** The kernel does the mechanical four-clear, then the residual scan output is the human-side cleanup list; the agent finishes the semantics per the declaration (credential reminders, process stops, bridge registration lines) behind a confirmation gate. **Data and credentials are never auto-deleted** — the freedom to delete belongs to the human; retained data zones lapse into the deprecated posture. A declared `teardown.md` (staged dormant at every install) flips to a pending warning at uninstall — semantic deletion debt with the same tri-face banner and a residual-gated `--clear`.
 
-Before copying into the instance, `install` stages the prospective masters in a temporary directory using the actual install filter (including `--without` and its dependent-member pruning). It combines them with installed manifests and checks manifest/dependency rules and the existing UTF-8 injection budget. A rejection returns exit 1 before changing package masters, commands, connectors, migration state, journal or projections. Registry lookup may still refresh its local index cache; downloaded temporary sources are discarded on preflight rejection, while a caller's `--path` source is retained.
+**Migrations: the algebra 0 → x → y → 0.** Semantic state changes ride declarations, not hooks: init (`migrations/init.md`, fresh install), migrate (`x-to-y.md`, frozen at release, staged when an upgrade crosses a B-line), teardown (`teardown.md`, staged dormant at every install, consumed at uninstall). The kernel stages them into `.owfa/migrations/<pkg>/` with a ledger (`pending.json`) and raises the tri-face warning (banner on every invocation · red validate · a kernel-managed AGENTS block) until cleared via the author's AST-gated `verify(ctx)` — read-only, stdlib-only — then deletes the files (use-and-delete). Sweep symmetry keeps the ledger honest without a cron: migrate-kind entries die with the package, teardown-kind with reinstall; the dormant PKG.yaml copy in staging doubles as a presence marker, so even a manual `rm -rf` of a package directory self-heals the full mechanical residue. The kernel journal (`.owfa/kernel-journal.log`, rolling 500 lines, git-tracked) records the mechanical chain — install / warn+ / clear / uninstall / sweep, and `--yes` trust overrides.
 
-After copying, full binding/bridge/package validation and projection/deployment still run. Failure returns exit 1 with an incomplete-state warning; later projection steps stop when a preceding step returns failure. This is **not transactional rollback**: errors discovered after preflight, filesystem failures, or concurrent changes can leave files behind. Inspect the reported errors and run `kernel validate` before recovery; a successful diagnostic does not itself repair missing projection markers. Pending semantic init migrations retain the existing behavior: mechanical install can return 0 while explicitly reporting pending work, and `validate` stays red until the migration is completed and cleared.
+## Versions and tags
 
-The 16 KiB limit and its calculation are unchanged (#48/#49). This does not make `upgrade` transactional: its existing uninstall/reinstall sequence can remove the old package before the install preflight runs. Uninstall's own return-code contract is unchanged.
+Versioning is five layers under one principle: a layer carries release semantics (`A.B.C`) only when a tag or the registry addresses it — the other layers are ordinals answering *how much has this changed*, not *which release is this*.
 
-Offline regression suite: `python -m unittest discover -s .owfa/tests -p test_install_preflight.py -v` (synthetic packages; no network or credentials).
-
-## Uninstall contract (D6)
-
-No executable uninstall hooks — that would be a **third execution surface** (after inject text and connectors), running at a privileged moment; the security model declines. Instead the package *declares* its deletion semantics (`uninstall:` above) and the flow is: kernel mechanical four-clear (directory / injection / registry / projections) → residual scan output → agent semantic finish per the declaration (credential reminders, process stops, bridge registration lines) behind a confirmation gate. **Data and credentials are never auto-deleted** — the freedom to delete belongs to the human; retained data zones lapse into the deprecated posture.
-
-## Migrations: the algebra 0 → x → y → 0
-
-Package state changes are **semantic migrations carried by declarations, not hooks**. Three kinds close the algebra:
-
-| Kind | Files | Staged when | Lives until |
-|---|---|---|---|
-| init (0→x) | `migrations/init.md` (+ optional `init.py`) | fresh install | verify-clean `--clear` |
-| migrate (x→y) | `migrations/x-to-y.md`, frozen at release | an upgrade landing that version | verify-clean `--clear` |
-| teardown (x→0) | `migrations/teardown.md` | **every install, dormant**; consumed at uninstall | residual-clean `--clear` |
-
-Mechanics: the kernel stages declarations into `.owfa/migrations/<pkg>/` (kernel zone — never inside the package dir), keeps a ledger (`pending.json`), and raises the **tri-face warning**: a banner on every kernel invocation · `validate` stays red — mechanical blessing is withheld until the semantic step is done · a kernel-managed block lands in the AGENTS injection region so every session sees it. Clearing runs the author's `verify(ctx)` — AST-gated (read-only, stdlib-only) — then deletes the staged files (**use-and-delete**: declarations are useful precisely once; assertions that hold forever belong in the package's `scripts/check.py` — the judgment split rule).
-
-**Sweep symmetry** keeps the ledger honest without a cron: migrate-kind entries die with the package (uninstall sweeps them), teardown-kind entries die with reinstall (install sweeps them). The dormant `PKG.yaml` copy in the staging directory doubles as a **presence marker**: after a manual `rm -rf` of a package directory, the marker lets the kernel sweep the full mechanical residue — commands, connectors, skills, ledger, banner. Self-healing with no hooks.
-
-**Teardown gate**: teardown declares semantic deletions; with no author script the kernel scans the anchor surfaces (the AGENTS handwritten region, profile / language / calendar / todo / cron pages — the kernel-managed injection region is skipped) for member references — word-boundary, deliberately broad: a layout line naming the territory, a cognition registration line, a calendar source key are all references the human side must finish deleting. Clean anchors clear; hits block `--clear` (override `--force`, on your own judgment). The kernel journal (`.owfa/kernel-journal.log`, rolling cap of 500 lines, git-tracked) records the mechanical chain — install / warn+ / clear / uninstall / sweep; mechanical facts only, semantic narrative stays in the instance wiki's log.
-
-## Manifest schema
-
-`schema_version: 1` on PLUGIN.yaml and PKG.yaml. One format migration shared with the upcoming behavior contracts (#34: owns/trigger/emits/never) — versioning the schema once avoids a second format churn when #34 lands.
-
-## Decision ledger
-
-| # | Decision | One-line reason |
+| Layer | Version | Semantics |
 |---|---|---|
-| D1 | declared roster + closure reconciliation | live graph vs versioned anchor; drift → commit-time error |
-| D2 | package version ≠ member versions | distribution unit ≠ semantic unit; lockstep is a trap |
-| D3 | scope/tolerant validate in the binding round | the split is only safe if repos can self-check without the full graph |
-| D4 | instance-local packages live in `domains/` too | one semantic: package directory == install unit; zero-index private packages |
-| D5 | subset grammar fixed now, `--without` opens on demand | validator format never breaks; first real subset user triggers it |
-| D6 | declarative uninstall, no hooks | third execution surface declined; deletion knowledge becomes reviewable data |
-| D7 | migrations are declarations closing 0→x→y→0; teardown ships dormant with every install | semantic change rides reviewable files; the x→0 case must be declared *before* the package is gone |
-| D8 | sweep symmetry + dormant PKG.yaml presence marker | ledger truth without a cron; manual `rm -rf` still self-heals (no hooks anywhere) |
-| D9 | teardown gate = residual scan by default, author scripts optional | D6's no-hooks principle extended to deletion *verification* — zero-script packages still get a semantic gate |
+| framework / channel | `A.B.C` — `.owfa/VERSION` == `package.json` == tag `vA.B.C` == npm == GitHub release | **A** project status (`0` = alpha) · **B** architecture line · **C** in-line updates |
+| packages | `A.B.C` | the domain's own release semantics, independent of the framework (never lockstep) — tags `<pkg>-vA.B.C`, registry rows, migrations |
+| member plugins (and core plugins) | `X.Y` | organ revision ordinals — bump on contract or behavior change; no release granularity of their own, they ship with the package's `A.B.C` |
+| connectors | repo-internal anchors | engineering changelog — never enters registry / tags / PKG semantics |
 
-## Transport contracts (transports block, optional per plugin)
+Package bump rules: **A** only at graduation (the owner's call; kernel-forced adaptation is not an A event — that coupling lives in `compat`); **B** = the domain contract changed (member roster, disclosure/manifest schema, data or page shape, trust model, compat floor) — the only carrier of semantic migrations, named by B-line pairs (`0.2-to-0.3`); **C** = in-architecture updates, never migrations — a change that moves data or page shape is B, not C. Changed tree ⇒ new number, always; C counts releases, not organ changes (three members changing is one C bump). Sync duties: `PKG.yaml` version == `<pkg>-v` tag == registry row, refused on drift at install/upgrade.
 
-A domain may declare a connector-agnostic capability so that any conforming
-transport — the first-party connector, a third-party one, or a harness-native
-channel — can serve it (work order #56, owfa#27):
+## Registry line format
+
+The registry is **owfadev/owfa-registry** (a repository, not an org): `INDEX.yaml`, one line per package, keyed by package id — the human-review gate (inject text and connectors are the security faces, so an index row is earned, not claimed; the PR is also where trust is assigned). Fields per row:
+
+- `repo` — `owner/name` (organization repos are all `owfa-*`)
+- `version` — `A.B.C`, must equal the package's tag
+- `compat` — framework floor
+- `trust` — `framework-bundled` / `reviewed-3rd-party` (the capability trust source)
+- `members` — the plugin roster ('/'-separated)
+- `summary` — one line, written for agents (see [developer.md](developer.md) §Discovery)
+- `needs` / `provides` — optional capability lists ('/'-separated, mirroring PKG.yaml for cross-package discovery)
+- `commit` — optional SHA pin, the supply-chain content anchor: a clone whose HEAD ≠ pin is refused
+
+INDEX-row strings split on `/` (a comma terminates the value in the INDEX line grammar and would silently truncate a list).
+
+## Transport contracts (optional per plugin)
+
+A domain may declare a connector-agnostic capability so any conforming transport can serve it:
 
 ```yaml
 transports:
   contract: qq.transport.v1      # capability id (required)
-  recommends: qq-cli             # default connector (optional; installed under connectors/<id>)
+  recommends: qq-cli             # default connector (optional)
   declaration: qq/policy.md      # wiki page whose frontmatter `transport:` marks an active third-party transport (optional)
-  providers: qq-cli, napcat-bridge   # comma-separated scalar (minimal-YAML: nested block lists are silently dropped)
+  providers: qq-cli, napcat-bridge   # comma-separated scalar (nested block lists are silently dropped)
 ```
 
-Per-provider `harness` / `guarantees` do NOT fit the manifest parser (minimal YAML
-subset — no list-of-maps, review blocker on this PR). They live in two places:
-the contract documentation section below, and the registry row's scalar
-`harness:` field (D1). Guarantee semantics are unchanged: **undeclared =
-guarantee absent** — the agent-side discipline is the floor, transport-side
-enforcement is hardening on top.
+`validate` checks the block structurally and warns when a declared contract has neither the recommended connector installed nor the declaration page carrying `transport:`. Guarantee semantics: undeclared = guarantee absent — agent-side discipline is the floor, transport-side enforcement is hardening on top. Contract ids follow the capability grammar above.
 
-`validate` checks the block structurally and judges health mechanically: contract
-declared but neither the recommended connector installed nor the declaration page
-carrying a `transport:` field → warning (unhealthy-but-usable; the domain's skill
-degrades to guidance). Guarantee semantics: **undeclared = guarantee absent** — the
-agent-side discipline is the floor, transport-side enforcement is hardening on top.
-Registry rows may mirror `provides:` / `harness:` for cross-package discovery.
+## Appendix: decision ledger (entries still in force)
 
-### Contract id grammar
-
-Every contract id follows **`<namespace>.<capability>.v<ordinal>`** — e.g.
-`qq.transport.v1`, `owfa.org.v1`. The namespace is either the declaring package's
-id or the framework-reserved prefix `owfa.`:
-
-- **prefix = declaring package** (mechanically checked): a contract id whose
-  prefix is not `owfa.*` must have its namespace equal the declaring package's
-  id — `validate` rejects anything else;
-- **`owfa.*` is framework-defined**: those names are defined only in the
-  framework repository; the registry review gate enforces this ownership when
-  index PRs are judged;
-- **immutability once published**: a contract name never changes meaning —
-  refining means adding a new name, consolidating means bumping the `v` ordinal
-  (consumers pinned to the old name keep working);
-- **capability matching is exact name equality**: `needs: owfa.org.v1` is
-  satisfied only by `provides: owfa.org.v1` — never by a sibling capability or a
-  different ordinal.
+| # | Decision | One-line reason |
+|---|---|---|
+| D1 | declared roster + closure reconciliation (domain-family only) | live graph vs versioned anchor; drift → commit-time error; suites are presence-checked, not closure-diffed |
+| D2 | package version ≠ member versions | distribution unit ≠ semantic unit; lockstep is a trap |
+| D3 | scope/tolerant validate in the binding round | the split is only safe if repos can self-check without the full graph |
+| D4 | instance-local packages live in `domains/` too | one semantic: package directory == install unit; zero-index private packages |
+| D5 | subset grammar fixed, `--without` shipped open | validator format never breaks; subset is validated at install time |
+| D6 | declarative uninstall, no hooks | third execution surface declined; deletion knowledge becomes reviewable data |
+| D7 | migrations are declarations closing 0→x→y→0; teardown ships dormant with every install | semantic change rides reviewable files; the x→0 case must be declared *before* the package is gone |
+| D8 | sweep symmetry + dormant PKG.yaml presence marker | ledger truth without a cron; manual `rm -rf` still self-heals (no hooks anywhere) |
+| D9 | teardown gate = residual scan by default, author scripts optional | D6's no-hooks principle extended to deletion *verification* — zero-script packages still get a semantic gate |

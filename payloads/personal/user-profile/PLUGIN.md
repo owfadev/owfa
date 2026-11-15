@@ -2,7 +2,7 @@
 
 ## Design Overview
 
-- **Why it exists**: a continuing cognition profile of the user — turning 'who the user is and what they prefer' from conversational memory into a checkable page: assertions carry evidence, preferences expire, updates leave traces. Positioned as the user profile of the agent memory line, facing the real user; not the fictional persona of the product-design line. The dimension framework borrows from the former's research, the update mechanism from the latter; selection rationale in `research-user-profile.md`
+- **Why it exists**: a continuing cognition profile of the user — turning 'who the user is and what they prefer' from conversational memory into a checkable page: assertions carry evidence, preferences expire, updates leave traces. Positioned as the user profile of the agent memory line, facing the real user; not the fictional persona of the product-design line. The dimension framework borrows from the former's research, the update mechanism from the latter; selection rationale lives in this file's Design Summary
 - **Key rulings**:
   - Convergence-style updates: new values replace old ones, trace left in the body — distinct from notes' append-only; the profile page is the first semantically updatable page in the whole library
   - Zero own fields: traces and trust fully reuse trust; dimensions not enumerated, the architecture presets no field list

@@ -24,7 +24,7 @@ Development happens in the **template** (this repository); real use happens in a
 
 - The template stays a library: no instance data, no AGENTS.md, no run log (the opening rule). Mechanical verification that needs an AGENTS.md context runs in a **local sandbox** — a scratch deployment of the template (see [`.owfa/docs/sandbox.md`](.owfa/docs/sandbox.md)); the in-repo `test-repo/` sandbox is local-only and untracked since 2026-10-13
 - Instance-side upstream updates: fetch/pull the template → diff `.owfa/` and `.agents/` → sync selectively (an instance may carry packages and local state the template does not know) — the diff must always include `.owfa/docs/` (agent-facing docs are instance runtime dependencies, not optional reading) → at the instance root `kernel all` → `validate` green. Never blind-copy over an instance that has pending migrations
-- Instances do not author framework code (`.owfa/`, `.agents/skills/`, `connectors/`) — development happens here and in the `pkg-*` repos; instances pull and sync. Exactly two instance-side touches are legitimate:
+- Instances do not author framework code (`.owfa/`, `.agents/skills/`) — development happens here and in the `owfa-*` package repos; instances pull and sync. Exactly two instance-side touches are legitimate:
   - **Verification** — a defect that only manifests in an instance environment (its sandbox, its data shape, its connectors' live auth) is reproduced and its fix verified there: the instance is the test bench, never the author
   - **Reconciled hotfix** — when merge latency blocks real use: minimal patch, byte-identical with the upstream proposal where possible, an upstream PR/issue opened in the same transaction; after merge the upstream final version wins, so a byte-identical hotfix converges to a no-op diff at the next sync
 - Development keeps the dev docs exposed: whoever touches framework code — even instance-side, even a hotfix — reads this document first; the [docs map](.owfa/docs/map.md) routes here, instance sync diffs always carry `.owfa/docs/`, and package-repo PRs self-check against this file
@@ -42,7 +42,7 @@ Read the current state before changing a plugin or connector: versions advance a
 
 ### Release (npm channel)
 
-The framework body ships as the npm package `owfa`, and the package version rides the framework anchor: `.owfa/VERSION` `0.3` → package `0.3.x`. A release is a version bump in both files, a commit `release: framework X.Y.Z`, and a `vX.Y.Z` tag push. The tag triggers [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which re-runs the release gate and publishes with provenance; the gate refuses version/tag drift and any local state (bytecode, ledger, journal, cache) in the tarball. Full runbook: [`.owfa/docs/distribution.md`](.owfa/docs/distribution.md).
+The framework body ships as the npm package `owfadev`, and the package version rides the framework anchor: `.owfa/VERSION` `0.4` → package `0.4.x`. A release is a version bump in both files, a commit `release: framework X.Y.Z`, and a `vX.Y.Z` tag push. The tag triggers [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which re-runs the release gate and publishes with provenance; the gate refuses version/tag drift and any local state (bytecode, ledger, journal, cache) in the tarball. Full runbook: [`.owfa/docs/releasing.md`](.owfa/docs/releasing.md).
 
 ## Packages
 
