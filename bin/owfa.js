@@ -105,7 +105,11 @@ function installedKernels() {
 function currentUserKernel() {
   try {
     const cur = fs.readFileSync(path.join(owfaHome(), "kernel", "current"), "utf8").trim();
-    return /^\d+\.\d+\.\d+$/.test(cur) ? cur : null;
+    if (!/^\d+\.\d+\.\d+$/.test(cur)) return null;
+    // the pointer must name an installed kernel — a drifted `current` (manual
+    // deletion) must not enter the registry as a version dispatch would refuse
+    if (!fs.existsSync(path.join(owfaHome(), "kernel", cur, "owfa_kernel.py"))) return null;
+    return cur;
   } catch {
     return null;
   }
