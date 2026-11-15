@@ -31,7 +31,7 @@ my-workspace/
 │   └── index.md  tags.md  hot.md  log.md   # 派生层，流水线重建
 ├── .owfa/                     # OWFA Core（v0.4 拆分后仅 kernel 树）
 │   ├── VERSION                # 框架锚点——部署版本的唯一事实源（别信任何硬编码数字）
-│   ├── scripts/               # kernel + pipeline + wikilib
+│   ├── scripts/               # kernel + wikilib（pipeline 归套件，此处为弃用垫片）
 │   ├── plugins/domains/       # 已安装 package——init 时内嵌 personal 套件（21 成员）落此；通道本身不带 plugin
 │   ├── command/               # 框架命令母本（套件自有命令随包分发）
 │   └── docs/                  # 本指南及同伴
@@ -289,7 +289,7 @@ npx owfadev upgrade --backup   # 在 .owfa/backup/<version>-<timestamp>/ 留一�
 | `wiki/` | markdown 世界、代理、笔记、会话 | 可以，经命令；派生页会被重建 |
 | `wiki/index.md`、`tags.md`、`hot.md`、`log.md` | 派生层 | 否——流水线重写 |
 | `.owfa/plugins/` | Core plugin + 已装 package | 否——框架作者面 |
-| `.owfa/scripts/` | kernel、pipeline、wikilib | 否——框架作者面 |
+| `.owfa/scripts/` | kernel、wikilib（pipeline 归套件，垫片至 0.5.0） | 否——框架作者面 |
 | `.owfa/command/` | 命令母本 | 否 |
 | `.agents/skills/` | deploy 出的 skill 副本 | 否——`kernel deploy` 同步 |
 | `.owfa/migrations/` | stage 的语义迁移 + 台账 | 否——kernel 区 |

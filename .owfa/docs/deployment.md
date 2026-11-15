@@ -31,7 +31,7 @@ my-workspace/
 │   └── index.md  tags.md  hot.md  log.md   # derived, rebuilt by the pipeline
 ├── .owfa/                     # OWFA Core (kernel-only tree since the v0.4 split)
 │   ├── VERSION                # framework anchor — this file is the source of truth for the deployed version (never trust hardcoded numbers elsewhere)
-│   ├── scripts/               # kernel + pipeline + wikilib
+│   ├── scripts/               # kernel + wikilib (pipeline: suite-owned since 0.1.1, deprecated host shim here)
 │   ├── plugins/domains/       # installed packages — the embedded personal suite (21 members) lands here on init; the channel itself ships no plugins
 │   ├── command/               # framework command masters (suite-owned commands ride with their package)
 │   └── docs/                  # this guide and friends
@@ -289,7 +289,7 @@ Framework versions are anchored by `.owfa/VERSION` — read the file itself rath
 | `wiki/` | markdown world, proxies, notes, sessions | yes, via commands; derived pages are rebuilt |
 | `wiki/index.md`, `tags.md`, `hot.md`, `log.md` | derived layer | no — the pipeline rewrites them |
 | `.owfa/plugins/` | Core plugins + installed packages | no — framework authoring |
-| `.owfa/scripts/` | kernel, pipeline, wikilib | no — framework authoring |
+| `.owfa/scripts/` | kernel, wikilib (pipeline — suite-owned, deprecated host shim until 0.5.0) | no — framework authoring |
 | `.owfa/command/` | command masters | no |
 | `.agents/skills/` | deployed skill copies | no — `kernel deploy` syncs them |
 | `.owfa/migrations/` | staged semantic migrations + ledger | no — kernel zone |
