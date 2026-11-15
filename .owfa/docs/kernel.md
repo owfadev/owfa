@@ -40,7 +40,7 @@ At the plugin level, every manifest carries seven required keys — `id / versio
 
 ### 2.1 The plugin ontology — owner's final ruling (2026-11-15)
 
-Entry-level definition of what a plugin **is**, ruled by the owner on 2026-11-15. It is an entry above the mechanism sections: nothing below is revised — the R1–R10 lines, the ABI, and the package/capability machinery stand exactly as written.
+Entry-level definition of what a plugin **is**, ruled by the owner on 2026-11-15. It is an entry above the mechanism sections: nothing below is revised — the R1–R10 lines (enumerated in [packages.md § kind: protocol](packages.md)), the ABI, and the package/capability machinery stand exactly as written.
 
 - **Motivation.** OWFA is plugin-based because information is infinite and infinitely malleable — and the plugins are made for the agent's convenience. A plugin is how one defined kind of information is packaged so the agent can carry it.
 - **The four-part formula.** An owfa plugin (package) = **plugin documentation + exposure mechanism** (injection, skills, …) **+ an information-acquisition channel** (a connector, or the user's own input such as the vault) **+ an information-processing approach**. In essence, a plugin corresponds to one **defined kind of information**.

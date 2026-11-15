@@ -88,6 +88,24 @@ Absent `kind` = the classic domain-family behavior (default): the kernel compute
 
 Site side, v1 requires full presence — every member on disk; the subset grammar (`installed ⊆ members`, non-empty, dependency-closed, root mandatory for domain-family) is fixed so `--without` never breaks the validator: `kernel install <pkg> --without a,b` (and `owfa add <pkg> --without a,b`) installs a validated subset today — installed members get a `suite subset install` note in validate. Its promise is semantic — zero injection, zero skill surface, zero credentials — not physical.
 
+## kind: protocol — the step2 shape rulings (R1–R11)
+
+`kind: protocol` + `protocol: <id>` declared together make a **protocol package** — the landholder of a workspace protocol. The shape rulings, in force since step2 (0.4.5/0.4.6; canonical text: step2-spec v2), enumerated once here because kernel.md and abi.md cite them by number:
+
+| # | Ruling (validate-enforced unless noted) |
+|---|---|
+| R1 | `kind: protocol` ⇔ `protocol:` field present — the pair declares together or not at all |
+| R2 | a protocol package provides exactly one `<protocol>.org.v<N>` org capability (ordinary capabilities allowed, prefix = protocol id or package id per R4) |
+| R3 | a protocol package is rootless (inherits the full kind:suite discipline: no root, closure laws skipped, all members present) |
+| R4 | capability prefix has two legal sources: package id or the package's `protocol:` id; protocol id must not be `owfa` (reserved) |
+| R5 | uninstall: retains must cover every data skeleton dir (validate warns on uncovered); the "workspace is protocol-less — a shell" notice lands in uninstall output + doctor, not validate |
+| R6 | all-or-nothing: `--without` or member-level-needs pruning touching a protocol member refuses the whole package (subset installs belong to domain families only) |
+| R7 | members non-empty; protocol id collides with no installed package id and no other protocol id; protocol id ≠ owfa |
+| R8 | org-capability evolution: exactly one `<proto>.org.v<N>` per protocol at any time (v1+v2 coexisting = error); upgrade = in-place replacement, no coexistence window |
+| R9 | org capabilities (`*.org.v*`) are protocol-package-only: a non-protocol package providing any org capability is a validate error; one-workspace-one-protocol follows automatically |
+| R10 | member-level needs are trust-gated (only trust ≥ reviewed provides satisfy; untrusted = unsatisfied → R6 semantics); grammar = CAPABILITY_RE; `owfa.*` reserved |
+| R11 | the two-state ABI qualification line (enforced since 0.4.6; error in 0.5.0) — enumerated in [abi.md §4](abi.md) |
+
 ## Capabilities
 
 Package-scale `needs` / `provides` (v0.4). The grammar, mechanically checked by `validate`:

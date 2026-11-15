@@ -13,7 +13,7 @@
 
 - Single file `wiki/log.md`; entries prepended at the top, newest on top
 - Entry format: `- YYYY-MM-DD <type> [<domain>]: one-sentence summary`, may contain wikilinks; the domain tag is omissible, i.e. domainless transactions
-- Type enum: map, save, query, check, plugin, todo, other; instances may extend
+- Type enum: map, save, query, check, plugin, todo, profile, other; instances may extend
 
 ## Bridge: mandatory
 
@@ -42,7 +42,7 @@ log.max_chars: 14000     # window character cap, approximate
 
 ## Changelog
 
-- 0.17 2026-11-15: pipeline call path relocated (suite 0.1.1); `usage_routes: [owfa-query]` added — the log projection in owfa-query's usage block is now manifest-backed
+- 0.17 2026-11-15: pipeline call path relocated (package 0.1.1); `usage_routes: [owfa-query]` added — the log projection in owfa-query's usage block is now manifest-backed
 - 0.16 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.15 2026-10-02: global-domain batch one — established the mandatory bridge, i.e. the recording bridge; domain bases must depend on it, kernel verifies completeness; entries gained the omissible `[domain]` tag; pipeline log gained the `--domain` parameter
 - 0.13 2026-09-23: added the wiki dependency edge — inner-side plugins attach to wiki, aligning with the domain 0.1 declaration; omitted from the 2026-09-22 domain-ization batch
