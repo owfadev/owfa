@@ -306,6 +306,48 @@ class CapabilityTests(unittest.TestCase):
         result = self.run_kernel("provides")
         self.assertIn("needs owfa.net.v1 — NOT satisfied: capability missing entirely", result.stdout)
 
+    # ---- compat floor: two/three-segment forms ----
+
+    def pkg_with_compat(self, compat):
+        directory = self.pkg_dir("cfloor")
+        (directory / "PKG.yaml").write_text(
+            (directory / "PKG.yaml").read_text(encoding="utf-8").replace("compat: '>= 0.3'", f"compat: '{compat}'"),
+            encoding="utf-8")
+        return self.install_path("cfloor")
+
+    def test_two_segment_floor_equal_minor_passes(self):
+        # ">= 0.4" against anchor 0.4.3: minor-line floor — every 0.4.z passes
+        self.assertEqual(self.pkg_with_compat(">= 0.4").returncode, 0)
+        result = self.run_kernel("validate")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("unchecked", result.stdout)
+
+    def test_two_segment_floor_higher_minor_fails(self):
+        # ">= 0.5" against anchor 0.4.3: exceeds the framework version — refused
+        result = self.pkg_with_compat(">= 0.5")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("compat >= 0.5 exceeds framework 0.4.3", result.stdout)
+
+    def test_three_segment_floor_at_anchor_passes(self):
+        # ">= 0.4.3" against anchor 0.4.3: patch floor, equality passes
+        self.assertEqual(self.pkg_with_compat(">= 0.4.3").returncode, 0)
+        result = self.run_kernel("validate")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("unchecked", result.stdout)
+
+    def test_three_segment_floor_above_anchor_fails(self):
+        # ">= 0.4.4" against anchor 0.4.3: patch floor exceeds — refused
+        result = self.pkg_with_compat(">= 0.4.4")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("compat >= 0.4.4 exceeds framework 0.4.3", result.stdout)
+
+    def test_illegal_compat_shape_warns_unchecked(self):
+        # only illegal shapes (no prefix / =< / non-numeric) report unchecked
+        self.run_kernel("uninstall", "cfloor", "--yes")
+        self.assertEqual(self.pkg_with_compat("=> 0.4").returncode, 0)
+        result = self.run_kernel("validate")
+        self.assertIn("not in '>= X.Y'/'>= X.Y.Z' form — unchecked", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

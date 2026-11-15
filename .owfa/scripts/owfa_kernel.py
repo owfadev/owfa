@@ -921,6 +921,21 @@ def framework_version():
     return tuple(int(g) for g in m.groups() if g is not None)
 
 
+def compat_floor(compat):
+    """Parse a PKG compat floor into a comparable int tuple; None when malformed.
+
+    Two legal forms (version anchor .owfa/VERSION is three-segment X.Y.Z):
+    '>= X.Y' and '>= X.Y.Z'. Plain tuple comparison expresses both semantics:
+    a two-segment floor is a minor-line lower bound — '>= 0.4' passes every
+    0.4.z and any higher minor (a shorter tuple sorts before any extension of
+    itself); a three-segment floor is a patch lower bound — '>= 0.4.3' requires
+    0.4.3+ within the minor or any higher minor. Anything else (no >= prefix,
+    =/<=/>, non-numeric segments) is an illegal shape — the caller reports it
+    unchecked."""
+    m = re.fullmatch(r">=\s*(\d+)\.(\d+)(?:\.(\d+))?", str(compat or ""))
+    return tuple(int(g) for g in m.groups() if g is not None) if m else None
+
+
 def validate_packages(plugins, pkgs, errors, warnings):
     """Package invariants (issue #20 定稿 D1/D2/D5): roster == family closure (authoring side),
     full presence (site side, v1 — subsets land with --without later), flat package graph,
@@ -996,10 +1011,10 @@ def validate_packages(plugins, pkgs, errors, warnings):
                 errors.append(f"[error] PKG {pid}: package dependency {dep} not allowed in v1 (flat graph — framework only)")
         if fw is not None:
             compat = str(pkg.get("compat") or "")
-            m = re.fullmatch(r">=\s*(\d+)\.(\d+)", compat)
-            if not m:
-                warnings.append(f"PKG {pid}: compat ({compat!r}) not in '>= X.Y' form — unchecked (v1 supports only this form)")
-            elif (int(m.group(1)), int(m.group(2))) > fw:
+            floor = compat_floor(compat)
+            if floor is None:
+                warnings.append(f"PKG {pid}: compat ({compat!r}) not in '>= X.Y'/'>= X.Y.Z' form — unchecked")
+            elif floor > fw:
                 errors.append(f"[error] PKG {pid}: compat {compat} exceeds framework version {'.'.join(map(str, fw))}")
         # R5 (step2): a package's declared data zones (skeleton dirs) must be covered
         # by uninstall.retains — a skeleton dir the uninstall declaration does not
@@ -1576,8 +1591,8 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
         return 1
     fw = framework_version()
     if fw is not None:
-        m = re.fullmatch(r">=\s*(\d+)\.(\d+)", str(pkgm.get("compat") or ""))
-        if m and (int(m.group(1)), int(m.group(2))) > fw:
+        floor = compat_floor(pkgm.get("compat"))
+        if floor is not None and floor > fw:
             print(f"[error] package compat {pkgm.get('compat')} exceeds framework {'.'.join(map(str, fw))}")
             return 1
     if not path and not direct:
@@ -2133,9 +2148,9 @@ def _upgrade_action(pkg, args):
         return 0
     fw = framework_version()
     if fw is not None:
-        m = re.fullmatch(r">=\s*(\d+)\.(\d+)", str(new_pkgm.get("compat") or ""))
-        if m and (int(m.group(1)), int(m.group(2))) > fw:
-            print(f"[error] upgrade needs framework {'.'.join(map(str, (int(m.group(1)), int(m.group(2)))))} first — run `npx owfa upgrade` (npm channel), or sync the template trees and rerun kernel all")
+        floor = compat_floor(new_pkgm.get("compat"))
+        if floor is not None and floor > fw:
+            print(f"[error] upgrade needs framework {'.'.join(map(str, floor))} first — run `npx owfa upgrade` (npm channel), or sync the template trees and rerun kernel all")
             return 1
     # quiet mechanical reinstall (uninstall -> install-from-src with prev_version; the
     # old PKG rides along as prev_pkgm so the capability preflight boards the PROSPECTIVE
