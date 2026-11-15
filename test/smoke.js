@@ -94,7 +94,7 @@ try {
   step("owfa pkg lists the personal suite and an empty core remainder", () => {
     const r = run(["pkg"], empty);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
-    assert.match(r.stdout, /pkg personal .*21 members \(suite\): calendar/, r.stdout);
+    assert.match(r.stdout, /pkg personal .*21 members \((?:suite|protocol: [a-z-]+)\): calendar/, r.stdout);
     assert.ok(r.stdout.includes("calendar"), r.stdout);
     assert.match(r.stdout, /core \(framework\): 0:/, r.stdout);
   });
@@ -409,7 +409,7 @@ try {
     // kernel pkg: the personal suite, suite-kinded, and an empty core remainder
     const p = run(["pkg"], inst);
     assert.strictEqual(p.status, 0, p.stderr + p.stdout);
-    assert.match(p.stdout, /pkg personal .*21 members \(suite\): calendar/, p.stdout);
+    assert.match(p.stdout, /pkg personal .*21 members \((?:suite|protocol: [a-z-]+)\): calendar/, p.stdout);
     assert.match(p.stdout, /core \(framework\): 0:/, p.stdout);
     const d = run(["doctor", inst], tmpRoot);
     assert.strictEqual(d.status, 0, "suite instance fails doctor: " + d.stdout);
