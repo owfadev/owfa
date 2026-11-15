@@ -657,6 +657,39 @@ def do_audit(plugins, only=None):
     ctx = types.SimpleNamespace(root=ROOT, pages=pages)
     counts = {"error": 0, "warning": 0, "info": 0}
     ran = 0
+    # R11 ABI smoke (abi-spec §3): every installed kind:protocol package that
+    # declares an abi block must have a living proto_query.py — run its
+    # `list --kind __abi_smoke` (an unknown kind legally yields an empty result,
+    # exit 0; only a dead/unrunnable command is a check failure)
+    import subprocess
+    smoke_ran = 0
+    for pid, pkg in sorted(load_packages([]).items()):
+        if str(pkg.get("kind") or "") != "protocol" or not isinstance(pkg.get("abi"), dict):
+            continue
+        if only and pid != only:
+            continue
+        script = os.path.join(PLUGINS_DIR, "domains", pid, "proto_query.py")
+        smoke_ran += 1
+        try:
+            r = subprocess.run([sys.executable, script, "list", "--kind", "__abi_smoke"],
+                               capture_output=True, text=True, timeout=15)
+        except subprocess.TimeoutExpired:
+            print(f"[error] ({pid}) ABI smoke: proto_query.py list --kind __abi_smoke timed out (exit 0 expected; empty result is legal)")
+            counts["error"] += 1
+            continue
+        except OSError as e:
+            print(f"[error] ({pid}) ABI smoke: cannot run proto_query.py ({e})")
+            counts["error"] += 1
+            continue
+        if r.returncode != 0:
+            tail = (r.stderr or r.stdout or "").strip().splitlines()
+            hint = f" — {tail[-1][:120]}" if tail else ""
+            print(f"[error] ({pid}) ABI smoke: proto_query.py list --kind __abi_smoke exited {r.returncode}, expected 0{hint}")
+            counts["error"] += 1
+        else:
+            print(f"[info] ({pid}) ABI smoke ok — proto_query.py list --kind __abi_smoke exited 0")
+            counts["info"] += 1
+    ran += smoke_ran
     for pid in sorted(plugins):
         if only and pid != only:
             continue
@@ -679,9 +712,9 @@ def do_audit(plugins, only=None):
             counts[level] = counts.get(level, 0) + 1
             print(f"[{level}] ({pid}) {it.get('message', '')}")
     if ran == 0:
-        print("[audit] no plugin carries scripts/check.py (optional contract; currently semantic-only)")
+        print("[audit] no plugin carries scripts/check.py and no ABI smoke target exists (optional contract; currently semantic-only)")
         return 0
-    print(f"[audit] {ran} plugins, error {counts['error']} / warning {counts.get('warning', 0)} / info {counts.get('info', 0)}")
+    print(f"[audit] {ran} checks (plugin check scripts + ABI smoke), error {counts['error']} / warning {counts.get('warning', 0)} / info {counts.get('info', 0)}")
     return 1 if counts["error"] else 0
 
 
@@ -1006,6 +1039,56 @@ def compat_floor(compat):
     return tuple(int(g) for g in m.groups() if g is not None) if m else None
 
 
+# ABI interval grammar (abi-spec §4.2, bridge-only vocabulary — PKG compat floors
+# above stay single-lower-bound and are NOT this syntax):
+#   interval   := comparator { " " comparator }        ; space = AND
+#   comparator := op version                            ; op glued to version, no space
+#   op         := ">=" | "<=" | ">" | "<" | "="
+#   version    := major [ "." minor [ "." patch ] ]     ; digit segments
+# Missing-segment semantics, per op (abi-spec v2): >=/>/<=/< fill the missing
+# segments with the LOWEST value (1 = 1.0.0, 2.0 = 2.0.0 — so "<2.0" excludes
+# 2.0.0 and everything above, ">=0.8" includes 0.8.0); "=" is a PREFIX match
+# ("=1.2" <=> 1.2.*).
+_INTERVAL_RE = re.compile(r"^(>=|<=|>|<|=)(\d+)(?:\.(\d+))?(?:\.(\d+))?$")
+
+
+def compat_match(version, interval):
+    """The single parser/evaluator of ABI compat intervals (abi-spec §4.2) — bridge
+    connection declarations, landing-template version anchors and registry
+    references all call this one function (no second Python implementation).
+    Returns True when `version` (X.Y[.Z] digits) satisfies every space-separated
+    comparator; raises ValueError on any illegal interval or version string.
+    """
+    m = re.fullmatch(r"(\d+)(?:\.(\d+))?(?:\.(\d+))?", str(version or "").strip())
+    if not m:
+        raise ValueError(f"illegal version: {version!r} (expected major[.minor[.patch]] digits)")
+    cand = tuple(int(g) for g in m.groups() if g is not None)
+    cand = cand + (0,) * (3 - len(cand))
+    parts = str(interval or "").split()
+    if not parts:
+        raise ValueError(f"illegal interval: {interval!r} (empty)")
+    for comp in parts:
+        m = _INTERVAL_RE.fullmatch(comp)
+        if not m:
+            raise ValueError(f"illegal comparator: {comp!r} in interval {interval!r} (op >=|<=|>|<|= glued to major[.minor[.patch]]; comparators AND-ed with single spaces)")
+        op = m.group(1)
+        bound = tuple(int(g) for g in m.groups()[1:] if g is not None)
+        if op == "=":
+            if cand[:len(bound)] != bound:  # prefix match: =1.2 <=> 1.2.*
+                return False
+        else:  # ordering ops: missing segments take the lowest value (1 = 1.0.0)
+            b = bound + (0,) * (3 - len(bound))
+            if op == ">=" and not cand >= b:
+                return False
+            if op == ">" and not cand > b:
+                return False
+            if op == "<=" and not cand <= b:
+                return False
+            if op == "<" and not cand < b:
+                return False
+    return True
+
+
 def validate_packages(plugins, pkgs, errors, warnings):
     """Package invariants (issue #20 定稿 D1/D2/D5): roster == family closure (authoring side),
     full presence (site side, v1 — subsets land with --without later), flat package graph,
@@ -1038,6 +1121,12 @@ def validate_packages(plugins, pkgs, errors, warnings):
         # forward AND reverse — step2 review Low)
         for msg in package_shape_issues(pid, pkg, pkgs):
             errors.append(f"[error] {msg}")
+        if kind == "protocol":
+            # R11 (abi-spec §5): two-state ABI qualification — absent block warns
+            # through 0.4.x (error at 0.5.0), a present-but-illegal block errors
+            _abi_errs, _abi_warns = abi_block_issues(pid, pkg, os.path.join(PLUGINS_DIR, "domains", pid))
+            errors.extend(f"[error] {m}" for m in _abi_errs)
+            warnings.extend(_abi_warns)
         members = pkg.get("members")
         if not isinstance(members, list) or not members:
             errors.append(f"[error] PKG {pid}: members must be a non-empty list")
@@ -1237,6 +1326,58 @@ def package_shape_issues(pid, pkg, other_pkgs=None):
     if len(orgs) != 1 or orgs[0].split(".", 1)[0] != proto:
         out.append(f"PKG {pid}: a protocol package must provide exactly one {proto}.org.v<N> capability (R2; same-protocol version variants coexisting are refused, R8) — got {orgs or 'none'}")
     return out
+
+
+# R11 (abi-spec §5, framework 0.4.6): the protocol ABI qualification line — a
+# kind:protocol package may declare an `abi:` block (the four-semantics contract,
+# executed by the package-root proto_query.py script). Two-state validation:
+#   - block ABSENT  -> warning for the whole 0.4.x window (existing protocol
+#     packages keep working; becomes an error at 0.5.0 — no grandfather clause);
+#   - block PRESENT but illegal (semantics not exactly the four / proto_query.py
+#     missing at the package root / bad fields) -> error: declaring is promising.
+ABI_SEMANTICS = ("list", "get", "search", "recent")
+ABI_BLOCK_KEYS = ("semantics", "search_lang", "addr_doc")
+
+
+def abi_block_issues(pid, pkg, pkg_root=None, default_framework_version=None):
+    """R11 two-state ABI validation for one kind:protocol package; returns (errors, warnings).
+
+    pkg_root (the package directory — installed tree at validate time, staged source
+    at install time) enables the proto_query.py presence check; pass None to check
+    the declaration only.
+
+    default_framework_version injects the framework version for tests (a tuple in
+    framework_version() shape); production callers omit it and read .owfa/VERSION.
+    From 0.5.0 the missing-abi-block finding flips warning → error (R11: ABI is
+    mandatory from the 0.5.0 line)."""
+    errs, warns = [], []
+    abi = pkg.get("abi")
+    if "abi" not in pkg or abi is None:
+        fw = default_framework_version if default_framework_version is not None else framework_version()
+        if fw is not None and fw >= (0, 5):
+            errs.append(f"PKG {pid}: kind:protocol without abi block — ABI is mandatory at {fw[0]}.{fw[1]}{f'.{fw[2]}' if len(fw) > 2 else ''}+ (R11)")
+        else:
+            warns.append(f"PKG {pid}: kind:protocol without abi block — ABI becomes mandatory at 0.5.0 (R11)")
+        return errs, warns
+    if not isinstance(abi, dict):
+        errs.append(f"PKG {pid}: abi block must be a mapping with semantics/search_lang keys (R11)")
+        return errs, warns
+    unknown = [k for k in abi if k not in ABI_BLOCK_KEYS]
+    if unknown:
+        errs.append(f"PKG {pid}: abi block has unknown key(s) {', '.join(sorted(unknown))} — legal keys: {', '.join(ABI_BLOCK_KEYS)} (R11)")
+    sems = abi.get("semantics")
+    sem_list = sems if isinstance(sems, list) else ([str(sems).strip()] if sems not in (None, "") else [])
+    if sorted(str(s) for s in sem_list) != sorted(ABI_SEMANTICS):
+        errs.append(f"PKG {pid}: abi.semantics must be exactly {', '.join(ABI_SEMANTICS)} (R11) — got {sem_list or 'none'}")
+    lang = abi.get("search_lang")
+    if not isinstance(lang, str) or not lang.strip():
+        errs.append(f"PKG {pid}: abi.search_lang must be a one-sentence description of the protocol's search semantics (R11)")
+    doc = abi.get("addr_doc")
+    if doc is not None and (not isinstance(doc, str) or not doc.strip()):
+        errs.append(f"PKG {pid}: abi.addr_doc must be a non-empty documentation pointer (R11)")
+    if pkg_root and not os.path.exists(os.path.join(pkg_root, "proto_query.py")):
+        errs.append(f"PKG {pid}: abi block declared but package-root proto_query.py is missing (R11 — the block is a promise, the script is the implementation)")
+    return errs, warns
 
 
 def capability_providers(pkgs):
@@ -1681,6 +1822,13 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
     # step2 protocol shape preflight (R1/R2/R4/R7): refuse before any file lands —
     # cross-checked against the installed set (protocol id uniqueness / id clash)
     _shape = package_shape_issues(pid, pkgm, load_packages([]))
+    # R11 (abi-spec §5): an illegal abi block refuses install before any file
+    # lands; an absent block only warns (error at 0.5.0)
+    if kind == "protocol":
+        _abi_errs, _abi_warns = abi_block_issues(pid, pkgm, src)
+        _shape.extend(_abi_errs)
+        for _w in _abi_warns:
+            print(f"[warning] {_w}")
     for msg in _shape:
         print(f"[error] {msg}")
     if _shape:
