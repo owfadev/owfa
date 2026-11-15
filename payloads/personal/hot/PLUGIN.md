@@ -28,7 +28,7 @@ hot.max_entry_chars: 200   # parameters calibrated against the original reposito
 
 ## Changelog
 
-- 0.11 2026-11-15: pipeline call path relocated to the suite package root (suite 0.1.1)
+- 0.11 2026-11-15: pipeline call path relocated to the package root (package 0.1.1)
 - 0.10 2026-09-23: added the wiki dependency edge — inner-side plugins attach to wiki, aligning with the domain 0.1 declaration; omitted from the 2026-09-22 domain-ization batch
 - 0.9 2026-09-13: usage's type parameter gained its value-set source — same as log, pointing to the log block of the AGENTS injection region
 - 0.8 2026-09-13: injection source moved to the manifest — removed Checks, Usage, Inject, Attachments sections, md returned to pure documentation

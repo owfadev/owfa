@@ -26,7 +26,7 @@ A domain's internal rules can look deceptively protocol-like (a course domain's 
 | **Can it be removed?** | Remove it and the workspace is no longer this workspace | Uninstall the domain; the workspace is unharmed |
 | **Does it provide cross-cutting services?** | Derived layer, retrieval, check rules, distillation zones — shared by all | No; domain derivations land through the protocol's services (conclusions enter notes via bridges, retrieved via the protocol's index) |
 
-The kernel, in turn, owns the *mechanisms* (manifest syntax, projections, [package/capability engine](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [kernel mechanics](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md), check machinery) and is protocol-agnostic: it enforces whatever rules the installed packages declare. In one sentence — **the kernel is the machinery, the protocol is the law, a domain is a charter-carrying member bound by that law; a plugin is a defined kind of information, not a tenant of land** (the plugin ontology — owner's final ruling, 2026-11-15 — lives in [kernel mechanics](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md) §2.1).
+The kernel, in turn, owns the *mechanisms* (manifest syntax, projections, [package/capability engine](https://github.com/owfadev/owfa/blob/master/.owfa/docs/packages.md) / [kernel mechanics](https://github.com/owfadev/owfa/blob/master/.owfa/docs/kernel.md), check machinery) and is protocol-agnostic: it enforces whatever rules the installed packages declare. In one sentence — **the kernel is the machinery, the protocol is the landlord's law, a domain is a tenant with its own charter**.
 
 ## The Shape of the Slots
 
@@ -60,7 +60,7 @@ Each member carries its own rule set in `checks:` (see the roster below); attach
 | **wiki** | The md world (`wiki/`): territory pages, native writings, derived projections |
 | **vault** | The real-asset store (`vault/`), any format, agent-append-only |
 | **domain** | A bounded source-of-truth region with an adapter contract; wiki recognizes inside vs. outside |
-| **territory** | A storage form some information kinds require: the path slice a plugin writes (borrowing = read-only consumption). Territory serves the information kind, never plugin identity — trust has no directory territory, bridge ran zero-territory at 0.3 |
+| **territory** | The slice of paths a plugin owns (owning means writing; borrowing means read-only consumption) |
 | **derived layer** | Mechanically regenerated pages (index / tags / hot / log) — hand-editing is futile, the next rebuild overwrites |
 | **page type** | The open `type` frontmatter vocabulary; structure is declared by each plugin, not enumerated by the protocol |
 | **red lines** | Hard disciplines: append-only toward `vault/` and log/history; no hand-regeneration of derived pages; commands append to notes/sessions, never modify; instance data never enters git |

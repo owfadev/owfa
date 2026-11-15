@@ -99,6 +99,31 @@ function installedKernels() {
     .sort(cmpVersion);
 }
 
+// N-series (0.4.8): a workspace served by the deprecated host forwarder is
+// effectively served by the user-level current kernel — registry refresh must
+// follow the current pointer, not the version bound at adopt time.
+function currentUserKernel() {
+  try {
+    const cur = fs.readFileSync(path.join(owfaHome(), "kernel", "current"), "utf8").trim();
+    if (!/^\d+\.\d+\.\d+$/.test(cur)) return null;
+    // the pointer must name an installed kernel — a drifted `current` (manual
+    // deletion) must not enter the registry as a version dispatch would refuse
+    if (!fs.existsSync(path.join(owfaHome(), "kernel", cur, "owfa_kernel.py"))) return null;
+    return cur;
+  } catch {
+    return null;
+  }
+}
+
+function servedByForwarder(target) {
+  try {
+    const head = fs.readFileSync(path.join(target, ".owfa", "scripts", "owfa_kernel.py"), "utf8").slice(0, 600);
+    return head.includes("DEPRECATED HOST FORWARDER");
+  } catch {
+    return false;
+  }
+}
+
 // B: parse the marker's kernel_compat floor (">= X.Y.Z" — minimal-YAML, the
 // marker's single key). Returns the floor version or null (absent/unparsable).
 function parseKernelCompat(target) {
@@ -294,9 +319,26 @@ function rescanRegistry(under) {
   const byPath = new Map(old.map((e) => [e.path, e]));
   const merged = [];
   for (const e of old) {
-    // outside-scope or in-scope: keep every entry whose path is alive on disk
-    if (fs.existsSync(path.join(e.path, ".owfa", "WORKSPACE.yaml"))) merged.push(e);
-    else out(`dangling workspace dropped: ${e.path} (G2 rescan)`);
+    // outside-scope or in-scope: keep every entry whose path is alive on disk,
+    // refreshing the kernel/compat view from disk (the registry is the index;
+    // WORKSPACE.yaml + installed kernels are the source — N-series fix:
+    // kept entries used to carry stale kernel fields across upgrades).
+    // A workspace whose scripts/owfa_kernel.py is the deprecated host
+    // forwarder is served by the user-level current kernel — the registry
+    // must say so, not repeat the version bound at adopt time.
+    if (fs.existsSync(path.join(e.path, ".owfa", "WORKSPACE.yaml"))) {
+      const floor = parseKernelCompat(e.path);
+      if (floor) e.compat = floor;
+      else delete e.compat;
+      if (servedByForwarder(e.path)) {
+        const cur = currentUserKernel();
+        if (cur && satisfiesFloor(cur, floor)) e.kernel = cur;
+      } else {
+        const k = resolveUserKernelVersion(e.path);
+        if (k) e.kernel = k;
+      }
+      merged.push(e);
+    } else out(`dangling workspace dropped: ${e.path} (G2 rescan)`);
   }
   let added = 0;
   for (const p of found) {
