@@ -1,3 +1,4 @@
+<!-- docs-lint: historical — this page narrates the 0.3→0.4 conversion; paths describe layouts of that era -->
 # Conversion: a 0.3 instance → the 0.4 package era
 
 > Reader: the owner of an existing OWFA 0.3 instance (framework in `.meta/`, or a 0.4-layout instance that still carries core plugins in-tree) who wants to move to v0.4 without touching instance data. Fresh installs don't need this page — `npx owfadev init` already lands the split layout. Full upgrade mechanics for already-current instances live in [deployment.md](deployment.md).

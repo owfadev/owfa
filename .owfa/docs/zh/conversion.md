@@ -1,3 +1,4 @@
+<!-- docs-lint: historical — narrates the 0.3→0.4 conversion; paths describe layouts of that era -->
 # 转换：0.3 旧实例 → 0.4 包时代
 
 > 读者：现有 OWFA 0.3 实例的主人——框架本体还在 `.meta/`，或已是 0.4 目录形状但 core plugin仍长在框架树里——想在不触碰实例数据的前提下升到 v0.4。全新安装不需要本页：`npx owfadev init` 直接落地拆分后的布局。已跟上当前版本的实例，常规升级机制见 [deployment.md](deployment.md)。
