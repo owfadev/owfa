@@ -38,6 +38,15 @@ Since v0.4, plugins travel with **packages**. The install unit is the directory:
 
 At the plugin level, every manifest carries seven required keys — `id / version / depends / updated / attachment / fields / inject` (`REQUIRED_KEYS`, `155`) plus the optional keys (`commands`, `usage`, `checks`, `bridge`, `inject_tier`, `usage_routes`, `transports`). The kernel requires `attachment` and `fields` to be **present** but does not interpret their entries: what an attachment claim means over the instance's data model is protocol semantics; the kernel's authority over plugin content is mechanical, not editorial.
 
+### 2.1 The plugin ontology — owner's final ruling (2026-11-15)
+
+Entry-level definition of what a plugin **is**, ruled by the owner on 2026-11-15. It is an entry above the mechanism sections: nothing below is revised — the R1–R10 lines, the ABI, and the package/capability machinery stand exactly as written.
+
+- **Motivation.** OWFA is plugin-based because information is infinite and infinitely malleable — and the plugins are made for the agent's convenience. A plugin is how one defined kind of information is packaged so the agent can carry it.
+- **The four-part formula.** An owfa plugin (package) = **plugin documentation + exposure mechanism** (injection, skills, …) **+ an information-acquisition channel** (a connector, or the user's own input such as the vault) **+ an information-processing approach**. In essence, a plugin corresponds to one **defined kind of information**.
+- **Territory is not in the formula.** A territory is the storage-form requirement of *some* information kinds — never a condition of plugin identity. The precedents already in the tree prove it: `trust` has no directory territory, and `bridge` at 0.3 ran with zero territory. A plugin owns a territory exactly when its information kind needs that storage form; that is storage, not identity.
+- **Processing is protocol-constrained.** How information is processed is bound by the protocol, along a strength spectrum from weak to strong — `bridge` is the full-strength end, where the constraint hardens into the topology-completeness law (section 4).
+
 ## 3. The capability engine
 
 Since v0.4, packages declare capabilities in PKG.yaml — `needs: [ … ]` / `provides: [ … ]` — deliberately package-scale; plugin-level declarations are unsupported by design (`owfa_kernel.py:982-984`). (What member-level capabilities would mean in a multi-protocol world is a step-2 design question, out of scope here.) The kernel enforces four laws:
