@@ -948,8 +948,10 @@ def validate_packages(plugins, pkgs, errors, warnings):
             continue
         # R3: a protocol package is rootless (suite discipline) — no family root, no closure law
         suite = kind in ("suite", "protocol")
-        # R1/R2/R4/R7 declaration-level protocol shape (shared with the install preflight)
-        for msg in package_shape_issues(pid, pkg):
+        # R1/R2/R4/R7 declaration-level protocol shape (shared with the install
+        # preflight; the full installed set enables the R7 cross-package checks,
+        # forward AND reverse — step2 review Low)
+        for msg in package_shape_issues(pid, pkg, pkgs):
             errors.append(f"[error] {msg}")
         members = pkg.get("members")
         if not isinstance(members, list) or not members:
@@ -1122,6 +1124,14 @@ def package_shape_issues(pid, pkg, other_pkgs=None):
     if proto and kind != "protocol":
         out.append(f"PKG {pid}: protocol: {proto!r} requires kind: protocol (R1 — the pair is declared together)")
     if not proto:
+        # R7 reverse direction (step2 review Low): installing a PLAIN package whose
+        # id equals an already-installed protocol's id is the same uniqueness
+        # violation seen from the other side — the protocol landholder's law id and
+        # a package id may not trade places
+        if other_pkgs is not None:
+            for opid, opkg in sorted(other_pkgs.items()):
+                if opid != pid and str(opkg.get("protocol") or "") == pid:
+                    out.append(f"PKG {pid}: package id equals the protocol id declared by PKG {opid} (R7 — protocol ids are unique in both directions)")
         return out
     if not PROTOCOL_ID_RE.fullmatch(proto):
         out.append(f"PKG {pid}: protocol id {proto!r} fails the grammar ^[a-z][a-z0-9-]*$")
@@ -1216,9 +1226,20 @@ def validate_capabilities(pkgs, errors, warnings, scope=None, plugins=None):
                 continue
             for cap in caps:
                 if not CAPABILITY_RE.fullmatch(cap):
-                    errors.append(f"[error] {name}/PLUGIN.yaml: needs entry {cap!r} fails the capability grammar (member-level needs share the package-level grammar, R10)")
+                    # step2 review Low: in --scope single-package mode the member-level
+                    # needs grammar degrades to a warning (downgraded, not dropped —
+                    # the full-graph discipline runs where the full graph lives)
+                    msg = f"{name}/PLUGIN.yaml: needs entry {cap!r} fails the capability grammar (member-level needs share the package-level grammar, R10)"
+                    if scope:
+                        warnings.append(f"{msg} — tolerated in single-package mode")
+                    else:
+                        errors.append(f"[error] {msg}")
                 elif cap.startswith("owfa."):
-                    errors.append(f"[error] {name}/PLUGIN.yaml: needs entry {cap!r} — owfa.* is reserved, member-level needs cannot use the framework namespace (R10)")
+                    msg = f"{name}/PLUGIN.yaml: needs entry {cap!r} — owfa.* is reserved, member-level needs cannot use the framework namespace (R10)"
+                    if scope:
+                        warnings.append(f"{msg} — tolerated in single-package mode")
+                    else:
+                        errors.append(f"[error] {msg}")
                 elif not _providers.get(cap):
                     # info-level: the pruning/refusal is decided at install preflight
                     warnings.append(f"{name}/ (PKG {pkg_of.get(name, '?')}): member-level needs {cap} unsatisfied — member pruned by unsatisfied need (info; the member rides the --without cascade out at install, R6/R10)")
@@ -1601,15 +1622,23 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
     if without:
         # R6: protocol packages are all-or-nothing — the protocol IS the landholder
         # law; subset installation belongs to domain-family packages (prunable tenants)
+        # step2 review Low: every --without refusal path must drop the cloned
+        # source too (mkdtemp leak otherwise)
         if proto_pkg:
             print(f"[error] --without {', '.join(without)}: protocol packages are all-or-nothing (R6) — no member of a protocol package is prunable")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         bad = [w for w in without if w not in members_all]
         if bad:
             print(f"[error] --without {', '.join(bad)}: not members of {pid}")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         if pid in without:
             print(f"[error] --without {pid}: the family root is never prunable (D5)")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         pruned = set(without)
         changed = True
@@ -1621,6 +1650,8 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
                     changed = True
         if pid in pruned or not [m for m in members_all if m not in pruned]:
             print(f"[error] --without cascade prunes the whole package (root or all members)")
+            if not path:
+                shutil.rmtree(src, ignore_errors=True)
             return 1
         print(f"[install] subset: final members {', '.join(m for m in members_all if m not in pruned)}; pruned {', '.join(sorted(pruned))}")
     # ---- member-level needs (step2 Q12/R10): install-time pruning signal ----
@@ -1689,6 +1720,8 @@ def do_install(spec, args, prev_version=None, prev_pkgm=None):
                         changed = True
             if pid in pruned or not [m for m in members_all if m not in pruned]:
                 print(f"[error] {pid}: member-level needs pruning cascades to the whole package (root or all members pruned)")
+                if not path:  # step2 review Low: same mkdtemp-leak class as the --without refusals
+                    shutil.rmtree(src, ignore_errors=True)
                 return 1
             print(f"[install] member-level needs: pruned {', '.join(sorted(_unsat))} (unsatisfied need — domain members are prunable tenants, Q12)")
         if _m_yes_trust and "--yes" in args:
@@ -1985,11 +2018,78 @@ def do_list_remote():
     return 0 if index else 1
 
 
+def _park_projections(pkg, pkgm, park_root):
+    """F1 (#72 review): park the package's connectors/ and .owfa/command/ projections
+    alongside the masters — the uninstall half removes them, and the masters copy alone
+    (the install ignore-mode excludes connectors/command subdirs) cannot bring them back."""
+    import wikilib
+    members = set(str(m) for m in (pkgm.get("members") or [pkg]))
+    parked = {"connectors": [], "command": []}
+    for c in pkgm.get("connectors") or []:
+        if not isinstance(c, dict):
+            continue
+        name = c.get("name")
+        cd = os.path.join(CONNECTORS_DIR, str(name)) if name else None
+        if cd and os.path.isdir(cd):
+            os.makedirs(os.path.join(park_root, "connectors"), exist_ok=True)
+            shutil.copytree(cd, os.path.join(park_root, "connectors", str(name)),
+                            ignore=shutil.ignore_patterns("__pycache__", ".venv", "*.egg-info"))
+            parked["connectors"].append(str(name))
+    if os.path.isdir(COMMANDS_DIR):
+        for d in sorted(os.listdir(COMMANDS_DIR)):
+            fm_path = os.path.join(COMMANDS_DIR, d, "SKILL.md")
+            if not os.path.exists(fm_path):
+                continue
+            owners = _owner_list(wikilib.parse_frontmatter(open(fm_path, encoding="utf-8").read()).get("owner"))
+            if owners and owners[0] in members:
+                os.makedirs(os.path.join(park_root, "command"), exist_ok=True)
+                shutil.copytree(os.path.join(COMMANDS_DIR, d), os.path.join(park_root, "command", d),
+                                ignore=shutil.ignore_patterns("__pycache__"))
+                parked["command"].append(d)
+    return parked
+
+
+def _restore_parked(pkg, park_root):
+    """F1/F2 (#72 review): restore masters + connectors/command projections from a park
+    tree — mirrors the install five-step (masters, connectors, commands, roster copy,
+    convergence) for the rollback and the interrupted-upgrade recovery paths."""
+    os.makedirs(os.path.dirname(os.path.join(PLUGINS_DIR, "domains", pkg)), exist_ok=True)  # uninstall rmdirs empty containers
+    shutil.copytree(os.path.join(park_root, pkg), os.path.join(PLUGINS_DIR, "domains", pkg))
+    for sub, dst_dir in (("connectors", CONNECTORS_DIR), ("command", COMMANDS_DIR)):
+        sdir = os.path.join(park_root, sub)
+        if not os.path.isdir(sdir):
+            continue
+        for d in sorted(os.listdir(sdir)):
+            dd = os.path.join(dst_dir, d)
+            if os.path.exists(dd):
+                continue  # same posture as install: an existing projection is kept
+            os.makedirs(dst_dir, exist_ok=True)
+            shutil.copytree(os.path.join(sdir, d), dd)
+
+
 def _upgrade_action(pkg, args):
     """Mechanical reinstall + update report + migration chain staging (issue #20 + migration design)."""
     import contextlib
     import io
     pkg_dir = os.path.join(PLUGINS_DIR, "domains", pkg)
+    # F2 (#72 review): a previous run killed between the uninstall and install halves
+    # leaves pkg absent under an upgrade-hold marker — the in-tree park
+    # (migrations/<pkg>-upgrade-hold/, path recorded in the ledger item) restores the
+    # old package whole before this run continues; never "not installed" dead-ends.
+    _led_pre = _load_ledger()
+    _park_pre = os.path.join(MIGRATIONS_DIR, f"{pkg}-upgrade-hold")
+    if not os.path.exists(pkg_dir) and _led_pre.get(pkg, {}).get("kind") == "upgrade-hold":
+        if os.path.isdir(os.path.join(_park_pre, pkg)):
+            _restore_parked(pkg, _park_pre)
+            del _led_pre[pkg]
+            _save_ledger(_led_pre)
+            _banner_set(_led_pre)
+            shutil.rmtree(_park_pre, ignore_errors=True)
+            _journal("upgrade-recovered", f"{pkg} interrupted upgrade recovered from park {_park_pre} — old package restored whole before retry (issue #72)")
+            print(f"[upgrade] {pkg}: recovered from an interrupted upgrade (parked old package restored) — continuing")
+        else:
+            print(f"[error] {pkg} not installed and its upgrade-hold park {_park_pre} is missing — remove the hold marker or reinstall v{_led_pre[pkg].get('from', '?')} manually (issue #72)")
+            return 1
     if not os.path.exists(pkg_dir):
         print(f"[error] {pkg} not installed")
         return 1
@@ -2041,14 +2141,69 @@ def _upgrade_action(pkg, args):
     # old PKG rides along as prev_pkgm so the capability preflight boards the PROSPECTIVE
     # graph — mid-upgrade the disk lacks the package and its provides, and the sole
     # provider of a needed capability must be upgradable without a false refusal)
+    # issue #72: the uninstall->install sequence must be atomic. Park the old
+    # package before the uninstall half runs; if the install half fails, restore
+    # it and re-converge so the journal sweep never sees a completed first
+    # half (old package gone) as orphaned residue. An upgrade-hold ledger marker
+    # also keeps the sweep off the parked state if the process dies mid-way.
+    # F2 (#72 review): the park is IN-TREE under migrations/<pkg>-upgrade-hold/
+    # (a /tmp mkdtemp died with the killed process) and its path rides the
+    # ledger item, so the rerun can find it. F1: connectors/ and command/
+    # projections ride the park too — the uninstall half removes them.
+    park_root = os.path.join(MIGRATIONS_DIR, f"{pkg}-upgrade-hold")
+    shutil.rmtree(park_root, ignore_errors=True)
+    os.makedirs(park_root, exist_ok=True)
+    shutil.copytree(pkg_dir, os.path.join(park_root, pkg))
+    _park_projections(pkg, old_pkgm, park_root)
+    _led0 = _load_ledger()
+    _led0[pkg] = {"kind": "upgrade-hold", "from": old_ver, "to": new_ver, "items": [park_root]}
+    _save_ledger(_led0)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         ok1 = do_uninstall(pkg, ["--yes"])
         ok2 = do_install(pkg + ("" if path else ""), (["--path", path] if path else []), prev_version=old_ver, prev_pkgm=old_pkgm) if ok1 == 0 else 1
     if ok2 != 0:
         print(buf.getvalue())
-        print("[error] reinstall failed — state may be partial, rerun kernel validate")
+        try:
+            _restore_parked(pkg, park_root)
+            led = _load_ledger()
+            if led.get(pkg, {}).get("kind") == "teardown":
+                del led[pkg]  # the uninstall's teardown premise vanished with the package's return
+                _save_ledger(led)
+                _banner_set(led)
+            os.makedirs(os.path.join(MIGRATIONS_DIR, pkg), exist_ok=True)
+            try:  # dormant roster copy rides the rollback (install keeps one too)
+                shutil.copyfile(os.path.join(pkg_dir, "PKG.yaml"), os.path.join(MIGRATIONS_DIR, pkg, "PKG.yaml"))
+            except OSError:
+                pass
+            # F1/F3 (#72 review): success is only claimed AFTER convergence rebuilds
+            # the projections green. converge failing means the rollback is NOT
+            # complete — the upgrade-hold marker stays (the sweep keeps its hands
+            # off) and the outcome is reported loudly, never "restored".
+            if converge("install"):
+                led = _load_ledger()
+                if led.get(pkg, {}).get("kind") == "upgrade-hold":
+                    del led[pkg]
+                    _save_ledger(led)
+                    _banner_set(led)
+                shutil.rmtree(park_root, ignore_errors=True)
+                _journal("upgrade-rollback", f"{pkg} install failed — old v{old_ver} restored (issue #72)")
+                print(f"[upgrade] reinstall failed — {pkg} rolled back to v{old_ver} unchanged (issue #72: a failed upgrade is non-destructive, all-or-nothing); projections rebuilt")
+            else:
+                _journal("upgrade-hold", f"{pkg} rollback: files restored but converge FAILED — hold marker kept, sweep stays off (issue #72)")
+                print(f"[error] reinstall failed AND convergence after rollback failed — {pkg} v{old_ver} files are back on disk but the projections are red; the upgrade-hold marker is KEPT (the sweep will not touch it); fix the errors above and rerun `kernel upgrade {pkg} --yes` (issue #72)")
+        except OSError as e:
+            # restore itself failed: keep the hold marker so the sweep refuses to
+            # touch the parked state, and say so loudly
+            _journal("upgrade-hold", f"{pkg} rollback failed ({e}) — old package parked at {park_root}, sweep held back (issue #72)")
+            print(f"[error] reinstall failed AND rollback failed ({e}) — old {pkg} v{old_ver} stays parked at {park_root}; rerun `kernel upgrade {pkg} --yes` (the sweep will not touch it, issue #72)")
         return 1
+    shutil.rmtree(park_root, ignore_errors=True)
+    _led9 = _load_ledger()
+    if _led9.get(pkg, {}).get("kind") == "upgrade-hold":  # no teardown/migration rewrote it — clear the marker
+        del _led9[pkg]
+        _save_ledger(_led9)
+        _banner_set(_led9)
     # report: member version deltas + changelog excerpts
     new_members = {}
     for m in new_pkgm.get("members") or []:
@@ -2406,6 +2561,11 @@ def do_plan(spec, args):
 
     optional = [m for m in members if m != pid]
     kind = str(pkgm.get("kind") or "domain-family")
+    # step2 review Low: kind:protocol displays through the suite (rootless) branch —
+    # R3 gives protocol packages the same rootless shape; R6 additionally makes
+    # every member non-prunable (all-or-nothing), which the --without preview below
+    # must surface instead of suggesting a command install will surely refuse
+    rootless = kind in ("suite", "protocol")
     plan = {
         "package": pid,
         "kind": kind,
@@ -2415,10 +2575,10 @@ def do_plan(spec, args):
         "needs": _cap_list(pkgm.get("needs")),
         "provides": _cap_list(pkgm.get("provides")),
         "disclosure": pkgm.get("disclosure") or "(no package disclosure declared)",
-        # rootless suite: no family root — nothing is baseline-mandatory, every member is optional
-        "baseline": ([] if kind == "suite" else [{"id": pid, "summary": menu.get(pid, "")}]),
+        # rootless suite/protocol: no family root — nothing is baseline-mandatory, every member is optional
+        "baseline": ([] if rootless else [{"id": pid, "summary": menu.get(pid, "")}]),
         "optional": ([{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m) - {pid})} for m in optional]
-                     if kind != "suite" else
+                     if not rootless else
                      [{"id": m, "summary": menu.get(m, ""), "pulls": sorted(closure_of(m))} for m in members]),
         "connectors": [{"name": c.get("name"), "kind": ("external" if c.get("external") else "system" if c.get("system") else "in-repo")}
                        for c in (pkgm.get("connectors") or [])],
@@ -2428,28 +2588,39 @@ def do_plan(spec, args):
     if "--without" in args:
         i = args.index("--without")
         wl = [x for x in args[i + 1].split(",") if x] if i + 1 < len(args) else []
-        pruned = set(wl)
-        changed = True
-        while changed:
-            changed = False
-            for m in members:
-                if m not in pruned and m != pid and set(depends_in[m]) & pruned:
-                    pruned.add(m)
-                    changed = True
-        plan["subset_preview"] = {"final": [m for m in members if m not in pruned], "pruned": sorted(pruned)}
-        plan["suggested_command"] += f" --without {','.join(wl)}"
+        if kind == "protocol":
+            # R6 all-or-nothing: no preview that implies prunability, and no
+            # --without in the suggested command — install refuses it outright
+            plan["subset_preview"] = {
+                "refused": "--without on a protocol package is always refused (R6 all-or-nothing — no member is prunable; the suggested command omits --without)",
+                "final": members,
+                "pruned": [],
+            }
+        else:
+            pruned = set(wl)
+            changed = True
+            while changed:
+                changed = False
+                for m in members:
+                    if m not in pruned and m != pid and set(depends_in[m]) & pruned:
+                        pruned.add(m)
+                        changed = True
+            plan["subset_preview"] = {"final": [m for m in members if m not in pruned], "pruned": sorted(pruned)}
+            plan["suggested_command"] += f" --without {','.join(wl)}"
     shutil.rmtree(src, ignore_errors=True)
     if "--json" in args:
         print(_json.dumps(plan, ensure_ascii=False, indent=2))
         return 0
     print(f"[plan] {pid} v{plan['version']} (compat {plan['compat']}) — trust: {plan['trust']}"
-          + ("; kind: suite (rootless — no family root member)" if kind == "suite" else ""))
+          + ("; kind: suite (rootless — no family root member)" if kind == "suite" else "")
+          + (f"; kind: protocol {pkgm.get('protocol')} (rootless, all-or-nothing — no member is prunable, R6)" if kind == "protocol" else ""))
     print(f"[plan] disclosure: {plan['disclosure']}")
     if plan["needs"] or plan["provides"]:
         print(f"[plan] capabilities — needs: {', '.join(plan['needs']) or '—'}; provides: {', '.join(plan['provides']) or '—'}"
               + (" (provides count toward needs only at trust >= reviewed — this package's trust: {})".format(plan['trust']) if plan["provides"] else ""))
-    if kind == "suite":
-        print("[plan] baseline: none — rootless suite, every member is prunable via --without")
+    if rootless:
+        print(f"[plan] baseline: none — rootless {kind}, every member rides the package"
+              + (" (none prunable — R6 all-or-nothing)" if kind == "protocol" else " (prunable via --without)"))
     else:
         print(f"[plan] baseline (always installed): {pid}" + (f" — {menu.get(pid, '')}" if menu.get(pid) else ""))
     for o in plan["optional"]:
@@ -2459,7 +2630,12 @@ def do_plan(spec, args):
         print("[plan] connectors (ride the package): " + ", ".join(f"{c['name']} ({c['kind']})" for c in plan["connectors"]))
     if "subset_preview" in plan:
         sp = plan["subset_preview"]
-        print(f"[plan] subset preview: final {', '.join(sp['final'])}; pruned {', '.join(sp['pruned'])}")
+        if sp.get("refused"):
+            # step2 review Low: the plan must not hand out a command install will
+            # surely refuse — surface R6 all-or-nothing instead
+            print(f"[plan] subset preview refused: {sp['refused']}")
+        else:
+            print(f"[plan] subset preview: final {', '.join(sp['final'])}; pruned {', '.join(sp['pruned'])}")
     print(f"[plan] suggested: {plan['suggested_command']}")
     return 0
 
@@ -2484,8 +2660,16 @@ def main():
         for d in sorted(os.listdir(MIGRATIONS_DIR)):
             if d == "pending.json" or not os.path.isdir(os.path.join(MIGRATIONS_DIR, d)):
                 continue
-            if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") != "teardown":
+            if d.endswith("-upgrade-hold"):
+                continue  # F2 (#72): in-tree upgrade park — owned and cleared by `kernel upgrade` itself, protected by the hold marker
+            if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") not in ("teardown", "upgrade-hold"):
                 _orphans.append(d)  # staged dormant PKG marks presence; absent package + no teardown = orphan residue
+    # issue #72: an interrupted upgrade parks the old package under an
+    # upgrade-hold marker — the sweep must refuse it and say so (all-or-nothing:
+    # a failed upgrade is rolled back, never swept)
+    _holds = sorted(k for k, v in _led.items() if v.get("kind") == "upgrade-hold")
+    if _holds:
+        print(f"[pending] interrupted upgrade hold: {', '.join(_holds)} — rerun `kernel upgrade <pkg> --yes`; the parked old package is protected from the sweep (issue #72)")
     for k in _orphans:  # self-healing: migrate-kind entries die with the package; residue gets mechanically swept too
         _led.pop(k, None)
         _pkg_dir = os.path.join(MIGRATIONS_DIR, k)
