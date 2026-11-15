@@ -2018,11 +2018,78 @@ def do_list_remote():
     return 0 if index else 1
 
 
+def _park_projections(pkg, pkgm, park_root):
+    """F1 (#72 review): park the package's connectors/ and .owfa/command/ projections
+    alongside the masters — the uninstall half removes them, and the masters copy alone
+    (the install ignore-mode excludes connectors/command subdirs) cannot bring them back."""
+    import wikilib
+    members = set(str(m) for m in (pkgm.get("members") or [pkg]))
+    parked = {"connectors": [], "command": []}
+    for c in pkgm.get("connectors") or []:
+        if not isinstance(c, dict):
+            continue
+        name = c.get("name")
+        cd = os.path.join(CONNECTORS_DIR, str(name)) if name else None
+        if cd and os.path.isdir(cd):
+            os.makedirs(os.path.join(park_root, "connectors"), exist_ok=True)
+            shutil.copytree(cd, os.path.join(park_root, "connectors", str(name)),
+                            ignore=shutil.ignore_patterns("__pycache__", ".venv", "*.egg-info"))
+            parked["connectors"].append(str(name))
+    if os.path.isdir(COMMANDS_DIR):
+        for d in sorted(os.listdir(COMMANDS_DIR)):
+            fm_path = os.path.join(COMMANDS_DIR, d, "SKILL.md")
+            if not os.path.exists(fm_path):
+                continue
+            owners = _owner_list(wikilib.parse_frontmatter(open(fm_path, encoding="utf-8").read()).get("owner"))
+            if owners and owners[0] in members:
+                os.makedirs(os.path.join(park_root, "command"), exist_ok=True)
+                shutil.copytree(os.path.join(COMMANDS_DIR, d), os.path.join(park_root, "command", d),
+                                ignore=shutil.ignore_patterns("__pycache__"))
+                parked["command"].append(d)
+    return parked
+
+
+def _restore_parked(pkg, park_root):
+    """F1/F2 (#72 review): restore masters + connectors/command projections from a park
+    tree — mirrors the install five-step (masters, connectors, commands, roster copy,
+    convergence) for the rollback and the interrupted-upgrade recovery paths."""
+    os.makedirs(os.path.dirname(os.path.join(PLUGINS_DIR, "domains", pkg)), exist_ok=True)  # uninstall rmdirs empty containers
+    shutil.copytree(os.path.join(park_root, pkg), os.path.join(PLUGINS_DIR, "domains", pkg))
+    for sub, dst_dir in (("connectors", CONNECTORS_DIR), ("command", COMMANDS_DIR)):
+        sdir = os.path.join(park_root, sub)
+        if not os.path.isdir(sdir):
+            continue
+        for d in sorted(os.listdir(sdir)):
+            dd = os.path.join(dst_dir, d)
+            if os.path.exists(dd):
+                continue  # same posture as install: an existing projection is kept
+            os.makedirs(dst_dir, exist_ok=True)
+            shutil.copytree(os.path.join(sdir, d), dd)
+
+
 def _upgrade_action(pkg, args):
     """Mechanical reinstall + update report + migration chain staging (issue #20 + migration design)."""
     import contextlib
     import io
     pkg_dir = os.path.join(PLUGINS_DIR, "domains", pkg)
+    # F2 (#72 review): a previous run killed between the uninstall and install halves
+    # leaves pkg absent under an upgrade-hold marker — the in-tree park
+    # (migrations/<pkg>-upgrade-hold/, path recorded in the ledger item) restores the
+    # old package whole before this run continues; never "not installed" dead-ends.
+    _led_pre = _load_ledger()
+    _park_pre = os.path.join(MIGRATIONS_DIR, f"{pkg}-upgrade-hold")
+    if not os.path.exists(pkg_dir) and _led_pre.get(pkg, {}).get("kind") == "upgrade-hold":
+        if os.path.isdir(os.path.join(_park_pre, pkg)):
+            _restore_parked(pkg, _park_pre)
+            del _led_pre[pkg]
+            _save_ledger(_led_pre)
+            _banner_set(_led_pre)
+            shutil.rmtree(_park_pre, ignore_errors=True)
+            _journal("upgrade-recovered", f"{pkg} interrupted upgrade recovered from park {_park_pre} — old package restored whole before retry (issue #72)")
+            print(f"[upgrade] {pkg}: recovered from an interrupted upgrade (parked old package restored) — continuing")
+        else:
+            print(f"[error] {pkg} not installed and its upgrade-hold park {_park_pre} is missing — remove the hold marker or reinstall v{_led_pre[pkg].get('from', '?')} manually (issue #72)")
+            return 1
     if not os.path.exists(pkg_dir):
         print(f"[error] {pkg} not installed")
         return 1
@@ -2075,15 +2142,21 @@ def _upgrade_action(pkg, args):
     # graph — mid-upgrade the disk lacks the package and its provides, and the sole
     # provider of a needed capability must be upgradable without a false refusal)
     # issue #72: the uninstall->install sequence must be atomic. Park the old
-    # masters before the uninstall half runs; if the install half fails, restore
-    # them and re-converge so the journal sweep never sees a completed first
+    # package before the uninstall half runs; if the install half fails, restore
+    # it and re-converge so the journal sweep never sees a completed first
     # half (old package gone) as orphaned residue. An upgrade-hold ledger marker
     # also keeps the sweep off the parked state if the process dies mid-way.
-    import tempfile
-    park = tempfile.mkdtemp(prefix=f"owfa-upgrade-{pkg}-")
-    shutil.copytree(pkg_dir, os.path.join(park, pkg))
+    # F2 (#72 review): the park is IN-TREE under migrations/<pkg>-upgrade-hold/
+    # (a /tmp mkdtemp died with the killed process) and its path rides the
+    # ledger item, so the rerun can find it. F1: connectors/ and command/
+    # projections ride the park too — the uninstall half removes them.
+    park_root = os.path.join(MIGRATIONS_DIR, f"{pkg}-upgrade-hold")
+    shutil.rmtree(park_root, ignore_errors=True)
+    os.makedirs(park_root, exist_ok=True)
+    shutil.copytree(pkg_dir, os.path.join(park_root, pkg))
+    _park_projections(pkg, old_pkgm, park_root)
     _led0 = _load_ledger()
-    _led0[pkg] = {"kind": "upgrade-hold", "from": old_ver, "to": new_ver, "items": []}
+    _led0[pkg] = {"kind": "upgrade-hold", "from": old_ver, "to": new_ver, "items": [park_root]}
     _save_ledger(_led0)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -2092,11 +2165,10 @@ def _upgrade_action(pkg, args):
     if ok2 != 0:
         print(buf.getvalue())
         try:
-            os.makedirs(os.path.dirname(pkg_dir), exist_ok=True)  # uninstall rmdirs empty containers
-            shutil.copytree(os.path.join(park, pkg), pkg_dir)
+            _restore_parked(pkg, park_root)
             led = _load_ledger()
-            if led.get(pkg, {}).get("kind") in ("upgrade-hold", "teardown"):
-                del led[pkg]  # our hold marker / the uninstall's teardown premise vanished with the package's return
+            if led.get(pkg, {}).get("kind") == "teardown":
+                del led[pkg]  # the uninstall's teardown premise vanished with the package's return
                 _save_ledger(led)
                 _banner_set(led)
             os.makedirs(os.path.join(MIGRATIONS_DIR, pkg), exist_ok=True)
@@ -2104,17 +2176,29 @@ def _upgrade_action(pkg, args):
                 shutil.copyfile(os.path.join(pkg_dir, "PKG.yaml"), os.path.join(MIGRATIONS_DIR, pkg, "PKG.yaml"))
             except OSError:
                 pass
-            shutil.rmtree(park, ignore_errors=True)
-            _journal("upgrade-rollback", f"{pkg} install failed — old v{old_ver} restored (issue #72)")
-            print(f"[upgrade] reinstall failed — {pkg} rolled back to v{old_ver} unchanged (issue #72: a failed upgrade is non-destructive, all-or-nothing); projections rebuilt below")
-            converge("install")
+            # F1/F3 (#72 review): success is only claimed AFTER convergence rebuilds
+            # the projections green. converge failing means the rollback is NOT
+            # complete — the upgrade-hold marker stays (the sweep keeps its hands
+            # off) and the outcome is reported loudly, never "restored".
+            if converge("install"):
+                led = _load_ledger()
+                if led.get(pkg, {}).get("kind") == "upgrade-hold":
+                    del led[pkg]
+                    _save_ledger(led)
+                    _banner_set(led)
+                shutil.rmtree(park_root, ignore_errors=True)
+                _journal("upgrade-rollback", f"{pkg} install failed — old v{old_ver} restored (issue #72)")
+                print(f"[upgrade] reinstall failed — {pkg} rolled back to v{old_ver} unchanged (issue #72: a failed upgrade is non-destructive, all-or-nothing); projections rebuilt")
+            else:
+                _journal("upgrade-hold", f"{pkg} rollback: files restored but converge FAILED — hold marker kept, sweep stays off (issue #72)")
+                print(f"[error] reinstall failed AND convergence after rollback failed — {pkg} v{old_ver} files are back on disk but the projections are red; the upgrade-hold marker is KEPT (the sweep will not touch it); fix the errors above and rerun `kernel upgrade {pkg} --yes` (issue #72)")
         except OSError as e:
             # restore itself failed: keep the hold marker so the sweep refuses to
             # touch the parked state, and say so loudly
-            _journal("upgrade-hold", f"{pkg} rollback failed ({e}) — old masters parked, sweep held back (issue #72)")
-            print(f"[error] reinstall failed AND rollback failed ({e}) — old {pkg} v{old_ver} stays parked; rerun `kernel upgrade {pkg} --yes` (the sweep will not touch it, issue #72)")
+            _journal("upgrade-hold", f"{pkg} rollback failed ({e}) — old package parked at {park_root}, sweep held back (issue #72)")
+            print(f"[error] reinstall failed AND rollback failed ({e}) — old {pkg} v{old_ver} stays parked at {park_root}; rerun `kernel upgrade {pkg} --yes` (the sweep will not touch it, issue #72)")
         return 1
-    shutil.rmtree(park, ignore_errors=True)
+    shutil.rmtree(park_root, ignore_errors=True)
     _led9 = _load_ledger()
     if _led9.get(pkg, {}).get("kind") == "upgrade-hold":  # no teardown/migration rewrote it — clear the marker
         del _led9[pkg]
@@ -2576,6 +2660,8 @@ def main():
         for d in sorted(os.listdir(MIGRATIONS_DIR)):
             if d == "pending.json" or not os.path.isdir(os.path.join(MIGRATIONS_DIR, d)):
                 continue
+            if d.endswith("-upgrade-hold"):
+                continue  # F2 (#72): in-tree upgrade park — owned and cleared by `kernel upgrade` itself, protected by the hold marker
             if not os.path.exists(os.path.join(PLUGINS_DIR, "domains", d)) and _led.get(d, {}).get("kind") not in ("teardown", "upgrade-hold"):
                 _orphans.append(d)  # staged dormant PKG marks presence; absent package + no teardown = orphan residue
     # issue #72: an interrupted upgrade parks the old package under an
