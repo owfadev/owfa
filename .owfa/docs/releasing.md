@@ -79,6 +79,17 @@ Why separated: the registry does not freeze with the framework. A package tag is
   The exception is the pause, not the new normal; a protection left off overnight is an incident.
 - Release bump PRs follow the same rule as any PR — the runbook's "one commit" is about the two version files moving together, not about skipping review.
 
+## Breaking changes in 0.5.0
+
+The 0.5.0 release line retires the deprecated host shims (ruled in the bin/owfa.js forwarder template comment; R11 needs no code change — the abi-block gate in `owfa_kernel.py` is already version-gated on `fw >= (0, 5)`):
+
+- **R11 flips to error, no grandfather clause.** A protocol package manifest without an `abi` block fails validation from 0.5.0 on — the warning period ended; fix the package, not the kernel.
+- **Host forwarder no longer planted.** `init --user-level` and `adopt` stop writing `.owfa/scripts/owfa_kernel.py` (the deprecated host forwarder). Existing workspaces keep their forwarder — it is version-agnostic and is never deleted on upgrade; `owfa doctor` and upgrade output print a deprecation line with the migration path: `python3 $OWFA_HOME/kernel/<current>/owfa_kernel.py --root <workspace>` (or the `owfa` CLI).
+- **Pipeline host shim no longer shipped.** The legacy channel payload stops carrying `.owfa/scripts/pipeline.py` (`scripts/verify-release.js` fails closed on its presence in the packlist from 0.5.0; `scripts/clean-local-state.js` removes it at pack time). Existing copies keep working and survive upgrades verbatim; migrate to the suite pipeline at `.owfa/plugins/domains/personal/pipeline.py`.
+- **Migration path** for an affected workspace: `owfa adopt` (or `init --user-level`) onto the user-level kernel, plus the personal suite package for the pipeline — that pair replaces both shims.
+
+The retirement is version-gated on the channel's own `.owfa/VERSION` (`SHIMS_RETIRED_AT` in `bin/owfa.js`); it activates with the 0.5.0 version bump, which is a separate PR from the code change.
+
 ## npm naming, one paragraph
 
 `owfa` is frozen by npm's name-similarity policy (too close to `ow`/`ora`), so `npx owfa` does not exist and every install example must say `npx owfadev`. **`owfadev` is the real package name** (the gate accepts `owfa` only for the future where the freeze lifts); one package, two bins — `owfa` and `owfadev` — both required by verify-release. See [naming.md](naming.md).

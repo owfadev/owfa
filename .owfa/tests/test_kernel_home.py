@@ -320,6 +320,11 @@ class ChannelDualTarget(unittest.TestCase):
 # kernel-home step 2 (spec v2 §6): user-level channel A/B/C/D
 # ---------------------------------------------------------------------------
 FW = (REPO / ".owfa" / "VERSION").read_text(encoding="utf-8").strip()  # channel framework version
+# 0.5.0 shim retirement gate (mirrors shimsRetired() in bin/owfa.js): from the
+# 0.5 line on, init --user-level / adopt plant no host forwarder. The env
+# override lets this suite exercise the retired branch before the version bump.
+SHIMS_RETIRED = tuple(int(x) for x in FW.split(".")) >= (0, 5) or \
+    os.environ.get("OWFA_TEST_SHIMS_RETIRED") == "1"
 
 # a fake kernel that also reports WHICH version-dir it ran from (multi-version
 # resolution tests need to see the chosen version, not just the argv)
@@ -405,9 +410,16 @@ class InitUserLevelTests(unittest.TestCase):
 
     def test_tree_has_no_kernel_and_no_version(self):
         # Q1a/Q2a: the tree carries neither scripts/ nor VERSION — the anchor
-        # lives at $OWFA_HOME/kernel/<ver>/VERSION
-        self.assertTrue((self.ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") >= 0)
-        self.assertFalse((self.ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
+        # lives at $OWFA_HOME/kernel/<ver>/VERSION. Pre-0.5.0 channels plant
+        # the deprecated host forwarder in scripts/; from 0.5.0 on (retirement)
+        # nothing is planted at all — the kernel is invoked directly.
+        if SHIMS_RETIRED:
+            self.assertFalse((self.ws / ".owfa" / "scripts").exists(),
+                             "0.5.0+ must plant no host forwarder (or anything else) under .owfa/scripts/")
+            self.assertIn("no longer planted", self.out)
+        else:
+            self.assertTrue((self.ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") >= 0)
+            self.assertFalse((self.ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
         self.assertFalse((self.ws / ".owfa" / "VERSION").exists())
 
     def test_marker_is_minimal_yaml(self):
@@ -532,8 +544,14 @@ class AdoptTests(unittest.TestCase):
         ws = self._copy("ws-ok")
         r = _node2(["adopt", str(ws)], self.home)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        # tree kernel exited: scripts + VERSION gone, hold cleared
-        self.assertFalse((ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") == -1 or (ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
+        # tree kernel exited: scripts + VERSION gone, hold cleared; pre-0.5.0
+        # the deprecated host forwarder occupies scripts/, from 0.5.0 (shim
+        # retirement) nothing is planted at all
+        if SHIMS_RETIRED:
+            self.assertFalse((ws / ".owfa" / "scripts").exists(), "0.5.0+ adopt must plant no host forwarder")
+            self.assertIn("no longer planted", r.stdout)
+        else:
+            self.assertFalse((ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") == -1 or (ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
         self.assertFalse((ws / ".owfa" / "VERSION").exists())
         self.assertFalse((ws / ".owfa" / "migrations" / "kernel-exit-hold").exists())
         # marker floor = tree VERSION; registry bound; kernel installed
@@ -594,6 +612,70 @@ class AdoptTests(unittest.TestCase):
         r2 = _node2(["init", str(ws), "--force"], self.home)
         self.assertNotEqual(r2.returncode, 0)
         self.assertIn("WORKSPACE.yaml", r2.stderr + r2.stdout)
+
+
+class ShimRetirementTests(unittest.TestCase):
+    """0.5.0 shim retirement (forced via the test gate): no new plants, existing
+    files keep working with doctor/upgrade migration advice, upgrade never
+    deletes an existing pipeline host shim."""
+
+    def _retired(self, args, home, cwd=None):
+        return _node2(args, home, cwd=cwd, extra_env={"OWFA_TEST_SHIMS_RETIRED": "1"})
+
+    def test_user_level_init_plants_no_forwarder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            ws = Path(tmp) / "ws"
+            r = self._retired(["init", str(ws), "--name", "ul", "--user-level"], home)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertFalse((ws / ".owfa" / "scripts").exists(), "retired channel must plant no host forwarder")
+            self.assertIn("no longer planted", r.stdout)
+            self.assertIn("kernel", r.stdout)  # the migration line names the direct-invocation path
+
+    def test_doctor_advises_migration_for_existing_shims(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            ws = Path(tmp) / "ws"
+            r = self._retired(["init", str(ws), "--name", "ul", "--user-level"], home)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            # simulate a pre-0.5.0 workspace: forwarder + pipeline host shim present
+            scripts = ws / ".owfa" / "scripts"
+            scripts.mkdir(parents=True, exist_ok=True)
+            (scripts / "owfa_kernel.py").write_text(
+                '"""DEPRECATED HOST FORWARDER (kernel-home Q2a) — retires in 0.5.0."""\n', encoding="utf-8")
+            (scripts / "pipeline.py").write_text("# legacy pipeline host shim\n", encoding="utf-8")
+            d = self._retired(["doctor", str(ws)], home)
+            self.assertEqual(d.returncode, 0, "deprecation notices are informational, not problems: " + d.stdout + d.stderr)
+            self.assertIn("retired host forwarder", d.stdout)
+            self.assertIn("kernel", d.stdout)          # direct-invocation advice present
+            self.assertIn("retired pipeline host shim", d.stdout)
+            self.assertIn("personal", d.stdout)        # suite-pipeline migration advice present
+
+    def test_upgrade_keeps_existing_pipeline_shim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            ws = Path(tmp) / "ws"
+            r = _node2(["init", str(ws), "--name", "legacy"], home)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            shim = ws / ".owfa" / "scripts" / "pipeline.py"
+            if not shim.exists():  # retired channel never plants it — fake an older workspace
+                shim.parent.mkdir(parents=True, exist_ok=True)
+                shim.write_text("# legacy pipeline host shim\n", encoding="utf-8")
+            u = self._retired(["upgrade", str(ws), "--force"], home)
+            self.assertEqual(u.returncode, 0, u.stdout + u.stderr)
+            self.assertTrue(shim.exists(), "upgrade must NOT delete an existing pipeline host shim")
+            self.assertIn("retired pipeline host shim", u.stdout)
+
+    def test_fresh_legacy_init_ships_no_pipeline_shim_when_retired(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            ws = Path(tmp) / "ws"
+            r = self._retired(["init", str(ws), "--name", "legacy"], home)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertFalse((ws / ".owfa" / "scripts" / "pipeline.py").exists(),
+                             "retired channel must not ship the pipeline host shim")
+            # the suite pipeline remains the canonical copy
+            self.assertTrue((ws / ".owfa" / "plugins" / "domains" / "personal" / "pipeline.py").exists())
 
 
 class RegistryTests(unittest.TestCase):

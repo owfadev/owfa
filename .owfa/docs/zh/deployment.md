@@ -31,7 +31,7 @@ my-workspace/
 │   └── index.md  tags.md  hot.md  log.md   # 派生层，流水线重建
 ├── .owfa/                     # OWFA Core（v0.4 拆分后仅 kernel 树）
 │   ├── VERSION                # 框架锚点——部署版本的唯一事实源（别信任何硬编码数字）
-│   ├── scripts/               # kernel + wikilib（pipeline 归套件，此处为弃用垫片）
+│   ├── scripts/               # kernel + wikilib（pipeline 归套件；弃用宿主垫片最后一次种下是 0.5.0 之前的通道）
 │   ├── plugins/domains/       # 已安装 package——init 时内嵌 personal 套件（21 成员）落此；通道本身不带 plugin
 │   ├── command/               # 框架命令母本（套件自有命令随包分发）
 │   └── docs/                  # 本指南及同伴
@@ -170,7 +170,7 @@ owfa workspaces rescan [--under DIR]   # 从盘上标记重建注册表索引
 - **`adopt <path>`** 迁移 legacy 树：停泊树内 `scripts/`、写标记、登记、经新内核 validate——全有或全无；已 adopt 的工作区是 no-op。
 - **`$OWFA_HOME`**（默认 `~/.owfa`）是用户级基座根：`kernel/<ver>/` 放已装内核，`kernel/current` 指向最新，`workspaces.yaml` 是机器注册表。设 `OWFA_HOME` 环境变量可让 CI 容器或测试沙箱各用各的根。
 - **`.owfa/WORKSPACE.yaml` 是事实源**——极简标记（`kernel_compat` 下限；协议身份永不写入，由已装协议包推导）。**`~/.owfa/workspaces.yaml` 只是索引**（路径、uuid、kernel/compat 快照）。`owfa workspaces rescan` 扫盘上 `WORKSPACE.yaml` 标记重建索引（有界扫描，默认在用户主目录下）；自 0.4.8 起，rescan 还会从盘上刷新每行的 kernel/compat 快照。`list` 对悬空路径惰性注销并提示重新 adopt。
-- 工作区自己的 `.owfa/scripts/owfa_kernel.py` 变成一个轻量**弃用宿主转发器**，以 `--root` 钉住工作区、exec 用户级内核（面向 agent 的口径仍是 `python .owfa/scripts/owfa_kernel.py`）；0.5.0 退役。
+- **垫片退役（0.5.0）。** 自 0.5.0 起，通道不再向用户级工作区种弃用宿主转发器，legacy 通道也不再分发 pipeline 宿主垫片（`.owfa/scripts/pipeline.py`）——直接调用内核：`python3 $OWFA_HOME/kernel/<current>/owfa_kernel.py --root <工作区>`（或 `owfa` CLI）；pipeline 一律走 personal 套件包（`.owfa/plugins/domains/personal/pipeline.py`）。已有文件在升级时**永不删除**：0.5.0 之前的工作区保留其仍在工作的转发器（它与版本无关）；`owfa doctor` 与升级输出会打印弃用提示行，附同样的迁移建议。
 
 ## 5. 首次运行
 
@@ -311,7 +311,7 @@ npx owfadev upgrade --backup   # 在 .owfa/backup/<version>-<timestamp>/ 留一�
 | `wiki/` | markdown 世界、代理、笔记、会话 | 可以，经命令；派生页会被重建 |
 | `wiki/index.md`、`tags.md`、`hot.md`、`log.md` | 派生层 | 否——流水线重写 |
 | `.owfa/plugins/` | Core plugin + 已装 package | 否——框架作者面 |
-| `.owfa/scripts/` | kernel、wikilib（pipeline 归套件，垫片至 0.5.0） | 否——框架作者面 |
+| `.owfa/scripts/` | kernel、wikilib（pipeline 归套件；弃用垫片最后一次种下是 0.5.0 之前——既有副本继续可用） | 否——框架作者面 |
 | `.owfa/command/` | 命令母本 | 否 |
 | `.agents/skills/` | deploy 出的 skill 副本 | 否——`kernel deploy` 同步 |
 | `.owfa/migrations/` | stage 的语义迁移 + 台账 | 否——kernel 区 |

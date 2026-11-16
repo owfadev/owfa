@@ -42,6 +42,6 @@ Write: log (one line only, type "query")
 
 <!-- cmd-inject:start -->
 <!-- usage:log -->
-- Writing lines (mechanical, automatic): `python .owfa/scripts/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
+- Writing lines (mechanical, automatic): `python .owfa/plugins/domains/personal/pipeline.py log <type> "<one sentence>" [--domain <domain>]` (type value set in the log block of the AGENTS injection region; domain tag = domain-plugin name such as bb/lark/vault, mandatory for in-domain transactions, omitted for framework and native transactions); rolling window and archiving are performed by the script
 <!-- /usage:log -->
 <!-- cmd-inject:end -->

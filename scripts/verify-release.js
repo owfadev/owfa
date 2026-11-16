@@ -61,6 +61,10 @@ const REQUIRED = [
   ".owfa/command/owfa-query/SKILL.md",
   "bin/owfa.js",
   "payloads/personal/PKG.yaml",
+  // payloads/personal/pipeline.py is the SUITE pipeline (canonical copy that
+  // installs to .owfa/plugins/domains/personal/pipeline.py) — required. The
+  // retired pipeline HOST shim is a different file: .owfa/scripts/pipeline.py
+  // below.
   "payloads/personal/pipeline.py",
   "payloads/personal/README.md",
   "payloads/personal/wiki/PLUGIN.yaml",
@@ -70,6 +74,25 @@ const REQUIRED = [
 const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "payloads/", "templates/", "package.json", "README.md",
   "README.zh-CN.md", "LICENSE"];
 const FORBIDDEN = [/__pycache__/, /\.pyc$/, /(^|\/)test-repo\//, /^test\//, /^scripts\//, /^\.github\//, /pending\.json$/, /kernel-journal\.log$/, /registry-cache\.yaml$/, /^CONTRIBUTING\.md$/];
+
+// 0.5.0 shim retirement: the pipeline HOST shim (.owfa/scripts/pipeline.py —
+// NOT the suite pipeline at payloads/personal/pipeline.py) stops shipping from
+// 0.5.0 on. Fails closed in both directions: before the bump the channel may
+// still carry it; from 0.5.0 its presence in the tarball is a release blocker.
+function versionTuple(v) {
+  return String(v || "").split(".").map((x) => parseInt(x, 10) || 0);
+}
+function cmpVersion(a, b) {
+  const x = versionTuple(a);
+  const y = versionTuple(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d !== 0) return d > 0 ? 1 : -1;
+  }
+  return 0;
+}
+const shimsRetired = process.env.OWFA_TEST_SHIMS_RETIRED === "1" || (fw && cmpVersion(fw, "0.5.0") >= 0);
+const RETIRED_PAYLOAD = [".owfa/scripts/pipeline.py"];
 
 // What ships is decided by package.json files + physical absence of generated
 // state (npm does not apply .npmignore inside whitelisted directories).
@@ -95,6 +118,10 @@ if (pack.status !== 0) {
   if (files.some((f) => f.startsWith("vault/") || f.startsWith("wiki/"))) problems.push("instance data (vault/ or wiki/) would ship");
   // v0.4 final shape: core lives in the embedded suite, never in the framework tree
   if (files.some((f) => f.startsWith(".owfa/plugins/core/"))) problems.push("plugins/core/ must not ship — the core masters live in payloads/personal/");
+  // 0.5.0 shim retirement: the host shim must be absent from the tarball
+  if (shimsRetired) {
+    for (const bad of RETIRED_PAYLOAD) if (files.includes(bad)) problems.push(`${bad} must not ship — the pipeline host shim retired in 0.5.0 (suite pipeline at payloads/personal/pipeline.py is canonical)`);
+  }
   if (files.some((f) => f.startsWith(".owfa/command/owfa-map/") || f.startsWith(".owfa/command/owfa-profile/") || f.startsWith(".owfa/command/owfa-save/"))) {
     problems.push("core-owned command masters (owfa-map/owfa-profile/owfa-save) must not ship in .owfa/command/ — they ride with the personal suite package");
   }

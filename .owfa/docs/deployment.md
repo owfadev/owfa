@@ -31,7 +31,7 @@ my-workspace/
 │   └── index.md  tags.md  hot.md  log.md   # derived, rebuilt by the pipeline
 ├── .owfa/                     # OWFA Core (kernel-only tree since the v0.4 split)
 │   ├── VERSION                # framework anchor — this file is the source of truth for the deployed version (never trust hardcoded numbers elsewhere)
-│   ├── scripts/               # kernel + wikilib (pipeline: suite-owned since 0.1.1, deprecated host shim here)
+│   ├── scripts/               # kernel + wikilib (pipeline: suite-owned since 0.1.1; the deprecated host shim here was last planted by pre-0.5.0 channels)
 │   ├── plugins/domains/       # installed packages — the embedded personal suite (21 members) lands here on init; the channel itself ships no plugins
 │   ├── command/               # framework command masters (suite-owned commands ride with their package)
 │   └── docs/                  # this guide and friends
@@ -170,7 +170,7 @@ owfa workspaces rescan [--under DIR]   # rebuild the registry index from disk ma
 - **`adopt <path>`** migrates a legacy tree: it parks the tree's own `scripts/`, writes the marker, registers, and validates through the new kernel — all-or-nothing; an already-adopted workspace is a no-op.
 - **`$OWFA_HOME`** (default `~/.owfa`) is the user-level substrate root: `kernel/<ver>/` holds the installed kernels, `kernel/current` points at the latest, and `workspaces.yaml` is the machine registry. Set the `OWFA_HOME` env var to give CI containers or test sandboxes their own root.
 - **`.owfa/WORKSPACE.yaml` is the source of truth** for a workspace on this channel — a minimal marker (`kernel_compat` floor; protocol identity is never written, it derives from installed protocol packages). **`~/.owfa/workspaces.yaml` is only the index** (path, uuid, kernel/compat snapshot). `owfa workspaces rescan` rebuilds the index by scanning disk `WORKSPACE.yaml` markers (bounded scan, default under the user's home); since 0.4.8 it also refreshes each row's kernel/compat snapshot from disk. `list` lazily unregisters dangling paths with a re-adopt hint.
-- The workspace's own `.owfa/scripts/owfa_kernel.py` becomes a thin **deprecated host forwarder** that execs the user-level kernel with `--root` pinned to the workspace (agent-facing surfaces keep saying `python .owfa/scripts/owfa_kernel.py`); it retires in 0.5.0.
+- **Shim retirement (0.5.0).** From 0.5.0 on, the channel plants no deprecated host forwarder into user-level workspaces and ships no pipeline host shim (`.owfa/scripts/pipeline.py`) on the legacy channel — invoke the kernel directly: `python3 $OWFA_HOME/kernel/<current>/owfa_kernel.py --root <workspace>` (or the `owfa` CLI), and run the pipeline from the personal suite package (`.owfa/plugins/domains/personal/pipeline.py`). Existing files are **never deleted on upgrade**: a pre-0.5.0 workspace keeps its working forwarder (it is version-agnostic); `owfa doctor` and upgrade output print a deprecation line with the same migration advice.
 
 ## 5. First run
 
@@ -314,7 +314,7 @@ Framework versions are anchored by `.owfa/VERSION` — read the file itself rath
 | `wiki/` | markdown world, proxies, notes, sessions | yes, via commands; derived pages are rebuilt |
 | `wiki/index.md`, `tags.md`, `hot.md`, `log.md` | derived layer | no — the pipeline rewrites them |
 | `.owfa/plugins/` | Core plugins + installed packages | no — framework authoring |
-| `.owfa/scripts/` | kernel, wikilib (pipeline — suite-owned, deprecated host shim until 0.5.0) | no — framework authoring |
+| `.owfa/scripts/` | kernel, wikilib (pipeline: suite-owned; the deprecated host shim was last planted pre-0.5.0 — existing copies keep working) | no — framework authoring |
 | `.owfa/command/` | command masters | no |
 | `.agents/skills/` | deployed skill copies | no — `kernel deploy` syncs them |
 | `.owfa/migrations/` | staged semantic migrations + ledger | no — kernel zone |

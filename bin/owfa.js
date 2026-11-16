@@ -27,6 +27,30 @@ const { spawnSync } = require("node:child_process");
 const CLI_ROOT = path.resolve(__dirname, "..");
 const PKG = JSON.parse(fs.readFileSync(path.join(CLI_ROOT, "package.json"), "utf8"));
 const FRAMEWORK_VERSION = readVersion(CLI_ROOT) || "?";
+// 0.5.0 shim retirement: from this channel version on, init/adopt plant no
+// deprecated host forwarder into user-level workspaces and the legacy payload
+// copies no pipeline host shim (see plantKernelForwarder / copyPayload). The
+// gate reads the channel's own FRAMEWORK_VERSION so the retirement flips with
+// the version bump; OWFA_TEST_SHIMS_RETIRED=1 lets tests exercise the retired
+// branch before that bump lands (a test hook only — never set in real use).
+const SHIMS_RETIRED_AT = "0.5.0";
+function shimsRetired() {
+  return process.env.OWFA_TEST_SHIMS_RETIRED === "1" || cmpVersion(FRAMEWORK_VERSION, SHIMS_RETIRED_AT) >= 0;
+}
+// Retirement is conservative: existing files are never deleted — they are
+// version-agnostic and keep working. doctor/upgrade print these lines so an
+// upgraded workspace knows to migrate (never a doctor problem).
+function reportRetiredShims(target) {
+  if (!shimsRetired()) return; // pre-0.5.0 channels keep their existing messaging
+  if (servedByForwarder(target)) {
+    out(`deprecation: .owfa/scripts/owfa_kernel.py is the retired host forwarder — it still works, but no new one is planted; migrate to direct invocation:`);
+    out(`  python3 ${path.join(owfaHome(), "kernel", "<current>", "owfa_kernel.py")} --root <workspace>   (or the owfa CLI)`);
+  }
+  if (fs.existsSync(path.join(target, ".owfa", "scripts", "pipeline.py"))) {
+    out(`deprecation: .owfa/scripts/pipeline.py is the retired pipeline host shim — it still works, but the 0.5.0+ channel no longer plants it; migrate to the suite pipeline:`);
+    out(`  python3 .owfa/plugins/domains/personal/pipeline.py <subcommand>   (personal suite location)`);
+  }
+}
 const INJECT_START = "<!-- wiki-inject:start -->";
 const INJECT_END = "<!-- wiki-inject:end -->";
 const PAYLOAD = [".owfa", ".agents"];
@@ -577,6 +601,10 @@ function copyPayload(target, { replace = false, userLevel = false } = {}) {
     const base = path.basename(src);
     if (base === "__pycache__" || base.endsWith(".pyc") || base === ".DS_Store") return false;
     if (base === "smoke-tmp") return false;
+    // 0.5.0 shim retirement: the legacy channel ships no pipeline host shim —
+    // fresh workspaces never receive .owfa/scripts/pipeline.py (the suite
+    // pipeline at .owfa/plugins/domains/personal/pipeline.py is canonical).
+    if (shimsRetired() && src === path.join(CLI_ROOT, ".owfa", "scripts", "pipeline.py")) return false;
     // B (Q1a/Q2a, step 2): the user-level channel plants no tree kernel —
     // .owfa/scripts/ and .owfa/VERSION live in $OWFA_HOME/kernel/<ver>/
     // instead (install-kernel); the tree keeps everything else.
@@ -586,6 +614,15 @@ function copyPayload(target, { replace = false, userLevel = false } = {}) {
     }
     return true;
   };
+  // 0.5.0 shim retirement (upgrade half): an existing workspace copy of the
+  // pipeline host shim is NEVER deleted on upgrade — the replace swap would
+  // drop it (the channel no longer ships it), so the working file is carried
+  // across verbatim. It keeps working; doctor reports the deprecation.
+  let keepPipelineShim = null;
+  const pipelineShimPath = path.join(target, ".owfa", "scripts", "pipeline.py");
+  if (shimsRetired() && replace && fs.existsSync(pipelineShimPath)) {
+    keepPipelineShim = fs.readFileSync(pipelineShimPath);
+  }
   for (const entry of PAYLOAD) {
     const src = path.join(CLI_ROOT, entry);
     const dst = path.join(target, entry);
@@ -601,6 +638,10 @@ function copyPayload(target, { replace = false, userLevel = false } = {}) {
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.cpSync(src, dst, { recursive: true, force: true, filter: skip });
     }
+  }
+  if (keepPipelineShim !== null) {
+    fs.mkdirSync(path.dirname(pipelineShimPath), { recursive: true });
+    fs.writeFileSync(pipelineShimPath, keepPipelineShim);
   }
 }
 
@@ -1133,8 +1174,15 @@ function cmdInit(args) {
     fail("kernel convergence failed — the framework tree is incomplete; nothing was deleted, fix and rerun");
   }
   if (userLevel) {
-    plantKernelForwarder(target);
-    out("shim: .owfa/scripts/owfa_kernel.py forwarder planted (retires in 0.5.0) — legacy agent paths keep working");
+    if (shimsRetired()) {
+      // 0.5.0 shim retirement: no host forwarder is planted — agent surfaces
+      // should invoke the kernel directly (or via this CLI).
+      out("shim: host forwarder no longer planted (retired in 0.5.0) — invoke the kernel directly:");
+      out(`  python3 ${path.join(owfaHome(), "kernel", "<current>", "owfa_kernel.py")} --root <workspace>   (or the owfa CLI)`);
+    } else {
+      plantKernelForwarder(target);
+      out("shim: .owfa/scripts/owfa_kernel.py forwarder planted (retires in 0.5.0) — legacy agent paths keep working");
+    }
   }
 
   // ---- stage ②: the core suite ----
@@ -1282,6 +1330,10 @@ function cmdUpgrade(args) {
     }
   }
 
+  // 0.5.0 shim retirement: an upgraded workspace keeps any existing host
+  // forwarder / pipeline host shim (never deleted); surface the migration path
+  reportRetiredShims(target);
+
   out("");
   out("converging projections (python .owfa/scripts/owfa_kernel.py all)");
   if (kernel(target, ["all"]) !== 0) {
@@ -1328,6 +1380,9 @@ function cmdDoctor(args) {
     const reg = registryFindByPath(target);
     out(`registry: ${reg ? `registered (id ${String(reg.id).slice(0, 8)}, kernel ${reg.kernel || "?"})` : `NOT registered — run \`owfa workspaces register ${target}\``}`);
   }
+  // 0.5.0 shim retirement: existing forwarder/pipeline-shim files keep working
+  // — informational migration advice only, never a doctor problem
+  reportRetiredShims(target);
   const problems = []; // required conditions — any hit fails doctor (review P2, PR #53)
   // layout-shim health (review P2 on the layout PR): a renamed/copied instance
   // leaves the Windows junction pointing at the old absolute path; a real .meta
@@ -1565,7 +1620,8 @@ function cmdAdopt(args) {
     registerWorkspace(target, kernelVer);
     out("validating through the user-level kernel (kernel validate --root)");
     if (kernel(target, ["validate"]) !== 0) throw new Error("kernel validate failed (see above)");
-    plantKernelForwarder(target);   // P2: only after green — the shim occupies .owfa/scripts and must never block a rollback rename
+    if (!shimsRetired()) plantKernelForwarder(target);   // P2: only after green — the shim occupies .owfa/scripts and must never block a rollback rename
+    else out("shim: host forwarder no longer planted (retired in 0.5.0) — invoke the kernel directly (see owfa doctor)");
   } catch (e) {
     try {
       const shimFile = path.join(scriptsDir, "owfa_kernel.py");

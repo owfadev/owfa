@@ -81,6 +81,17 @@
   例外是那次暂停，不是新常态；保护挂一夜没开回来就算事故。
 - 发布 bump 的 PR 与普通 PR 同规——runbook 说的「同一 commit」指两个版本文件一起动，不是免审。
 
+## 0.5.0 的破坏性变更
+
+0.5.0 发布线退役弃用宿主垫片（裁定见 bin/owfa.js 转发器模板注释；R11 无需代码改动——`owfa_kernel.py` 的 abi 块门本就以 `fw >= (0, 5)` 版本门控）：
+
+- **R11 翻为 error，无祖父条款。** 自 0.5.0 起，缺 `abi` 块的协议包清单直接校验失败——警告期已结束；要修的是包，不是内核。
+- **宿主转发器不再种下。** `init --user-level` 与 `adopt` 不再写 `.owfa/scripts/owfa_kernel.py`（弃用宿主转发器）。既有工作区保留其转发器——它与版本无关，升级永不删除；`owfa doctor` 与升级输出会打印弃用提示行，附迁移路径：`python3 $OWFA_HOME/kernel/<current>/owfa_kernel.py --root <workspace>`（或 `owfa` CLI）。
+- **pipeline 宿主垫片不再分发。** legacy 通道载荷不再携带 `.owfa/scripts/pipeline.py`（自 0.5.0 起，`scripts/verify-release.js` 对其出现在 packlist 一律拒绝；`scripts/clean-local-state.js` 在打包时移除）。既有副本继续可用、升级时原样保留；迁移到套件 pipeline：`.owfa/plugins/domains/personal/pipeline.py`。
+- **迁移路径**：受影响的工作区执行 `owfa adopt`（或 `init --user-level`）上用户级内核，并装 personal 套件包承担 pipeline——这一对取代两个垫片。
+
+退役以通道自身 `.owfa/VERSION` 做版本门控（`bin/owfa.js` 的 `SHIMS_RETIRED_AT`）；随 0.5.0 版本 bump 激活，bump 与代码改动分属不同 PR。
+
 ## npm 命名现状（一段话）
 
 `owfa` 被 npm 的名称相似性策略冻结（太近 `ow`/`ora`），`npx owfa` 不存在，一切安装示例必须写 `npx owfadev`。**`owfadev` 是现实包名**（gate 仍接受 `owfa`，只为冻结解除的那天留门）；一个包、两个 bin——`owfa` 与 `owfadev`——verify-release 两者都强制。详见 [naming.md](naming.md)。
