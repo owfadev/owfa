@@ -677,8 +677,26 @@ function carryOverCommands(target, metaAttic) {
   if (!fs.existsSync(oldDir)) return;
   const freshDir = path.join(target, ".owfa", "command");
   const fresh = new Set(fs.existsSync(freshDir) ? fs.readdirSync(freshDir) : []);
+  // suite-owned since personal 0.2 (query / asset-read absorbed): an old
+  // FRAMEWORK-era master under a suite-owned name must not carry and shadow
+  // the canonical suite master — but ONLY on the 0.3 conversion path (rescued
+  // core pending, personal not yet installed; the conversion install deploys
+  // the canonical masters right after). On a normal upgrade the suite is
+  // already installed and its .owfa/command masters are package-owned state
+  // that must carry like every other installed master.
+  // carry-over runs BEFORE rescueCoreForConversion parks the core — detect the
+  // pending conversion from the attic itself: old tree ships plugins/core, the
+  // channel does not, and personal is not installed yet
+  const conversionPending =
+    fs.existsSync(path.join(metaAttic, "plugins", "core")) &&
+    !fs.existsSync(path.join(CLI_ROOT, ".owfa", "plugins", "core")) &&
+    !fs.existsSync(path.join(target, ".owfa", "plugins", "domains", "personal"));
+  const suiteCmdDir = path.join(CLI_ROOT, "payloads", "personal", "command");
+  const suiteOwned = conversionPending
+    ? new Set(fs.existsSync(suiteCmdDir) ? fs.readdirSync(suiteCmdDir) : [])
+    : new Set();
   for (const d of fs.readdirSync(oldDir)) {
-    if (fresh.has(d) || RETIRED_MASTERS.has(d)) continue;
+    if (fresh.has(d) || RETIRED_MASTERS.has(d) || suiteOwned.has(d)) continue;
     fs.cpSync(path.join(oldDir, d), path.join(freshDir, d), { recursive: true, force: true });
   }
 }
@@ -836,6 +854,39 @@ function convertCoreToPersonal(target) {
       }
     }
     fs.writeFileSync(mf, lines.join("\n"), "utf8");
+  }
+
+  // suite 0.2: the blessed command set grew (owfa-query <- index, asset-read <-
+  // vault at personal 0.2) — a 0.3-era manifest cannot claim or feed usage for
+  // names it never knew, so the rename pass above is not enough. commands: and
+  // usage: are mechanical projection keys — sync them wholesale from the
+  // blessed canonical manifests for every member the payload carries.
+  const sectionOf = (lines, key) => {
+    const i = lines.findIndex((l) => l.startsWith(key + ":"));
+    if (i < 0) return null;
+    let j = i + 1;
+    while (j < lines.length && /^\s+-\s/.test(lines[j])) j++;
+    return lines.slice(i, j);
+  };
+  const withoutSection = (lines, key) => {
+    const i = lines.findIndex((l) => l.startsWith(key + ":"));
+    if (i < 0) return lines;
+    let j = i + 1;
+    while (j < lines.length && /^\s+-\s/.test(lines[j])) j++;
+    return [...lines.slice(0, i), ...lines.slice(j)];
+  };
+  for (const m of members) {
+    const blessedMf = path.join(CLI_ROOT, "payloads", "personal", m, "PLUGIN.yaml");
+    if (!fs.existsSync(blessedMf)) continue;
+    const blessedLines = fs.readFileSync(blessedMf, "utf8").split("\n");
+    const mf = path.join(staging, m, "PLUGIN.yaml");
+    let staged = fs.readFileSync(mf, "utf8").split("\n");
+    for (const key of ["commands", "usage"]) {
+      const sec = sectionOf(blessedLines, key);
+      staged = withoutSection(staged, key);
+      if (sec) staged = [...staged, ...sec];
+    }
+    fs.writeFileSync(mf, staged.join("\n"), "utf8");
   }
 
   // the suite's command masters ride along: the members adopted above declare

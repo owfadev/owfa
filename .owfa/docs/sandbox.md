@@ -40,7 +40,7 @@ Whether experiment data stays or goes is up to you; resetting means deleting eve
 
 ## Mirror sync
 
-Re-copy happens when a root-side batch closes. To trigger it yourself: delete the sandbox's two mirror trees, copy the whole trees in from the root side, then run kernel convergence once more. Deploy behavior in the v0.4 tree: the root side ships **no `connectors/`** (connectors arrive per-instance with package installs), so a fresh re-copy deploys exactly the six framework command skills from `.owfa/command/` and reports **no connector orphans** — verified against `kernel deploy` on the framework tree ("all in sync", zero plugins). An `[warning] orphan copy .agents/skills/<name>/` appears only when a skill copy's master is gone on both source sides — typically a leftover from a package removed without the sandbox-side cleanup — and it is report-only: deletion belongs to the human.
+Re-copy happens when a root-side batch closes. To trigger it yourself: delete the sandbox's two mirror trees, copy the whole trees in from the root side, then run kernel convergence once more. Deploy behavior in the v0.4 tree: the root side ships **no `connectors/`** (connectors arrive per-instance with package installs), so a fresh re-copy deploys exactly the framework command skills from `.owfa/command/` (four since 0.5.1) and reports **no connector orphans** — verified against `kernel deploy` on the framework tree ("all in sync", zero plugins). An `[warning] orphan copy .agents/skills/<name>/` appears only when a skill copy's master is gone on both source sides — typically a leftover from a package removed without the sandbox-side cleanup — and it is report-only: deletion belongs to the human.
 
 ## Sandbox vs. local
 

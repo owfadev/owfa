@@ -58,7 +58,6 @@ const REQUIRED = [
   ".owfa/scripts/owfa_kernel.py",
   ".owfa/docs/deployment.md",
   ".owfa/docs/quickstart.md",
-  ".owfa/command/owfa-query/SKILL.md",
   "bin/owfa.js",
   "payloads/personal/PKG.yaml",
   // payloads/personal/pipeline.py is the SUITE pipeline (canonical copy that
@@ -69,6 +68,8 @@ const REQUIRED = [
   "payloads/personal/README.md",
   "payloads/personal/wiki/PLUGIN.yaml",
   "payloads/personal/command/owfa-map/SKILL.md",
+  "payloads/personal/command/owfa-query/SKILL.md",
+  "payloads/personal/command/asset-read/SKILL.md",
   "templates/AGENTS.template.md",
 ];
 const ALLOWED_TOP = [".owfa/", ".agents/", "bin/", "payloads/", "templates/", "package.json", "README.md",

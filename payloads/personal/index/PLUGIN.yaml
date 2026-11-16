@@ -16,3 +16,5 @@ usage:
 checks:
   - Deviation between indexes and the actual page set (including merged-back indexes pending deletion) → fixed by running `pipeline.py index` to rebuild (idempotent; no diff means consistent); same for tags (`pipeline.py tags`)
   - Traces of hand editing → warning
+commands:
+  - owfa-query

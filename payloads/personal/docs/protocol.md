@@ -6,15 +6,17 @@
 
 **llmwiki → vault-wiki → the OWFA default protocol.** The idea of organizing an agent-worked information repository as a wiki over a plain-file vault was born as llmwiki, took shape as the vault-wiki framework (2026-08 the personal vault founded; 09-08 the plugin prototype landed), and since OWFA v0.4 ships as this package — the **personal** suite, the first and currently the only implementation of that organization principle.
 
-One terminology note before anything else: since framework 0.4.3 the kernel recognizes `kind: protocol` (with the `protocol:` field and an org-capability declaration), and this package declares it: `protocol: vaultwiki`, `provides: vaultwiki.org.v1` — the first protocol package. The protocol ABI and per-protocol variants remain undecided ideas, not existing machinery. What this document describes is what the 21 members plus `pipeline.py` actually implement.
+One terminology note before anything else: since framework 0.4.3 the kernel recognizes `kind: protocol` (with the `protocol:` field and an org-capability declaration), and this package declares it: `protocol: vaultwiki`, `provides: vaultwiki.org.v1` — the first protocol package. The protocol ABI is shipped machinery since 0.1.3: the package-root `proto_query.py` serves four semantics — `list`, `get`, `search`, `recent` — over the wiki face; the normative detail lives in [docs/abi.md](abi.md), and conformance tests in [tests/](../tests/). What this document describes is what the 21 members plus `pipeline.py` actually implement.
 
 ## What the Protocol Is
 
 The protocol is three things at once:
 
 1. **Information-shaping rules** — where information of each kind lands, in what shape, under whose write model. The vault/wiki split, territory syntax, page types, link grammar, red lines.
-2. **A self-sufficient baseline** — with zero additional packages installed, the workspace is complete: map, save, query, and check all work. Domains (cuhksz, lark, email, bili, …) are add-ons that rent structure from this baseline, not prerequisites for it.
-3. **A service surface** — cross-cutting services every member uses: the derived layer (index, tags, hot, log), retrieval conventions, distillation zones (notes, sessions), and the check rule set.
+2. **A self-sufficient baseline** — with zero additional packages installed, the workspace is complete: map, save, query, and check all work. Domains (cuhksz, lark, email, bili, …) are add-ons that build on this baseline structure, not prerequisites for it.
+3. **A service surface** — cross-cutting services every member uses: the derived layer (index, tags, hot, log), retrieval conventions, distillation zones (notes, sessions), the check rule set, and the ABI face.
+
+The **ABI face is the whole `wiki/`** — the add-on domain territories are included (bili/lark/cuhksz page types are served like any other page), `wiki/tmp/` is excluded (tmp's invisible-to-the-derived-layer semantics carry over to the ABI). Pages are addressed by wiki-relative path (the full-name grammar of the `[[...]]` link syntax); see [docs/abi.md](abi.md) for the normative detail. Bridges consume this face **read-only** — a foreign workspace never writes through the ABI.
 
 ### Protocol vs. Domain vs. Kernel — three tests
 
@@ -81,7 +83,7 @@ Window parameters (the script source is the authoritative rule list): hot ≤ **
 
 ## Member Roster
 
-The 21 members (versions verbatim from each PLUGIN.yaml; package `personal` v0.1.2, `kind: protocol` / `protocol: vaultwiki`, `compat: ">= 0.4"`):
+The 21 members (versions verbatim from each PLUGIN.yaml; the `personal` package, `kind: protocol` / `protocol: vaultwiki` — version and compat floor see [PKG.yaml](../PKG.yaml)):
 
 | id | one line | version |
 |---|---|---|
@@ -101,7 +103,7 @@ The 21 members (versions verbatim from each PLUGIN.yaml; package `personal` v0.1
 | structure | Vault layout declaration `wiki/structure.md`; read before placing assets, sync after reorganizations | 0.5 |
 | tag | Page `tags`: YAML list, ≤5 per page, hierarchy ≤2; open semantics, never restate `type` | 0.13 |
 | tmp | Temporary zone `wiki/tmp/`: drafts and intermediates, no retention promise, invisible to the derived layer | 0.4 |
-| todo | Working set `wiki/todo.md`: read first at session start; entry = trigger + one sentence + by/at | 0.6 |
+| todo | Temporary memory `wiki/todo.md`: read first at session start (before hot); entry = trigger + one sentence + by/at; settle with [x] + log line | 0.6 |
 | trust | Trust fields (`generated`/`verified`/`stale_after`/`sources`); level is derived, never stored | 0.10 |
 | user-profile | Continuing cognition of the user in `wiki/profile.md`; write only via the profile command; assertions carry evidence | 0.8 |
 | vault | Default domain `vault/`: real assets, append-only toward the agent; landing repository for other domains | 0.7 |

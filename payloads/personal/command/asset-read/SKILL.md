@@ -1,6 +1,7 @@
 ---
 name: asset-read
-owner: framework
+owner: vault
+consumes: [vault, tmp]
 description: "Extract text from assets of any format by path (md read directly / pdf via PyMuPDF / docx and xlsx unpacked with the standard library); outputs are cached in wiki/tmp and marked with stale_after — the unified channel and caching convention for source-origin reads. Triggers on: asset-read, 读资产, 回源, 提取文本, 读课件原文, read asset."
 ---
 
@@ -37,3 +38,10 @@ Output language takes the default key of the language declaration page `wiki/lan
 ## Parameters
 
 - Asset path (root-relative); optional page range or locating keyword
+
+## Injected Section (plugin usage blocks)
+
+> This region is a owfa-kernel projection: consumes pulls merged with usage_routes source-side routing; rebuilt by inject / all; handwritten content does not belong here — to change the write-side contract, edit PLUGIN.yaml.
+
+<!-- cmd-inject:start -->
+<!-- cmd-inject:end -->

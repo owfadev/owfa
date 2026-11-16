@@ -90,7 +90,7 @@ The kernel journal (`.owfa/kernel-journal.log`, rolling cap of 500 lines, git-tr
 
 ## Layering principles (in-domain example: the bb four-piece family)
 
-- **The material layer is in bb/ (the outer workspace), the archive layer in wiki/ (the inner territory)**: process artifacts (fetches, human notes, ai notes, exam grading) live in the material layer; settled conclusions (cognition readings, projection pages) live in the archive layer — "bb/ notes/: human-primary with ai cohabiting" and "user.md as a domain-native page" are instances of this layering
+- **Layering is the protocol's call, not the kernel's**: e.g. a school domain may keep process artifacts in a material layer and settled conclusions in an archive layer — the concrete split is declared by the installed protocol's plugins, the kernel only moves packages
 - A domain's growth path: **the domain contract's six questions** (external territory / landing strategy / identity proof / wiki territory / write model / trust model) → the domain base establishes the territory (e.g. bb v0.7: both sides isomorphic + notes/ cohabitation) → the in-domain plugin family (bb-map projection rules, bb-track cognition profile) → consumer-side collection channels (bb-teach / bb-quiz: zero-territory workflow pieces whose usage mounts on the hub command via consumes) — **consumer-side plugins can take the thinnest form** (zero owned fields, contributing only usage and check rules)
 - A data-flow loop example: teach explains → ai notes land in notes/ (weak evidence) → track consumes and converges → quiz generates questions with reference → grading flows back into the evidence stream (machine evidence) — the three stages of material production, archive refinement, and collection write-back each belong to their own piece
 
@@ -98,7 +98,7 @@ The kernel journal (`.owfa/kernel-journal.log`, rolling cap of 500 lines, git-tr
 
 - The script touches only four sites: plugin directories in/out, injection-region marker blocks, the registry plugin section, and the skill deployment copies; the protocol / reserved sections and the AGENTS.md handwritten region are never touched
 - Pure standard library, zero dependencies (Python 3); English output
-- The data-zone derived layer (`wiki/index.md`, `tags.md`, `hot.md`, `log.md`) is not this CLI's business — that is `pipeline.py` (`index` / `tags` / `hot` / `log` / `verify`), invoked by the post-write pipelines of map / save
+- The data-zone derived layer (indexes, caches, logs — whatever shape the installed protocol keeps) is not this CLI's business: those belong to the protocol's own tools, invoked by that protocol's post-write pipelines
 
 ## Parameters
 

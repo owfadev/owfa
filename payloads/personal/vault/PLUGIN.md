@@ -20,6 +20,8 @@ No structure or scripts of its own. The external territory is the root-level `va
 
 ## Changelog
 
+  - 0.2 2026-11-16: owns asset-read (absorbed from the framework's retired generic command — source-origin reads cache in wiki/tmp, vaultwiki semantics)
+
 - 0.7 2026-11-09: inject line rewritten to routing-pointer density (issue #49 phase 1, relieves the #48 budget): path + read/write trigger + the one easy-to-break invariant + pointer here; the dropped detail already lives in this file / the manifest
 - 0.6 2026-10-02: global-domain batch one — added the trust and log mandatory-bridge edges; vault previously lacked even the trust edge, confirmed by audit; constitution principle 11, kernel verifies completeness
 - 0.5 2026-09-22: domain-ization — depends gained domain, i.e. the default-domain positioning, and wiki, i.e. the territory declaration `wiki/vault/`; the dual role spelled out: doubling as the landing repository for other domains, the url field as the passthrough interface

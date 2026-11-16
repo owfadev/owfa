@@ -2,17 +2,19 @@ schema_version: 1
 id: personal
 kind: protocol
 protocol: vaultwiki
-version: 0.1.3
+version: 0.2
 abi:
   semantics: [list, get, search, recent]
   search_lang: "wiki full-name prefix match OR body substring (grep)"
   addr_doc: docs/abi.md
-compat: ">= 0.4"
+# compat floor raised to >= 0.4.6: guarantees the ABI-validation kernel machinery (protocol packages with an abi block pass kernel validation).
+compat: ">= 0.4.6"
 members: [calendar, cron, device, domain, hot, index, instance-git, language, link, log, mapping, notes, sessions, structure, tag, tmp, todo, trust, user-profile, vault, wiki]
 depends: [framework]
 skeleton: [vault/, wiki/notes/, wiki/sessions/, wiki/vault/]
 provides: [vaultwiki.org.v1]
 uninstall:
+  # anchors are belt-and-suspenders: uninstall.retains already keeps all of wiki/, so the anchors are doubly protected under full-wiki retention.
   anchors: [wiki/profile.md, wiki/language.md, wiki/structure.md, wiki/calendar.md, wiki/todo.md, wiki/cron/]
   retains: [vault/, wiki/]
   credentials: []

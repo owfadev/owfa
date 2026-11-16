@@ -6,7 +6,7 @@ package 是分发与安装的单元。本页是合并后的参考：包布局、
 
 ## 包布局：目录 == package
 
-v0.4 框架发布树**不带任何plugin**——只有kernel、6 个框架命令母本（`.owfa/command/`）、协议工件（`.owfa/protocol/`）、以及内嵌的 blessed 套件副本 `payloads/personal/`。connector 随各包分发（cuhksz-cli 在 owfa-cuhksz、mail-cli 在 owfa-email、bili-cli 在 owfa-bili）；其 SKILL.md 经 kernel deploy 落入 `.agents/skills/`。
+v0.4 框架发布树**不带任何plugin**——只有kernel、4 个框架命令母本（`.owfa/command/`，协议不预设：owfa-check / owfa-docs / owfa-kernel / owfa-plugin）、协议工件（`.owfa/protocol/`）、以及内嵌的 blessed 套件副本 `payloads/personal/`。connector 随各包分发（cuhksz-cli 在 owfa-cuhksz、mail-cli 在 owfa-email、bili-cli 在 owfa-bili）；其 SKILL.md 经 kernel deploy 落入 `.agents/skills/`。
 
 实例中，已安装的包位于 `.owfa/plugins/domains/` 之下——一个目录一个包，目录边界 == 安装单元：
 
@@ -21,8 +21,8 @@ v0.4 框架发布树**不带任何plugin**——只有kernel、6 个框架命令
 
 | 层 | 命令 | 出现在 |
 |---|---|---|
-| 框架自带（`.owfa/command/`） | asset-read、owfa-check、owfa-docs、owfa-kernel、owfa-plugin、owfa-query | **任何工作区、任何协议都在**——这就是「project 工作区里为何有 asset-read」的答案 |
-| 协议套件 | personal：owfa-map、owfa-save、owfa-profile · project：套件本身不带命令 | 运行该协议的工作区 |
+| 框架自带（`.owfa/command/`，2026-11-16 裁定协议不预设） | owfa-check、owfa-docs、owfa-kernel、owfa-plugin | **任何工作区、任何协议都在** |
+| 协议套件 | personal：owfa-map、owfa-save、owfa-profile、owfa-query、asset-read（后两者自框架吸收，personal 0.2 起——vaultwiki 语义） · project：套件本身不带命令 | 运行该协议的工作区 |
 | 包命令 | 随包到达——如 owfa-develop ← 可选 `owfadevelop` 包；connector 技能同样随包走 | 装了该包的工作区 |
 
 投影保持按 id 索引、扁平（`.owfa/command/`、`.agents/skills/`、registry、AGENTS 注入区）：package 重组的是母本而非投影，因此 deploy/inject/registry 无需重设计。

@@ -6,7 +6,7 @@ The package is the distribution and install unit. This page is the consolidated 
 
 ## Package layout: directory == package
 
-The v0.4 framework tree ships **no plugins** — kernel, 6 framework command masters (`.owfa/command/`), protocol artifacts (`.owfa/protocol/`), and the embedded blessed suite copy at `payloads/personal/`. Connectors travel with their packages (cuhksz-cli in owfa-cuhksz, mail-cli in owfa-email, bili-cli in owfa-bili); their SKILL.md files land in `.agents/skills/` via kernel deploy.
+The v0.4 framework tree ships **no plugins** — kernel, 4 framework command masters (`.owfa/command/`, protocol-neutral: owfa-check / owfa-docs / owfa-kernel / owfa-plugin), protocol artifacts (`.owfa/protocol/`), and the embedded blessed suite copy at `payloads/personal/`. Connectors travel with their packages (cuhksz-cli in owfa-cuhksz, mail-cli in owfa-email, bili-cli in owfa-bili); their SKILL.md files land in `.agents/skills/` via kernel deploy.
 
 In an instance, installed packages live under `.owfa/plugins/domains/` — one directory per package, the directory boundary == install unit:
 
@@ -21,8 +21,8 @@ In an instance, installed packages live under `.owfa/plugins/domains/` — one d
 
 | Tier | Commands | Present in |
 |---|---|---|
-| framework built-ins (`.owfa/command/`) | asset-read, owfa-check, owfa-docs, owfa-kernel, owfa-plugin, owfa-query | **every workspace, any protocol** — they answer "why does my project-protocol workspace have asset-read" |
-| protocol suite | personal: owfa-map, owfa-save, owfa-profile · project: (none in the suite itself) | workspaces running that protocol |
+| framework built-ins (`.owfa/command/`, protocol-neutral by ruling 2026-11-16) | owfa-check, owfa-docs, owfa-kernel, owfa-plugin | **every workspace, any protocol** |
+| protocol suite | personal: owfa-map, owfa-save, owfa-profile, owfa-query, asset-read (query & asset-read absorbed from the framework at personal 0.2 — vaultwiki semantics) · project: (none in the suite itself) | workspaces running that protocol |
 | package commands | arrive with their package — e.g. owfa-develop ← the optional `owfadevelop` package; connector skills likewise ride with their packages | workspaces that installed the package |
 
 Projections stay id-keyed and flat (`.owfa/command/`, `.agents/skills/`, the registry, the AGENTS injection region): packages regroup masters, not projections, so deploy/inject/registry needed no redesign.

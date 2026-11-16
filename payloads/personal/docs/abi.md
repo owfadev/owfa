@@ -29,8 +29,8 @@ returns an **empty result, not an error** (ABI smoke relies on this).
 ## Search semantics
 
 `search <expr>`: full-name **prefix** match (`notes/` matches every page under
-`wiki/notes/`) OR **substring** match in the page body (frontmatter excluded). Plain
-substring only — no regex, no operators.
+`wiki/notes/`) OR **substring** match in the page body (frontmatter excluded). The
+match is **case-sensitive**. Plain substring only — no regex, no operators.
 
 ## recent: op precision (best-effort declaration)
 

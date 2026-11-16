@@ -18,7 +18,7 @@ Read: INDEX via the kernel, PKG.yaml, manifests
 When a user asks to install a package and has NOT already specified what to include:
 
 1. `python .owfa/scripts/owfa_kernel.py plan <pkg>` — one-shot disclosure plan: trust line, package disclosure (network/privacy/credentials, package-authored), baseline (the family root, always installed), optional members with one-line summaries and what each selection pulls in, connectors
-2. Relay the plan **in the user's language** (render at the agent layer per wiki/language.md — canonical texts are English; the agent translates when relaying, never edits the source)
+2. Relay the plan **in the user's language** (render at the agent layer in the user's language, per the workspace's language declaration if the installed protocol provides one — canonical texts are English; the agent translates when relaying, never edits the source)
 3. Walk the steps: trust + disclosure → user acknowledges; optional members → user picks (each pick auto-pulls its dependency closure — show the resolved final set, users cannot compose an illegal subset); connectors → confirm (they ride the package)
 4. Execute: `python .owfa/scripts/owfa_kernel.py install <pkg> --without <unwanted> [--yes]`
 5. Report the convergence output (validate/inject/registry/deploy) in one breath

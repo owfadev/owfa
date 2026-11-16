@@ -11,3 +11,7 @@ attachment: []
 fields:
   url: "Source URL; provenance registration for URL-type assets (source preservation), optional for manual placement, required for agent channels (delegate etc.); also the interface for other domains to land via vault"
 inject: "Default domain `vault/` (real assets of any format; landing repository for other domains), wiki-side `wiki/vault/`; commands are append-only toward vault — deleting/modifying belongs to the human; layout per `wiki/structure.md`"
+commands:
+  - asset-read
+usage:
+  - Source-origin reads go through the asset-read command (extract text from any asset format, cache in wiki/tmp marked with stale_after); the cache is a regenerable projection, the original is the truth

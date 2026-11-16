@@ -40,7 +40,7 @@ python3 .owfa/scripts/owfa_kernel.py all
 
 ## 镜像同步
 
-根侧批次收尾时发生重拷。想自己触发：删掉沙盒两个镜像树，从根侧整树拷入，再跑一次 kernel 收敛。v0.4 树的 deploy 行为：根侧**没有 `connectors/`**（connector 随各包安装、按实例到达），所以全新重拷后 deploy 只从 `.owfa/command/` 部署六个框架命令 skill，**不报 connector 孤儿**——已在框架树上跑 `kernel deploy` 验证（"all in sync"，零 plugin）。`[warning] orphan copy .agents/skills/<name>/` 只在某个 skill 副本的母本在两侧都消失时出现——典型是被移除的包未做沙盒侧清理的残留——且仅报告：删除权在人。
+根侧批次收尾时发生重拷。想自己触发：删掉沙盒两个镜像树，从根侧整树拷入，再跑一次 kernel 收敛。v0.4 树的 deploy 行为：根侧**没有 `connectors/`**（connector 随各包安装、按实例到达），所以全新重拷后 deploy 只从 `.owfa/command/` 部署框架命令 skill（0.5.1 起为四个），**不报 connector 孤儿**——已在框架树上跑 `kernel deploy` 验证（"all in sync"，零 plugin）。`[warning] orphan copy .agents/skills/<name>/` 只在某个 skill 副本的母本在两侧都消失时出现——典型是被移除的包未做沙盒侧清理的残留——且仅报告：删除权在人。
 
 ## 沙盒 vs 本地
 
