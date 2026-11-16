@@ -111,14 +111,17 @@ class CompatMatchTests(unittest.TestCase):
         # rejects the next line and the line below
         interval = f">={THIS_LINE} <{NEXT_MINOR}"
         this_patch = f"{MAJOR}.{MINOR}.{PATCH}"
-        prev_patch = f"{MAJOR}.{MINOR}.{max(PATCH - 1, 0)}"
+        # a distinct patch on the same line (PATCH - 1 collapses onto this_patch
+        # when PATCH == 0, e.g. 0.5.0 — ride upward instead, bump-proof)
+        other_patch = f"{MAJOR}.{MINOR}.{PATCH + 1}"
         self.assertTrue(k.compat_match(this_patch, interval))
+        self.assertTrue(k.compat_match(other_patch, interval))
         self.assertFalse(k.compat_match(f"{NEXT_MINOR}.0", interval))
         if MINOR:  # fixture sits on minor >= 1 (0.4.x) — the minor-below anchor exists
             self.assertFalse(k.compat_match(f"{MAJOR}.{MINOR - 1}.9", interval))
-        # a narrower AND never widens: adding =prev excludes other patches
-        self.assertFalse(k.compat_match(this_patch, f">={THIS_LINE} <{NEXT_MINOR} ={prev_patch}"))
-        self.assertTrue(k.compat_match(prev_patch, f">={THIS_LINE} <{NEXT_MINOR} ={prev_patch}"))
+        # a narrower AND never widens: adding =other excludes this patch
+        self.assertFalse(k.compat_match(this_patch, f">={THIS_LINE} <{NEXT_MINOR} ={other_patch}"))
+        self.assertTrue(k.compat_match(other_patch, f">={THIS_LINE} <{NEXT_MINOR} ={other_patch}"))
 
     def test_illegal_intervals_raise(self):
         for bad in ["", "   ", "1.0", ">=1.0.0.0", "=x.y", "1.0 <2.0",
@@ -197,11 +200,22 @@ class R11TwoStateTests(unittest.TestCase):
     def install(self, pid):
         return self.run_kernel("install", pid, "--path", str(self.source / f"{pid}src"))
 
-    # ---- state 1: absent abi block -> warning, never an error (0.4.x window) ----
+    # ---- state 1: absent abi block — warn-window install (0.4.x line),
+    # end-to-end refusal once the fixture line reaches the 0.5 flip ----
 
     def test_absent_abi_block_warns_but_installs(self):
         self.proto_pkg("pw", abi_yaml=None)
         result = self.install("pw")
+        if _fw >= (0, 5):
+            # the flip has landed on the live fixture line (R11: no grandfather):
+            # the missing block refuses install end-to-end, copy carries the
+            # live version, nothing is planted
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("kind:protocol without abi block", result.stdout)
+            self.assertIn("ABI is mandatory at", result.stdout)
+            self.assertIn("R11", result.stdout)
+            self.assertFalse((self.root / ".owfa/plugins/domains/pw").exists())
+            return
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         # warning copy rides the fixture VERSION line: the flip point is the next
         # minor (0.5.0 while the fixture is 0.4.x) — bump-proof
@@ -225,10 +239,15 @@ class R11TwoStateTests(unittest.TestCase):
         self.assertFalse(errs)
         self.assertEqual(len(warns), 1)
         self.assertIn("becomes mandatory at 0.5.0", warns[0])
-        # and the live fixture version (0.4.x today) behaves as the window
+        # and the live fixture version behaves per its own line: error from the
+        # 0.5 line, warn-copy inside the 0.4.x window (bump-proof both ways)
         errs, warns = k.abi_block_issues("pw", {})
-        self.assertFalse(errs)
-        self.assertEqual(len(warns), 1)
+        if _fw >= (0, 5):
+            self.assertTrue(errs and not warns)
+            self.assertIn("mandatory at", errs[0])
+        else:
+            self.assertFalse(errs)
+            self.assertEqual(len(warns), 1)
 
     # ---- state 2: block present but illegal -> error ----
 

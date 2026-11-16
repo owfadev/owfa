@@ -87,6 +87,13 @@ class ProtocolKindTests(unittest.TestCase):
             lines.append(f"kind: {kind}")
         if protocol:
             lines.append(f"protocol: {protocol}")
+        if kind == "protocol":
+            # R11 (from the 0.5 line the missing block is an install-refusing
+            # error): fixtures under test for OTHER rulings carry a legal block
+            # so only the ruling under test can fire
+            lines += ["abi:", "  semantics: [list, get, search, recent]",
+                      "  search_lang: \"synthetic test protocol search semantics\"",
+                      "  addr_doc: docs/abi.md"]
         if provides:
             lines.append(f"provides: [{', '.join(provides)}]")
         if needs:
@@ -97,6 +104,13 @@ class ProtocolKindTests(unittest.TestCase):
             lines.append("uninstall:")
             lines.append(f"  retains: [{', '.join(retains)}]")
         (directory / "PKG.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        if kind == "protocol":
+            # R11: package-root ABI entry point accompanies the declared block
+            (directory / "proto_query.py").write_text(
+                "# synthetic ABI entry point: unknown kind -> empty result, exit 0\n"
+                "import sys\n"
+                "print('{\"ok\": true, \"semantic\": \"list\", \"count\": 0, \"items\": []}')\n",
+                encoding="utf-8")
         return directory
 
     def install_path(self, pid, *extra):
@@ -166,9 +180,18 @@ class ProtocolKindTests(unittest.TestCase):
     def test_r7_empty_members_refused(self):
         directory = self.source / "pwsrc"
         directory.mkdir()
+        # R7 is the ruling under test — carry a legal abi block (R11 would
+        # otherwise fire first from the 0.5 line) and its package-root script
         (directory / "PKG.yaml").write_text(
             "schema_version: 1\nid: pw\nkind: protocol\nprotocol: vaultwiki\nversion: 0.1\n"
-            "compat: '>= 0.3'\nmembers: []\ndepends: [framework]\nprovides: [vaultwiki.org.v1]\n",
+            "compat: '>= 0.3'\nmembers: []\ndepends: [framework]\nprovides: [vaultwiki.org.v1]\n"
+            "abi:\n  semantics: [list, get, search, recent]\n"
+            "  search_lang: \"synthetic test protocol search semantics\"\n"
+            "  addr_doc: docs/abi.md\n",
+            encoding="utf-8")
+        (directory / "proto_query.py").write_text(
+            "# synthetic ABI entry point\nimport sys\n"
+            "print('{\"ok\": true, \"semantic\": \"list\", \"count\": 0, \"items\": []}')\n",
             encoding="utf-8")
         result = self.run_kernel("install", "pw", "--path", str(directory))
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)

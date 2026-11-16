@@ -76,9 +76,22 @@ class UpgradeAtomicityTests(unittest.TestCase):
             lines.append(f"kind: {kind}")
         if kind == "protocol":
             lines.append("protocol: vaultwiki")
+            # R11 (from the 0.5 line the missing block is an install-refusing
+            # error): fixtures under test for upgrade atomicity carry a legal
+            # block so the R11 gate cannot mask the behaviors under test
+            lines += ["abi:", "  semantics: [list, get, search, recent]",
+                      "  search_lang: \"synthetic test protocol search semantics\"",
+                      "  addr_doc: docs/abi.md"]
         if provides:
             lines.append(f"provides: [{', '.join(provides)}]")
         (directory / "PKG.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        if kind == "protocol":
+            # R11: package-root ABI entry point accompanies the declared block
+            (directory / "proto_query.py").write_text(
+                "# synthetic ABI entry point: unknown kind -> empty result, exit 0\n"
+                "import sys\n"
+                "print('{\"ok\": true, \"semantic\": \"list\", \"count\": 0, \"items\": []}')\n",
+                encoding="utf-8")
         # F1 (#72 review): fixture packages carry connectors/ and command/ projections —
         # uninstall removes them and the rollback must bring them back
         tool = directory / "connectors" / f"{pid}tool"
