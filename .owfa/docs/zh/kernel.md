@@ -15,9 +15,9 @@
 
 另有一个只读辅助视图补全面：`provides`——离线、纯读盘地报告每个已装包的能力 provides 与每条 needs 的满足状态（`do_provides`）。
 
-子命令分发之前还有一个**全局旗标**：`--root <path>`（在解析任何子命令之前由 `_take_root` 消费）。它重推导一切基于 ROOT 的路径常量（`_apply_root`），使住在任意位置的内核文件能操作另一个工作区树——用户级通道正是这样服务工作区的：住在 `$OWFA_HOME/kernel/<ver>/` 的内核以 `--root` 钉住工作区运行，而工作区自己的 `.owfa/scripts/owfa_kernel.py` 只是一个转发到它的轻量弃用宿主转发器（见 [deployment.md](deployment.md)）。
+子命令分发之前还有一个**全局旗标**：`--root <path>`（在解析任何子命令之前由 `_take_root` 消费）。它重推导一切基于 ROOT 的路径常量（`_apply_root`），使住在任意位置的内核文件能操作另一个工作区树——用户级通道正是这样服务工作区的：住在 `$OWFA_HOME/kernel/<ver>/` 的内核以 `--root` 钉住工作区运行。（0.5.0 之前，工作区自己的 `.owfa/scripts/owfa_kernel.py` 是一个转发到它的轻量弃用宿主转发器；自 0.5.0 起不再种转发器——直接调用内核或经 `owfa` CLI。见 [deployment.md](deployment.md)。）
 
-**协议无关性。** 内核认识的是包、插件清单、依赖图、能力、投影——仅此而已。它不认识任何内容协议：一「页」该装什么、有哪些领地、工作区维护哪些派生工件——都不在内核词表里。最干净的证明是 v0.4.2 的产权分家：`pipeline.py`（vault-wiki 协议一侧的数据区派生层工具，如 index/tags/hot/log 重建）**已离开框架树、归入协议的 suite 包**——自 suite 0.1.1 起它随 owfa-personal 的包根分发，装有 personal 套件的工作区在实例路径 `.owfa/plugins/domains/personal/pipeline.py` 运行它。内核从不以任何形式调用它。pipeline 究竟住在哪，取决于通道（对 0.4.8 安装实测）：legacy `init` 载荷仍带一份弃用的框架树副本 `.owfa/scripts/pipeline.py`（为逆序升级保留的兼容 shim，0.5.0 退役）；用户级通道则完全不落 pipeline shim——`--user-level` 在 `.owfa/scripts/` 下只写内核转发器。也就是说，没装 personal 套件包的工作区在 legacy 通道上仍有一份弃用但可用的框架树副本；而用户级通道完全不发 pipeline——没装套件的用户级工作区任何地方都没有 pipeline。凡内核刻意不解释的，都归协议所有。
+**协议无关性。** 内核认识的是包、插件清单、依赖图、能力、投影——仅此而已。它不认识任何内容协议：一「页」该装什么、有哪些领地、工作区维护哪些派生工件——都不在内核词表里。最干净的证明是 v0.4.2 的产权分家：`pipeline.py`（vault-wiki 协议一侧的数据区派生层工具，如 index/tags/hot/log 重建）**已离开框架树、归入协议的 suite 包**——自 suite 0.1.1 起它随 owfa-personal 的包根分发，装有 personal 套件的工作区在实例路径 `.owfa/plugins/domains/personal/pipeline.py` 运行它。内核从不以任何形式调用它。pipeline 究竟住在哪，取决于通道与其发布线（0.5.0 垫片退役即终态）：自 0.5.0 起，任何通道都不再种、不再分发 pipeline 宿主垫片——legacy `init` 载荷不再携带 `.owfa/scripts/pipeline.py`，用户级通道则从未落过；装有 personal 套件的工作区在实例路径 `.owfa/plugins/domains/personal/pipeline.py` 运行它，没装套件的工作区任何地方都没有 pipeline。0.5.0 之前创建的工作区可能仍带一份弃用的框架树副本 `.owfa/scripts/pipeline.py`——既有文件继续可用（升级永不删除）；`owfa doctor` 与升级输出会打印弃用提示行，指向套件 pipeline。凡内核刻意不解释的，都归协议所有。
 
 ## 2. 包模型
 
