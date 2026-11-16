@@ -171,6 +171,7 @@ owfa workspaces rescan [--under DIR]   # 从盘上标记重建注册表索引
 - **`$OWFA_HOME`**（默认 `~/.owfa`）是用户级基座根：`kernel/<ver>/` 放已装内核，`kernel/current` 指向最新，`workspaces.yaml` 是机器注册表。设 `OWFA_HOME` 环境变量可让 CI 容器或测试沙箱各用各的根。
 - **`.owfa/WORKSPACE.yaml` 是事实源**——极简标记（`kernel_compat` 下限；协议身份永不写入，由已装协议包推导）。**`~/.owfa/workspaces.yaml` 只是索引**（路径、uuid、kernel/compat 快照）。`owfa workspaces rescan` 扫盘上 `WORKSPACE.yaml` 标记重建索引（有界扫描，默认在用户主目录下）；自 0.4.8 起，rescan 还会从盘上刷新每行的 kernel/compat 快照。`list` 对悬空路径惰性注销并提示重新 adopt。
 - **垫片退役（0.5.0）。** 自 0.5.0 起，通道不再向用户级工作区种弃用宿主转发器，legacy 通道也不再分发 pipeline 宿主垫片（`.owfa/scripts/pipeline.py`）——直接调用内核：`python3 $OWFA_HOME/kernel/<current>/owfa_kernel.py --root <工作区>`（或 `owfa` CLI）；pipeline 一律走 personal 套件包（`.owfa/plugins/domains/personal/pipeline.py`）。已有文件在升级时**永不删除**：0.5.0 之前的工作区保留其仍在工作的转发器（它与版本无关）；`owfa doctor` 与升级输出会打印弃用提示行，附同样的迁移建议。
+- **嵌套工作区与父区名册（声明式实践，2026-11-16）。** 已登记的工作区目录内可以再容纳其他已登记工作区（如个人库在 `projects/` 下托管独立项目工作区）：机器注册表对它们一视同仁，发现算法最近标记者胜——从嵌套工作区内部命中的是嵌套区，从父区树命中的是父区。父区以**自己的协议**决定如何披露子区（笔记页/索引页——父区实践，非内核法）；披露行文法：`路径 · 协议（org 能力）· compat 区间 · git 根 · 桥引用（如有连接）`。指向子区的桥就是普通桥——父区上下文只读，写仅在子区法域在场时（见 agent-behavior.md § 法域纪律）。父区不追踪子区内部——名册是指针，不是镜像。
 
 ## 5. 首次运行
 
