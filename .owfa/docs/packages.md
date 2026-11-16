@@ -6,7 +6,7 @@ The package is the distribution and install unit. This page is the consolidated 
 
 ## Package layout: directory == package
 
-The v0.4 framework tree ships **no plugins** — kernel, 4 framework command masters (`.owfa/command/`, protocol-neutral: owfa-check / owfa-docs / owfa-kernel / owfa-plugin), protocol artifacts (`.owfa/protocol/`), and the embedded blessed suite copy at `payloads/personal/`. Connectors travel with their packages (cuhksz-cli in owfa-cuhksz, mail-cli in owfa-email, bili-cli in owfa-bili); their SKILL.md files land in `.agents/skills/` via kernel deploy.
+The framework tree ships **no plugins** — kernel, 4 framework command masters (`.owfa/command/`; protocol-neutral and exactly four since 0.5.1: owfa-check / owfa-docs / owfa-kernel / owfa-plugin), protocol artifacts (`.owfa/protocol/`), and the embedded blessed suite copy at `payloads/personal/`. Connectors travel with their packages (cuhksz-cli in owfa-cuhksz, mail-cli in owfa-email, bili-cli in owfa-bili); their SKILL.md files land in `.agents/skills/` via kernel deploy.
 
 In an instance, installed packages live under `.owfa/plugins/domains/` — one directory per package, the directory boundary == install unit:
 
@@ -30,7 +30,7 @@ Projections stay id-keyed and flat (`.owfa/command/`, `.agents/skills/`, the reg
 | Package (repo) | Kind | Members | Connectors |
 |---|---|---|---|
 | framework (the channel tree) | — | none — kernel + framework commands only | — |
-| personal (**owfadev/owfa-personal**) | suite | 21 plugins (the former core, incl. the vault/mapping/structure boot exception) + 3 own commands (owfa-map / owfa-save / owfa-profile) | — |
+| personal (**owfadev/owfa-personal**) | suite | 21 plugins (the former core, incl. the vault/mapping/structure boot exception) + 5 own commands (owfa-map / owfa-save / owfa-profile + owfa-query / asset-read since suite 0.2) | — |
 | owfa-cuhksz | domain-family | cuhksz · bb · bb-map · bb-track · bb-teach · bb-quiz · sis · registry | cuhksz-cli (aggregates bb\|sis) |
 | owfa-lark / owfa-email / owfa-bili / owfa-project / owfa-github / owfa-diary / owfa-qq | domain-family | per their PKG.yaml | lark-cli / mail-cli / bili-cli / — / gh / — / qq-cli |
 

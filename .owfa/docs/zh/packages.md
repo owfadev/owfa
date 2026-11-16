@@ -6,7 +6,7 @@ package 是分发与安装的单元。本页是合并后的参考：包布局、
 
 ## 包布局：目录 == package
 
-v0.4 框架发布树**不带任何plugin**——只有kernel、4 个框架命令母本（`.owfa/command/`，协议不预设：owfa-check / owfa-docs / owfa-kernel / owfa-plugin）、协议工件（`.owfa/protocol/`）、以及内嵌的 blessed 套件副本 `payloads/personal/`。connector 随各包分发（cuhksz-cli 在 owfa-cuhksz、mail-cli 在 owfa-email、bili-cli 在 owfa-bili）；其 SKILL.md 经 kernel deploy 落入 `.agents/skills/`。
+v0.4 框架发布树**不带任何plugin**——只有kernel、4 个框架命令母本（`.owfa/command/`；自 0.5.1 起恰好四个且协议不预设：owfa-check / owfa-docs / owfa-kernel / owfa-plugin）、协议工件（`.owfa/protocol/`）、以及内嵌的 blessed 套件副本 `payloads/personal/`。connector 随各包分发（cuhksz-cli 在 owfa-cuhksz、mail-cli 在 owfa-email、bili-cli 在 owfa-bili）；其 SKILL.md 经 kernel deploy 落入 `.agents/skills/`。
 
 实例中，已安装的包位于 `.owfa/plugins/domains/` 之下——一个目录一个包，目录边界 == 安装单元：
 
@@ -30,7 +30,7 @@ v0.4 框架发布树**不带任何plugin**——只有kernel、4 个框架命令
 | 包（仓库） | kind | 成员 | connector |
 |---|---|---|---|
 | framework（发布树） | — | 无 —— 仅kernel + 框架命令 | — |
-| personal（**owfadev/owfa-personal**） | suite | 21 个plugin（原 core，含 vault/mapping/structure 启动例外）+ 3 个自有命令（owfa-map / owfa-save / owfa-profile） | — |
+| personal（**owfadev/owfa-personal**） | suite | 21 个plugin（原 core，含 vault/mapping/structure 启动例外）+ 5 个自有命令（owfa-map / owfa-save / owfa-profile，套件 0.2 起加 owfa-query / asset-read） | — |
 | owfa-cuhksz | domain-family | cuhksz · bb · bb-map · bb-track · bb-teach · bb-quiz · sis · registry | cuhksz-cli（聚合 bb\|sis） |
 | owfa-lark / owfa-email / owfa-bili / owfa-project / owfa-github / owfa-diary / owfa-qq | domain-family | 见各自 PKG.yaml | lark-cli / mail-cli / bili-cli / — / gh / — / qq-cli |
 
