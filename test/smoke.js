@@ -35,6 +35,15 @@ function countPluginBlocks(text) {
   return (text.match(/<!-- plugin:/g) || []).length;
 }
 
+// 0.5.0 shim retirement gate (mirrors shimsRetired() in bin/owfa.js): pre-0.5.0
+// channels plant the pipeline host shim on legacy init; from 0.5.0 nothing is
+// planted. The env override lets this run exercise the retired branch early.
+function shimsRetired() {
+  if (process.env.OWFA_TEST_SHIMS_RETIRED === "1") return true;
+  const t = FW.split(".").map(Number);
+  return t[0] > 0 || (t[0] === 0 && t[1] >= 5);
+}
+
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "owfa-smoke-"));
 let failures = 0;
 function step(name, fn) {
@@ -75,6 +84,13 @@ try {
       assert.ok(fs.existsSync(path.join(empty, d)), `missing ${d}`);
     }
     assert.ok(!fs.existsSync(path.join(empty, ".owfa", "plugins", "core")), "the channel must not ship plugins/core");
+    // 0.5.0 shim retirement: the pipeline host shim is planted on legacy init
+    // exactly until the retirement gate flips (then never again)
+    assert.strictEqual(
+      fs.existsSync(path.join(empty, ".owfa", "scripts", "pipeline.py")),
+      !shimsRetired(),
+      "pipeline host shim planting must follow the 0.5.0 retirement gate"
+    );
     assert.ok(fs.existsSync(path.join(empty, ".owfa", "plugins", "domains", "personal", "PKG.yaml")), "embedded personal suite not installed");
     for (const d of ["vault", "wiki/notes", "wiki/sessions", "wiki/vault"]) {
       assert.ok(fs.existsSync(path.join(empty, d)), `suite-declared skeleton ${d} missing`);
@@ -89,6 +105,28 @@ try {
     const r = run(["doctor", empty]);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
     assert.ok(/doctor: ok/.test(r.stdout), r.stdout);
+  });
+
+  // 0.5.0 shim retirement (forced gate): no forwarder planted on the user-level
+  // channel; an existing forwarder/pipeline-shim workspace gets migration
+  // advice from doctor without failing it
+  step("shim retirement: no new plants, doctor advises migration", () => {
+    const home = path.join(tmpRoot, "retire-home");
+    const ws = path.join(tmpRoot, "retire-ws");
+    const env = { ...process.env, OWFA_HOME: home, OWFA_TEST_SHIMS_RETIRED: "1" };
+    const r = spawnSync(process.execPath, [BIN, "init", ws, "--name", "retire", "--user-level"], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(r.status, 0, r.stderr + r.stdout);
+    assert.ok(!fs.existsSync(path.join(ws, ".owfa", "scripts")), "retired channel must plant no host forwarder");
+    assert.ok(/no longer planted/.test(r.stdout), r.stdout);
+    assert.ok(!fs.existsSync(path.join(ws, ".owfa", "scripts", "pipeline.py")), "retired channel must ship no pipeline host shim");
+    const scripts = path.join(ws, ".owfa", "scripts");
+    fs.mkdirSync(scripts, { recursive: true });
+    fs.writeFileSync(path.join(scripts, "owfa_kernel.py"), '"""DEPRECATED HOST FORWARDER (kernel-home Q2a) — retires in 0.5.0."""\n', "utf8");
+    fs.writeFileSync(path.join(scripts, "pipeline.py"), "# legacy pipeline host shim\n", "utf8");
+    const d = spawnSync(process.execPath, [BIN, "doctor", ws], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(d.status, 0, "deprecation notices must not fail doctor: " + d.stderr + d.stdout);
+    assert.ok(/retired host forwarder/.test(d.stdout), d.stdout);
+    assert.ok(/retired pipeline host shim/.test(d.stdout), d.stdout);
   });
 
   step("owfa pkg lists the personal suite and an empty core remainder", () => {
