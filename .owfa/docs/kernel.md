@@ -51,7 +51,9 @@ Entry-level definition of what a plugin **is**, ruled by the owner on 2026-11-15
 
 ### 2.2 The inhabited design space (evidence, 2026-11-16)
 
-The formula is not aspirational — the installed base has filled it in five distinct shapes, each a way a defined information kind answers "acquired how, processed how":
+The formula is not aspirational — the installed base has filled it in five distinct shapes, each a way a defined information kind answers "acquired how, processed how". This table is a dated snapshot of live evidence — when the membership drifts (a new plugin lands in a row, or none), re-verify against the installed base (`docs_lint` reminds at 90 days):
+
+<!-- docs-lint: snapshot 2026-11-16 -->
 
 | Shape | Members (live) | Acquisition | Processing | Note |
 |---|---|---|---|---|
