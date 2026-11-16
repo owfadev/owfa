@@ -40,6 +40,9 @@ RUNTIME_PREFIXES = (
     ".owfa/workspace.yaml", ".owfa/plugins", ".owfa/migrations", ".owfa/kernel-journal",
     ".owfa/registry-cache", ".owfa/protocol", ".owfa/command", ".agents/skills",
     "wiki/", "vault/", "scripts/check.py",
+    # retired in 0.5.0, never ships again — the path lives on only inside
+    # pre-0.5.0 installed workspaces (docs describe it as the retired shim)
+    ".owfa/scripts/pipeline.py",
 )
 VER_KEY = re.compile(r"^version:\s*([0-9.]+)\s*$", re.M)
 
