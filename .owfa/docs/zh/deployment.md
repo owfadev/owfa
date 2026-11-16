@@ -93,7 +93,7 @@ owfa version
 `init` 默认两阶段（v0.4 定局形态——通道只发这一种）：
 
 1. 从 tarball 拷 `.owfa/` 与 `.agents/skills/`，对仅 kernel 树跑 `python .owfa/scripts/owfa_kernel.py all`（validate → inject → registry → deploy）；
-2. 离线安装内嵌 **personal 套件**（原 21 个框架 plugin，即 **owfa-personal** 包的审定副本，在 `payloads/personal/`）——其 `PKG.yaml` 的 `skeleton:` 声明建出 `vault/`、`wiki/notes/`、`wiki/sessions/`、`wiki/vault/`，命令母本（`owfa-map`、`owfa-profile`、`owfa-save`）随包 deploy；
+2. 离线安装内嵌 **personal 套件**（原 21 个框架 plugin，即 **owfa-personal** 包的审定副本，在 `payloads/personal/`）——这一阶段就是协议选择（默认 `vaultwiki`；`--core none` 得裸工作区，`--core <pkg-id>` 选其他协议，见 quickstart）——其 `PKG.yaml` 的 `skeleton:` 声明建出 `vault/`、`wiki/notes/`、`wiki/sessions/`、`wiki/vault/`，命令母本（`owfa-map`、`owfa-profile`、`owfa-save`）随包 deploy；
 3. 从种子写 `AGENTS.md`；已存在则只追加**注入区**（手写部分保留；标记残缺一半则拒绝）；
 4. 可选装 package（`--packages cuhksz,lark`），停在第一个 stage 语义迁移的包。
 

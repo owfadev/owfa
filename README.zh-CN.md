@@ -56,7 +56,7 @@ v0.4 发布树（核心拆分，option B）——**没有** `.owfa/plugins/`，�
 ## 安装
 
 ```bash
-npx owfadev init my-workspace   # 两阶段：内核自举，再离线安装内嵌 personal 套件
+npx owfadev init my-workspace   # 两阶段：内核自举，再离线安装内嵌 personal 套件——这是默认的协议选择（vaultwiki）；--core none 得裸工作区，--core <pkg-id> 选其他协议
 cd my-workspace
 npx owfadev doctor              # 体检：python / 框架 / 标记 / kernel validate
 npx owfadev list                # registry 目录

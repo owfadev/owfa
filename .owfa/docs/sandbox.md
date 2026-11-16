@@ -8,7 +8,7 @@ test-repo is a scratch deployment instance living inside the development reposit
 
 ## Enabling it
 
-The sandbox is not initialized in a fresh clone. Since the v0.4 split the framework tree carries the kernel only — no plugins — so the manual build follows the same two stages as `owfa init` (kernel bootstrap, then the embedded personal suite):
+The sandbox is not initialized in a fresh clone. Since the v0.4 split the framework tree carries the kernel only — no plugins — so the manual build follows the same two stages as `owfa init` (kernel bootstrap, then the embedded personal suite — stage ② is the protocol choice, default `vaultwiki`; a sandbox for another protocol installs that protocol instead):
 
 1. `mkdir test-repo` at the framework root
 2. Copy the framework trees in: `.owfa/` and `.agents/` from the root side

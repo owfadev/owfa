@@ -1191,7 +1191,7 @@ function cmdInit(args) {
     suiteNote = "core suite ships inside the framework tree (defensive compat branch — this channel does not)";
     out(`suite: ${suiteNote} — no separate suite package is installed`);
   } else if (args.core === "none") {
-    suiteNote = "no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed";
+    suiteNote = "no protocol installed — the default protocol (personal suite) was skipped; install a protocol package before any plugin that needs its capabilities (owfa add <pkg>)";
     out(`suite: ${suiteNote}`);
   } else if (args.core) {
     out("");
@@ -1229,7 +1229,7 @@ function cmdInit(args) {
         fail("framework and suite are installed, but the workspace is not converged until the semantic migration above is cleared");
       }
     } else {
-      suiteNote = "no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed (this channel build carries no populated embedded suite)";
+      suiteNote = "no protocol installed — this channel build carries no populated embedded suite; install a protocol package before any plugin that needs its capabilities (owfa add <pkg>)";
       out(`suite: ${suiteNote}`);
     }
   }

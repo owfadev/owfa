@@ -56,7 +56,7 @@ The v0.4 release tree (core split, option B) — no `.owfa/plugins/`, no `connec
 ## Install
 
 ```bash
-npx owfadev init my-workspace   # two-stage: kernel bootstrap, then offline install of the embedded personal suite
+npx owfadev init my-workspace   # two-stage: kernel bootstrap, then the embedded personal suite — the default protocol choice (vaultwiki); --core none = bare workspace, --core <pkg-id> = another protocol
 cd my-workspace
 npx owfadev doctor              # python / framework / markers / kernel validate
 npx owfadev list                # registry catalog

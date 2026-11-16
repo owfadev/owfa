@@ -93,7 +93,7 @@ The rest of this guide writes `owfa <verb>` for the CLI and `kernel …` for the
 `init` is two-stage by default (the v0.4 final shape — this is the only shape the channel ships):
 
 1. copies `.owfa/` and `.agents/skills/` from the tarball and runs `python .owfa/scripts/owfa_kernel.py all` (validate → inject → registry → deploy) over the kernel-only tree;
-2. installs the embedded **personal suite** (the 21 former core plugins, a vetted copy of the **owfa-personal** package at `payloads/personal/`) offline — its `PKG.yaml` `skeleton:` declaration creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`, and its command masters (`owfa-map`, `owfa-profile`, `owfa-save`) deploy with it;
+2. installs the embedded **personal suite** (the 21 former core plugins, a vetted copy of the **owfa-personal** package at `payloads/personal/`) offline — this stage is the protocol choice (default `vaultwiki`; `--core none` for a bare workspace, `--core <pkg-id>` for another protocol, see quickstart) — its `PKG.yaml` `skeleton:` declaration creates `vault/`, `wiki/notes/`, `wiki/sessions/`, `wiki/vault/`, and its command masters (`owfa-map`, `owfa-profile`, `owfa-save`) deploy with it;
 3. writes `AGENTS.md` from the seed, or appends **only the injection region** to an existing one (the handwritten part is preserved; half-present markers are refused);
 4. optionally installs packages (`--packages cuhksz,lark`), stopping at the first package that stages a semantic migration.
 

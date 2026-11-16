@@ -8,7 +8,7 @@ test-repo 是住在开发仓库内部的草稿部署实例——**自 2026-10-13
 
 ## 启用
 
-新克隆里沙盒未初始化。v0.4 拆分后框架树只带 kernel——没有 plugin——所以手工建法与 `owfa init` 同为两阶段（kernel 自举，再装内嵌 personal 套件）：
+新克隆里沙盒未初始化。v0.4 拆分后框架树只带 kernel——没有 plugin——所以手工建法与 `owfa init` 同为两阶段（kernel 自举，再装内嵌 personal 套件——第②阶段即协议选择，默认 `vaultwiki`；给别的协议做沙盒就装那个协议）：
 
 1. 在框架根 `mkdir test-repo`
 2. 拷入框架树：根侧的 `.owfa/` 与 `.agents/`

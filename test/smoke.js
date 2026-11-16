@@ -458,7 +458,7 @@ try {
     const r = run(["init", inst, "--core", "none"], tmpRoot);
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
     assert.ok(
-      /no suite installed — this instance cannot install packages that depend on core capabilities until a suite is installed/.test(r.stdout),
+      /no protocol installed — the default protocol \(personal suite\) was skipped/.test(r.stdout),
       "the explicit no-suite warning is missing: " + r.stdout
     );
     assert.ok(!fs.existsSync(path.join(inst, ".owfa", "plugins", "domains", "personal")), "--core none must not install the suite");
