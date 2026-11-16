@@ -68,6 +68,10 @@
 - `agent-behavior` 词根（依 #34 术语裁决，与 user-behavior plugin 保持区分）
 - 工件落 GitHub issue，永不落实例 wiki
 
+反馈发酵为实际开发工作（内核改动、协议改动、包改动）时，推荐形态是 project 协议工作区
+并安装可选 `owfadevelop` 包、声明靶标钉子——开发循环、release gate 与范围纪律都在那里
+（见 owfa-develop 命令）。
+
 ## 跨工作区工作的法域纪律（owner 裁定 2026-11-16）
 
 agent 不被关在一个工作区里——它可以在机器上任何地方工作。唯一约束：**对 B 工作区的写，只在 B 的指令于工作上下文中在场时合法**（cwd 在 B、B 的 AGENTS.md/插件已加载、操作受 B 协议约束）。在 A 的会话上下文里，B 只读——那是无法域写，正是 bridge 红线一直禁止的东西（被约束的是通道，不是 agent）。跨区边界写之前：显式切换法域、重读目标区自己的契约、让目标区的 validate/audit 把关结果。正典文本在 bridge PLUGIN.md（§ 写红线）；本节是同一裁定的行为面。

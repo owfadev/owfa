@@ -17,6 +17,14 @@ v0.4 框架发布树**不带任何plugin**——只有kernel、6 个框架命令
  ├── email/  bili/  project/  ...
 ```
 
+## 命令分层 —— 哪些命令从哪来
+
+| 层 | 命令 | 出现在 |
+|---|---|---|
+| 框架自带（`.owfa/command/`） | asset-read、owfa-check、owfa-docs、owfa-kernel、owfa-plugin、owfa-query | **任何工作区、任何协议都在**——这就是「project 工作区里为何有 asset-read」的答案 |
+| 协议套件 | personal：owfa-map、owfa-save、owfa-profile · project：套件本身不带命令 | 运行该协议的工作区 |
+| 包命令 | 随包到达——如 owfa-develop ← 可选 `owfadevelop` 包；connector 技能同样随包走 | 装了该包的工作区 |
+
 投影保持按 id 索引、扁平（`.owfa/command/`、`.agents/skills/`、registry、AGENTS 注入区）：package 重组的是母本而非投影，因此 deploy/inject/registry 无需重设计。
 
 | 包（仓库） | kind | 成员 | connector |

@@ -17,6 +17,14 @@ In an instance, installed packages live under `.owfa/plugins/domains/` — one d
  ├── email/  bili/  project/  ...
 ```
 
+## Command tiers — which commands come from where
+
+| Tier | Commands | Present in |
+|---|---|---|
+| framework built-ins (`.owfa/command/`) | asset-read, owfa-check, owfa-docs, owfa-kernel, owfa-plugin, owfa-query | **every workspace, any protocol** — they answer "why does my project-protocol workspace have asset-read" |
+| protocol suite | personal: owfa-map, owfa-save, owfa-profile · project: (none in the suite itself) | workspaces running that protocol |
+| package commands | arrive with their package — e.g. owfa-develop ← the optional `owfadevelop` package; connector skills likewise ride with their packages | workspaces that installed the package |
+
 Projections stay id-keyed and flat (`.owfa/command/`, `.agents/skills/`, the registry, the AGENTS injection region): packages regroup masters, not projections, so deploy/inject/registry needed no redesign.
 
 | Package (repo) | Kind | Members | Connectors |
