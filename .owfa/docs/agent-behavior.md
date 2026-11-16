@@ -67,3 +67,7 @@ Only steps with verifiable traces enter this layer; steps that cannot be confirm
 - Attribution classification is mandatory — a blanket "the plugin is buggy" is not accepted
 - The `agent-behavior` word root (kept distinct from the user-behavior plugin, per the #34 terminology ruling)
 - Artifacts land on GitHub issues, never in the instance wiki
+
+## Jurisdiction discipline for cross-workspace work (owner ruling 2026-11-16)
+
+An agent is not confined to one workspace — it may work anywhere on the machine. The single constraint: **a write toward workspace B is legal only when B's instructions are in force in the working context** (cwd in B, B's AGENTS.md/plugins loaded, B's protocol governing the operation). From A's session context, B is read-only — that is a jurisdiction-less write, the thing the bridge red line has always forbidden (channels, not agents, are bound). Before writing across a workspace boundary: switch jurisdictions explicitly, re-read the target's own contracts, and let the target's validate/audit gate the result. Bridge PLUGIN.md (§ write red line) is the canonical text; this section is the behavior face of the same ruling.
