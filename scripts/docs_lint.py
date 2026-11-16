@@ -35,7 +35,6 @@ VERSION = re.compile(r"v(\d+\.\d+\.\d+)")
 CURRENT_CTX = re.compile(r"current( release)?|latest|当前版本|现行版本", re.I)
 HEADING = re.compile(r"^(#{1,4}) (.+)$", re.M)
 SNAPSHOT = re.compile(r"<!--\s*docs-lint: snapshot (\d{4}-\d{2}-\d{2})\s*-->")
-TOP_ENTRY = re.compile(r"^\s*[-*]?\s*0?\.?\d*\.?\d+\s*[\s(—-]")   # "- 0.3 (2026..." / "0.3.1 2026-..."
 # path prefixes that live in an INSTALLED tree, not the framework repo — legit in docs
 RUNTIME_PREFIXES = (
     ".owfa/workspace.yaml", ".owfa/plugins", ".owfa/migrations", ".owfa/kernel-journal",
@@ -104,7 +103,8 @@ def lint(root, docs):
                 tail = text.split("## Changelog", 1)[1]
                 first = next((l for l in tail.splitlines() if l.strip()), "")
                 fm = re.search(r"(\d+\.\d+(?:\.\d+)?)", first)
-                if ym and fm and ym.group(1) != fm.group(1):
+                norm = lambda v: ".".join(v.split(".")[:2]) if v.count(".") > 1 and v.split(".")[-1] == "0" else v
+                if ym and fm and norm(ym.group(1)) != norm(fm.group(1)):
                     issues.append(f"{rel}:1 changelog top entry {fm.group(1)} != PLUGIN.yaml version {ym.group(1)}")
 
         if "/zh/" in rel or rel.startswith("zh/"):
