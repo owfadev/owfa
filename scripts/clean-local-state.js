@@ -21,6 +21,37 @@ const STATE = [
   ".owfa/smoke-tmp",
 ];
 
+function versionTuple(v) {
+  return String(v || "").split(".").map((x) => parseInt(x, 10) || 0);
+}
+
+function cmpVersion(a, b) {
+  const x = versionTuple(a);
+  const y = versionTuple(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d !== 0) return d > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+// 0.5.0 shim retirement: from 0.5.0 on the pipeline host shim
+// (.owfa/scripts/pipeline.py) must not ship — npm applies no per-file excludes
+// inside the whitelisted .owfa/ tree, so physical absence at pack time is the
+// only mechanism (verify-release.js independently forbids it in the packlist).
+// OWFA_TEST_SHIMS_RETIRED=1 mirrors the gate in bin/owfa.js for local trials.
+function shimsRetired() {
+  if (process.env.OWFA_TEST_SHIMS_RETIRED === "1") return true;
+  try {
+    const fw = fs.readFileSync(path.join(root, ".owfa", "VERSION"), "utf8").trim();
+    return cmpVersion(fw, "0.5.0") >= 0;
+  } catch {
+    return false;
+  }
+}
+const RETIRED_PAYLOAD = [".owfa/scripts/pipeline.py"];
+
+
 function walk(dir, hit) {
   if (!fs.existsSync(dir)) return;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -46,6 +77,16 @@ for (const rel of STATE) {
   if (fs.existsSync(p)) {
     fs.rmSync(p, { recursive: true, force: true });
     removed++;
+  }
+}
+if (shimsRetired()) {
+  for (const rel of RETIRED_PAYLOAD) {
+    const p = path.join(root, rel);
+    if (fs.existsSync(p)) {
+      fs.rmSync(p, { recursive: true, force: true });
+      removed++;
+      console.log(`clean: removed retired shim ${rel} from the payload (0.5.0 retirement — restore with git checkout if developing pre-0.5.0)`);
+    }
   }
 }
 console.log(`clean: ${removed} generated item(s) removed from the framework trees`);
