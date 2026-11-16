@@ -19,6 +19,11 @@ npm 包名是 **`owfadev`**（`owfa` 这个名字被 npm 相似性策略冻结�
 
 `init` 是两阶段的：第 ① 阶段自举 kernel（`.owfa/` 树加 `AGENTS.md` 种子——加法式，已有内容不动），第 ② 阶段离线安装内嵌的 personal 套件（`kernel install personal --path payloads/personal`），由套件的 `skeleton:` 声明创建 workspace 目录（`vault/`、`wiki/notes/`、`wiki/sessions/`、`wiki/vault/`）。
 
+**第 ② 阶段是一次协议选择，不是静默默认。** 内嵌 personal 套件携带的是 `vaultwiki` 协议——面向个人信息处理的协议，
+个人知识工作区的推荐形态（设计思想源自 llm-wiki，既有工作流几乎零成本接入）。你不说，`init` 就替你选它；
+要说别的，用 `--core none` 得到裸 kernel workspace，再从注册表装真正想要的协议——装任何插件**之前**先定协议：
+开发用 workspace 选 `project` 协议（开发 owfa 本身再加可选 `owfadevelop` 包），详见 [packages.md](packages.md)。
+
 然后在 workspace 根目录开一个 agent 会话，随便丢一个文件进 `vault/`，说一句 **"owfa-map"**——agent 会把这个资产登记成 wiki 代理页（SHA-256、镜像路径、index/hot/log 联动）。首次运行同时会建好派生页。再跟一句 "owfa-check" 审计实例健康状态。
 
 至此 workspace 已经活了。日常用法见默认协议的[使用指南](https://github.com/owfadev/owfa-personal/blob/master/docs/zh/usage.md)。
