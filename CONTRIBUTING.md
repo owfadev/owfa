@@ -51,3 +51,13 @@ Changes to package membership, PKG.yaml, or the plugin layout must keep `kernel 
 ## When something is off
 
 A branch gets rejected: read the reviewer's reason, fix, re-push — the PR updates itself. Disagreeing with a review: comment on the PR or raise it in the group. Unsure whether some data may enter git: ask first, then act.
+
+## The bootstrap charter (2026-11-16)
+
+The framework repo hosts itself by the rules it ships. The rulings below are already in force from practice; this section is their canonical record.
+
+- **Review freshness (严禁自审).** The PR author never provides the approving review — GitHub enforces the human case; for agent-assisted work the review must come from a context that did not author or co-develop the change. An independent audit transcript (reproduced verification, not trusted narration) is the review evidence; the maintainer posts it as the formal review. Protection rules are the owner's escape hatch, not a merge shortcut — lifting protection to self-merge is an emergency move, recorded on the PR.
+- **Release discipline is repo-wide.** Every INDEX version bump: tag `<pkg>-v<version>` (the only fetched ref) + optional `commit:` pin (post-clone veto) + version == PKG.yaml — canonical text in the [registry](https://github.com/owfadev/owfa-registry) README; framework releases additionally require `.owfa/VERSION` == `package.json` == tag (the gate refuses otherwise). A merged-but-unbumped package fix is INVISIBLE to instances (installs fetch PKG-tagged snapshots) — version bumps are part of the fix, not an afterthought.
+- **Vocabulary rulings bind docs.** 2026-11-16: the landlord/tenant metaphor is retired from living docs (protocol = this workspace's law, domain = a defined information kind with its own charter); the plugin ontology (kernel.md §2.1) is the canonical vocabulary. Docs obey the single-source discipline (kernel.md §2.3) and `scripts/docs_lint.py` gates CI.
+- **Version cadence.** 0.x minor lines are milestone releases with declared breaking changes (0.5.0: R11 flips to error, host forwarder + pipeline shim no longer planted); patch releases carry no new features. Breaking changes are documented in releasing.md at the release PR, never discovered by users.
+- **Org layout.** This repo (kernel + channel) / the registry (index + trust gate) / `owfa-*` package repos (self-hosted contents) — one workspace one protocol; cross-workspace reference is read-only (the bridge plugin); instance repos never author framework code (the template+instance workflow above).
