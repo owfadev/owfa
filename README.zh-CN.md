@@ -46,7 +46,7 @@ v0.4 发布树（核心拆分，option B）——**没有** `.owfa/plugins/`，�
 
 | 目录 | 内容 |
 |------|------|
-| `.owfa/` | 内核树：`scripts/owfa_kernel.py` 与 `wikilib`——纯标准库零依赖（pipeline 自套件 0.1.1 起归 owfa-personal 包根；框架树副本为弃用垫片，0.5.0 退役）、`VERSION`（框架锚点，包 `compat` 下限对它校验）、`protocol/`（字段注册表、行动纪律、披露范式）、`docs/`（人读文档——见文末索引） |
+| `.owfa/` | 内核树：`.owfa/scripts/owfa_kernel.py` 与 `wikilib`——纯标准库零依赖（pipeline 自套件 0.1.1 起归 owfa-personal 包根；框架树副本为弃用垫片，0.5.0 退役）、`VERSION`（框架锚点，包 `compat` 下限对它校验）、`protocol/`（字段注册表、行动纪律、披露范式）、`docs/`（人读文档——见文末索引） |
 | `.owfa/command/` | 6 个框架命令母本：asset-read / owfa-check / owfa-docs / owfa-kernel / owfa-plugin / owfa-query（套件自有命令——owfa-map / owfa-save / owfa-profile——随 personal 套件走） |
 | `payloads/personal/` | 内嵌的 blessed **personal** 套件副本（正仓 `owfadev/owfa-personal`，经 `scripts/sync-blessed.sh` 刷新）。21 个插件成员 + 3 个套件命令；默认 init 从此路径离线安装 |
 | Packages | 域 package 各居组织仓——`owfa-cuhksz`（cuhksz-cli 聚合 bb\|sis）、`owfa-lark`、`owfa-email`（mail-cli）、`owfa-bili`（bili-cli）、`owfa-project`、`owfa-github`、`owfa-diary`、`owfa-qq`——连接器随各自的包分发；SKILL.md 经 kernel deploy 落 `.agents/skills/`。索引在 [registry](https://github.com/owfadev/owfa-registry)（`owfadev/owfa-registry`）：一行一包，人工审核的 PR 即上架门；`kernel install`/`list-remote` 对它解析，未入索引的仓 `--yes` 可装（trust: unknown） |
