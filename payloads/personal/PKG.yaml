@@ -2,7 +2,7 @@ schema_version: 1
 id: personal
 kind: protocol
 protocol: vaultwiki
-version: 0.2
+version: 0.2.1
 abi:
   semantics: [list, get, search, recent]
   search_lang: "wiki full-name prefix match OR body substring (grep)"
