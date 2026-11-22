@@ -3034,7 +3034,7 @@ def main():
         os.path.join(ROOT, ".owfa", "scripts", "owfa_home.py")
     ):
         warns.append(
-            "connector-home substrate helper missing: .owfa/scripts/owfa_home.py — connectors fall back to legacy scattered homes; run `owfa upgrade` to plant it"
+            "connector-home substrate helper missing: .owfa/scripts/owfa_home.py — connectors fall back to legacy scattered homes; run `owfa plant-helper <workspace>` to plant it"
         )
     for w in warns:
         print(f"[warning] {w}")

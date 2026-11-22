@@ -62,9 +62,24 @@ BINDINGS_VERSION = 1
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
+def _validate_component(component: str, allow_empty: bool = False) -> None:
+    """One plain path segment — no separators (either flavour), no '..', not absolute.
+
+    `allow_empty` is for migrate_legacy_home, where no component means the
+    connector home itself (single-state connectors).
+    """
+    if not component:
+        if allow_empty:
+            return
+        raise ValueError("component name must not be empty")
+    parts = [p for p in re.split(r"[\\/]+", component) if p not in ("", ".")]
+    if not parts or any(p == ".." for p in parts) or len(parts) != 1 or os.path.isabs(component):
+        raise ValueError(f"invalid component name: {component!r}")
+
+
 def machine_root() -> Path:
     raw = os.environ.get(ENV_HOME)
-    return Path(raw).expanduser() if raw else Path.home() / ".owfa"
+    return (Path(raw).expanduser() if raw else Path.home() / ".owfa").resolve()
 
 
 def connectors_root() -> Path:
@@ -100,8 +115,7 @@ def component_dir(
     carries more than one (cuhksz-cli: bb + sis) names components instead of
     growing a second home. `create` makes the directory 0700 on demand.
     """
-    if not component or os.sep in component or component in (".", ".."):
-        raise ValueError(f"invalid component name: {component!r}")
+    _validate_component(component)
     path = resolve_home(connector, explicit_root, explicit_home) / component
     if create:
         path.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -279,12 +293,26 @@ def migrate_legacy_home(
     than one state directory (cuhksz-cli: bb, sis); the default targets the
     home itself.
     """
-    if component and (os.sep in component or component in (".", "..")):
-        raise ValueError(f"invalid component name: {component!r}")
+    _validate_component(component, allow_empty=True)
     src = Path(legacy_dir).expanduser()
     if not src.exists() and not src.is_symlink():
         print(f"[owfa-home] warning: legacy home {src} does not exist — registering the binding only")
-    entry = bind(connector, root or os.getcwd(), binding_id)  # empty id → reuse the root's existing binding
+    # pre-flight: the target is decided without side effects, so a refusal never
+    # registers a binding or seeds a home the user did not ask for
+    root_resolved = str(Path(root or os.getcwd()).expanduser().resolve())
+    bindings = load_bindings(connector)
+    planned_id = binding_id or next(
+        (b["id"] for b in bindings if os.path.normpath(b.get("root", "")) == os.path.normpath(root_resolved)),
+        "" if bindings else "default",
+    )
+    if not planned_id:
+        planned_id = _slug(root_resolved)
+    dst = home_dir(connector, planned_id) / component if component else home_dir(connector, planned_id)
+    if dst.is_dir() and any(dst.iterdir()):
+        raise SystemExit(
+            f"[owfa-home] refusing to migrate: target home {dst} already exists and is not empty"
+        )
+    entry = bind(connector, root_resolved, planned_id or binding_id)
     dst = Path(entry["home"]) / component if component else Path(entry["home"])
     if src.is_symlink():
         return entry  # already migrated
@@ -294,25 +322,31 @@ def migrate_legacy_home(
         # directory, Windows raises WinError 183 — clear the empty pre-creation
         # first so the move works on both (review P1, PR #57 round 2).
         if dst.is_dir():
-            if any(dst.iterdir()):
-                raise SystemExit(
-                    f"[owfa-home] refusing to migrate: target home {dst} already exists and is not empty"
-                )
             dst.rmdir()
         os.rename(src, dst)  # same volume — atomic enough
         try:
-            if os.name == "nt":
-                import _winapi
-
-                # Junctions need no admin rights / Developer Mode, unlike
-                # os.symlink on Windows. Argument order matches os.symlink:
-                # junction AT src pointing TO dst.
-                _winapi.CreateJunction(str(dst), str(src))
-            else:
-                os.symlink(dst, src, target_is_directory=True)
+            _link_legacy_home(src, dst)
         except OSError as exc:
             print(f"[owfa-home] warning: could not link {src} -> {dst} ({exc}); old absolute paths will not resolve")
     return entry
+
+
+def _link_legacy_home(src: Path, dst: Path) -> None:
+    """Leave a link at the legacy path pointing at the new home.
+
+    Windows has no unprivileged directory symlink, so a junction is used.
+    CPython's `_winapi.CreateJunction(src_path, dst_path)` takes the *target*
+    first and creates the junction directory at *dst_path* (it requires
+    src_path to exist and calls CreateDirectoryW(dst_path)) — so the call is
+    (new home, legacy path): junction AT src pointing TO dst. POSIX uses a
+    symlink with os.symlink(dst, src), the same shape.
+    """
+    if os.name == "nt":
+        import _winapi
+
+        _winapi.CreateJunction(str(dst), str(src))
+    else:
+        os.symlink(dst, src, target_is_directory=True)
 
 
 if __name__ == "__main__":

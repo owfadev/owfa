@@ -116,7 +116,8 @@ pre-0.4 homes (`~/.bb-cli`, `~/.sis-cli`, `~/.bili-cli`, `~/.config/mail-cli`, â
 - The channel ships the helper in its kernel payload; `init` / `upgrade` / `adopt` plant
   it into `<workspace>/.owfa/scripts/owfa_home.py` (the kernel itself stays in
   `$OWFA_HOME/kernel/<ver>/`).
-- `owfa doctor` fails a marker workspace whose helper is missing; kernel `validate`
-  warns on the same condition.
+- `owfa doctor` fails a marker workspace whose helper is missing, kernel `validate`
+  warns on the same condition, and the idempotent `owfa plant-helper <ws>` repairs an
+  existing workspace (the legacy `owfa upgrade` refuses marker workspaces).
 - Connector bootstrap ABI, layout, resolution order, migration and invariants:
   [home.md](home.md).

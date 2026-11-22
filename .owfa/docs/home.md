@@ -91,8 +91,11 @@ Rules:
    `~/.owfa/connectors/...` by hand.
 2. **Fallback is legacy, and it is loud.** When no helper is found (connector
    installed outside any workspace), the connector keeps using its old scattered
-   home and prints one stderr line naming the migration command — it must never
-   silently create a second home.
+   home and prints one stderr line naming the migration command. The same rule
+   holds *after* the helper appears but before the state has moved: a connector
+   that still finds its legacy directory populated keeps serving it (loudly,
+   naming `home migrate`) instead of silently switching to an empty substrate
+   home. It must never create a second, silently preferred home.
 3. **Explicit overrides stay explicit.** Existing per-connector overrides
    (`BB_CLI_HOME`, `SIS_CLI_HOME`, …) are honoured first and mean "use exactly
    this directory"; they are compatibility escape hatches, not the default path.
@@ -109,10 +112,11 @@ workspace depends on the channel:
 | channel | where the helper lives |
 |---|---|
 | legacy (in-tree kernel) | copied with the payload tree: `<ws>/.owfa/scripts/owfa_home.py` |
-| user-level kernel (0.5.x) | planted by `owfa init` / `owfa upgrade` / `owfa adopt` into `<ws>/.owfa/scripts/owfa_home.py` (the kernel itself lives in `$OWFA_HOME/kernel/<ver>/`) |
+| user-level kernel (0.5.x) | planted by `owfa init` / `owfa adopt` into `<ws>/.owfa/scripts/owfa_home.py` (the kernel itself lives in `$OWFA_HOME/kernel/<ver>/`); an existing workspace is repaired with the idempotent `owfa plant-helper <ws>` |
 
-`owfa doctor` fails a marker workspace whose helper is missing, and `owfa
-upgrade` re-plants it. Connectors therefore only need the walk-up in the ABI
+`owfa doctor` fails a marker workspace whose helper is missing and names
+`owfa plant-helper`; the legacy `owfa upgrade` refuses marker workspaces by
+design (M1 anti-stomp guard), so `plant-helper` is the supported repair path. Connectors therefore only need the walk-up in the ABI
 above; `OWFA_HOME_HELPER` exists for unusual layouts and tests.
 
 ## Invariants

@@ -74,7 +74,7 @@ def load_owfa_home():
 规则：
 
 1. **不许猜布局。** 所有路径来自 helper（`resolve_home`、`component_dir`、`migrate_legacy_home`）。连接器不得手拼 `~/.owfa/connectors/...`。
-2. **回退就是旧目录，而且必须出声。** 找不到 helper（连接器装在工作区外）时继续用旧散落目录，并在 stderr 打一行带迁移命令的提示——绝不能悄悄造出第二个家。
+2. **回退就是旧目录，而且必须出声。** 找不到 helper（连接器装在工作区外）时继续用旧散落目录，并在 stderr 打一行带迁移命令的提示。helper 出现但状态尚未迁移时同理：只要旧目录还有数据就继续用它（出声、点名 `home migrate`），不得悄悄切到空的 substrate 家。绝不能造出第二个"静默优先"的家。
 3. **显式覆盖仍然显式。** 现有各连接器覆盖变量（`BB_CLI_HOME`、`SIS_CLI_HOME` …）优先，语义是"就用这个目录"，属兼容逃生口，不是默认路径。
 4. **迁移是显式命令，不是副作用。** `migrate_legacy_home` 只移动不复制，并在旧路径留符号链接，让旧的绝对路径继续可解析。连接器以 `home status` / `home migrate [--dry-run]` 暴露它。
 
@@ -85,9 +85,9 @@ def load_owfa_home():
 | 通道 | helper 位置 |
 |---|---|
 | legacy（树内内核） | 随载荷树复制：`<ws>/.owfa/scripts/owfa_home.py` |
-| 用户级内核（0.5.x） | `owfa init` / `owfa upgrade` / `owfa adopt` 植入 `<ws>/.owfa/scripts/owfa_home.py`（内核本体在 `$OWFA_HOME/kernel/<ver>/`） |
+| 用户级内核（0.5.x） | `owfa init` / `owfa adopt` 植入 `<ws>/.owfa/scripts/owfa_home.py`（内核本体在 `$OWFA_HOME/kernel/<ver>/`）；已存在的工作区用幂等的 `owfa plant-helper <ws>` 修复 |
 
-marker 工作区缺 helper 时 `owfa doctor` 失败、`owfa upgrade` 重新植入。连接器因此只需上面的上溯查找；`OWFA_HOME_HELPER` 留给非常规布局与测试。
+marker 工作区缺 helper 时 `owfa doctor` 失败并点名 `owfa plant-helper`；legacy 的 `owfa upgrade` 按设计拒绝 marker 工作区（M1 防踩），修复路径就是 `plant-helper`。连接器因此只需上面的上溯查找；`OWFA_HOME_HELPER` 留给非常规布局与测试。
 
 ## 不变量
 

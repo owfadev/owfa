@@ -478,6 +478,33 @@ function plantSubstrateHelper(target) {
   }
 }
 
+// The repair path doctor prescribes: an existing user-level workspace cannot be
+// "upgraded" by the legacy channel (M1 guard) and adopt is a no-op once the
+// marker exists, so the substrate helper needs an explicit, idempotent command.
+function cmdPlantHelper(args) {
+  const target = path.resolve(args._[0] || ".");
+  if (!fs.existsSync(target) || !fs.statSync(target).isDirectory()) {
+    fail(`not a directory: ${target}`);
+  }
+  if (!hasWorkspaceMarker(target)) {
+    fail(
+      `${target} carries no .owfa/WORKSPACE.yaml — plant-helper serves user-level workspaces only; ` +
+        "a legacy tree receives .owfa/scripts/owfa_home.py with the payload (owfa init / owfa upgrade)"
+    );
+  }
+  const dst = path.join(target, ".owfa", "scripts", "owfa_home.py");
+  const before = fs.existsSync(dst) ? fs.readFileSync(dst) : null;
+  const planted = plantSubstrateHelper(target);
+  if (!planted) fail("could not plant .owfa/scripts/owfa_home.py — is this channel's payload complete?");
+  const after = fs.readFileSync(dst);
+  if (before && Buffer.compare(before, after) === 0) {
+    out(`already planted: ${rel(target, dst)} (unchanged)`);
+  } else {
+    out(`planted: ${rel(target, dst)}`);
+  }
+  return 0;
+}
+
 function plantKernelForwarder(target) {
   const shim = path.join(target, ".owfa", "scripts", "owfa_kernel.py");
   fs.mkdirSync(path.dirname(shim), { recursive: true });
@@ -1452,6 +1479,7 @@ function cmdDoctor(args) {
       : "not an OWFA instance (no .owfa/VERSION) — run `owfa init` first"
   );
   out(`instance framework ${local}`);
+  const problems = []; // required conditions — any hit fails doctor (review P2, PR #53)
   // D (step 2): a marker workspace reports its kernel source and registry
   // standing — informational (registration hints never fail doctor)
   if (hasWorkspaceMarker(target)) {
@@ -1464,14 +1492,13 @@ function cmdDoctor(args) {
     // their own __file__; a missing helper silently strands them on legacy homes.
     const helperFile = path.join(target, ".owfa", "scripts", "owfa_home.py");
     if (!fs.existsSync(helperFile)) {
-      out("substrate: .owfa/scripts/owfa_home.py MISSING — connectors cannot reach ~/.owfa/connectors/; run `owfa upgrade`");
+      out(`substrate: .owfa/scripts/owfa_home.py MISSING — connectors cannot reach ~/.owfa/connectors/; run \`owfa plant-helper ${target}\``);
       problems.push("connector-home substrate helper is missing");
     }
   }
   // 0.5.0 shim retirement: existing forwarder/pipeline-shim files keep working
   // — informational migration advice only, never a doctor problem
   reportRetiredShims(target);
-  const problems = []; // required conditions — any hit fails doctor (review P2, PR #53)
   // layout-shim health (review P2 on the layout PR): a renamed/copied instance
   // leaves the Windows junction pointing at the old absolute path; a real .meta
   // directory means the 0.3 layout was never migrated. doctor reports; upgrade heals.
@@ -1662,6 +1689,7 @@ function cmdAdopt(args) {
       if (kernel(target, ["validate"]) !== 0) {
         fail(`adopt resume: user-level validate failed — the hold at ${staleHold} is KEPT (rollback safety); inspect and rerun after fixing`);
       }
+      plantSubstrateHelper(target);   // a kill between green validate and the plant must self-heal
       fs.rmSync(staleHold, { recursive: true, force: true });
       out(`hold cleared after green validate — adopt complete`);
       return 0;
@@ -1755,6 +1783,9 @@ usage:
   owfa install-kernel
       install this channel's kernel master into $OWFA_HOME/kernel/<X.Y.Z>/
       (multi-version coexistence, G1; sha256-verified against the master, Q7)
+  owfa plant-helper [dir]
+      (re)plant .owfa/scripts/owfa_home.py — the connector-home substrate helper —
+      into an existing user-level workspace (idempotent; doctor names this command)
   owfa adopt <dir>
       migrate a legacy tree onto the user-level kernel channel: park the tree
       scripts, write the marker, register, validate through the new kernel —
@@ -1787,6 +1818,12 @@ notes:
 }
 
 const COMMAND_HELP = {
+  "plant-helper": "usage: owfa plant-helper [dir]\n\n" +
+        "plant (or re-plant) .owfa/scripts/owfa_home.py — the connector-home substrate helper —\n" +
+        "into an existing user-level workspace. Idempotent. The helper ships with the kernel;\n" +
+        "connectors find their machine home ($OWFA_HOME/connectors/<name>/) by walking up from\n" +
+        "their own file to it. `owfa doctor` names this command when it is missing.\n" +
+        "Legacy in-tree workspaces receive the helper with the payload (init / upgrade).",
   init: "usage: owfa init [dir] [--name NAME] [--core none|<pkg-id>] [--packages a,b] [--without m,n] [--force]\n\n" +
         "deploy a fresh workspace (additive: existing files and AGENTS.md are preserved).\n" +
         "python 3.9+ required for the framework; node 16.7+ runs this installer only.\n" +
@@ -1831,6 +1868,7 @@ const COMMAND_HELP = {
 const COMMAND_FLAGS = {
   init: ["force", "user-level", "help", "h", ...FLAG_VALUE],
   "install-kernel": ["help", "h"],
+  "plant-helper": ["help", "h"],
   adopt: ["help", "h"],
   workspaces: ["under", "help", "h"],
   upgrade: ["check", "dry-run", "backup", "force", "help", "h"],
@@ -1875,6 +1913,8 @@ function main() {
       return cmdInit(args);
     case "install-kernel":
       return cmdInstallKernel();
+    case "plant-helper":
+      return cmdPlantHelper(args);
     case "adopt":
       return cmdAdopt(args);
     case "workspaces":

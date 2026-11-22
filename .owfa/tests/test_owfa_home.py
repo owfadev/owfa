@@ -159,6 +159,68 @@ class OwfaHomeTests(unittest.TestCase):
         self.assertEqual(status["stale_bindings"], [])
         self.assertTrue(Path(status["home"]).is_dir())
 
+    def test_component_validation_rejects_traversal_and_absolute(self):
+        # os.sep alone misses "/" on Windows; both flavours, "..", and absolute
+        # paths must be refused before any path arithmetic happens
+        for bad in ("../escape", "a/../b", "/abs", "a\\b", "..", "."):
+            with self.assertRaises(ValueError, msg=bad):
+                h.component_dir("cuhksz-cli", bad)
+
+    def test_migrate_refusal_leaves_no_binding_and_no_home(self):
+        # pre-flight, not bind-then-refuse: a refused migration must not
+        # register a binding or seed a home the user did not ask for
+        legacy = Path(self._ws("legacy-busy"))
+        legacy.mkdir(exist_ok=True)
+        (legacy / "x").write_text("1", encoding="utf-8")
+        os.chdir(self.ws1)
+        target = h.component_dir("cuhksz-cli", "bb")
+        (target / "occupied").write_text("1", encoding="utf-8")
+        before = h.load_bindings("cuhksz-cli")
+        with self.assertRaises(SystemExit):
+            h.migrate_legacy_home("cuhksz-cli", str(legacy), "default", root=self.ws1, component="bb")
+        self.assertEqual(h.load_bindings("cuhksz-cli"), before,
+                         "a refused migration must not register or refresh a binding")
+        self.assertTrue((legacy / "x").exists(), "a refused migration must not move the legacy dir")
+
+    def test_connector_status_creates_nothing(self):
+        # read-only claim, tested on a virgin machine: no home, no bindings, no dirs
+        os.chdir(self.ws1)
+        home = h.home_dir("inert-cli", "default")
+        self.assertFalse(home.exists())
+        status = h.connector_status("inert-cli")
+        self.assertFalse(home.exists(), "connector_status must not create the home")
+        self.assertFalse(h.connector_dir("inert-cli").exists(), "connector_status must not create connector state")
+        self.assertEqual(status["bindings"], [])
+        self.assertEqual(status["components"], [])
+
+    def test_link_legacy_windows_junction_argument_order(self):
+        # CPython: _winapi.CreateJunction(src_path, dst_path) — src_path is the
+        # TARGET (must exist), dst_path the junction location. So the call must
+        # be (new home, legacy path).
+        calls = []
+
+        class FakeWinapi:
+            @staticmethod
+            def CreateJunction(a, b):
+                calls.append((a, b))
+
+        src = Path(self._ws("legacy-junction"))
+        dst = Path(self._ws("new-home"))
+        real_os_name = h.os.name
+        real_winapi = sys.modules.get("_winapi")
+        h.os.name = "nt"          # type: ignore[attr-defined]
+        sys.modules["_winapi"] = FakeWinapi  # type: ignore[assignment]
+        try:
+            h._link_legacy_home(src, dst)
+        finally:
+            h.os.name = real_os_name  # type: ignore[attr-defined]
+            if real_winapi is None:
+                sys.modules.pop("_winapi", None)
+            else:
+                sys.modules["_winapi"] = real_winapi
+        self.assertEqual(calls, [(str(dst), str(src))],
+                         "junction must be created AT the legacy path, pointing TO the new home")
+
     def test_migrate_moves_and_symlinks(self):
         legacy = Path(self._ws("legacy-home"))
         (legacy / "credentials.json").write_text("{}", encoding="utf-8")
