@@ -112,6 +112,53 @@ class OwfaHomeTests(unittest.TestCase):
         stale = h.stale_bindings("qq-cli")
         self.assertEqual([s["id"] for s in stale], ["dying"])
 
+    def test_component_dir_nests_under_home(self):
+        os.chdir(self.ws1)
+        bb = h.component_dir("cuhksz-cli", "bb")
+        self.assertEqual(bb, h.resolve_home("cuhksz-cli") / "bb")
+        self.assertTrue(bb.is_dir(), "component_dir must create the component")
+        with self.assertRaises(ValueError):
+            h.component_dir("cuhksz-cli", "../escape")
+
+    def test_migrate_into_two_components(self):
+        # cuhksz-cli carries bb and sis: one home, two component directories
+        bb = Path(self._ws("legacy-bb"))
+        bb.mkdir(exist_ok=True)
+        (bb / "session.json").write_text("{}", encoding="utf-8")
+        sis = Path(self._ws("legacy-sis"))
+        sis.mkdir(exist_ok=True)
+        (sis / "cred.json").write_text("{}", encoding="utf-8")
+        os.chdir(self.ws1)
+        e1 = h.migrate_legacy_home("cuhksz-cli", str(bb), "default", root=self.ws1, component="bb")
+        e2 = h.migrate_legacy_home("cuhksz-cli", str(sis), "default", root=self.ws1, component="sis")
+        self.assertEqual(e1["home"], e2["home"], "both components share one home")
+        home = Path(e1["home"])
+        self.assertTrue((home / "bb" / "session.json").exists())
+        self.assertTrue((home / "sis" / "cred.json").exists())
+        self.assertEqual(os.path.realpath(bb), os.path.realpath(home / "bb"))
+        self.assertEqual(os.path.realpath(sis), os.path.realpath(home / "sis"))
+
+    def test_component_migration_refuses_non_empty_target(self):
+        legacy = Path(self._ws("legacy-again"))
+        legacy.mkdir(exist_ok=True)
+        (legacy / "x").write_text("1", encoding="utf-8")
+        os.chdir(self.ws1)
+        h.component_dir("cuhksz-cli", "bb")
+        (h.component_dir("cuhksz-cli", "bb", create=False) / "occupied").write_text("1", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            h.migrate_legacy_home("cuhksz-cli", str(legacy), "default", root=self.ws1, component="bb")
+
+    def test_connector_status_is_read_only_view(self):
+        os.chdir(self.ws1)
+        h.bind("cuhksz-cli", self.ws1, "default")
+        h.component_dir("cuhksz-cli", "bb")
+        status = h.connector_status("cuhksz-cli")
+        self.assertEqual(status["connector"], "cuhksz-cli")
+        self.assertEqual(status["components"], ["bb"])
+        self.assertEqual(status["exclusivity_violations"], [])
+        self.assertEqual(status["stale_bindings"], [])
+        self.assertTrue(Path(status["home"]).is_dir())
+
     def test_migrate_moves_and_symlinks(self):
         legacy = Path(self._ws("legacy-home"))
         (legacy / "credentials.json").write_text("{}", encoding="utf-8")

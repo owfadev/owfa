@@ -116,7 +116,16 @@ try {
     const env = { ...process.env, OWFA_HOME: home, OWFA_TEST_SHIMS_RETIRED: "1" };
     const r = spawnSync(process.execPath, [BIN, "init", ws, "--name", "retire", "--user-level"], { cwd: tmpRoot, encoding: "utf-8", env });
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
-    assert.ok(!fs.existsSync(path.join(ws, ".owfa", "scripts")), "retired channel must plant no host forwarder");
+    assert.ok(
+      !fs.existsSync(path.join(ws, ".owfa", "scripts", "owfa_kernel.py")),
+      "retired channel must plant no host forwarder"
+    );
+    // the connector-home substrate helper is NOT a shim: it must be planted even
+    // on the retired channel, or connectors cannot resolve ~/.owfa/connectors/
+    assert.ok(
+      fs.existsSync(path.join(ws, ".owfa", "scripts", "owfa_home.py")),
+      "substrate helper must be planted on the user-level channel"
+    );
     assert.ok(/no longer planted/.test(r.stdout), r.stdout);
     assert.ok(!fs.existsSync(path.join(ws, ".owfa", "scripts", "pipeline.py")), "retired channel must ship no pipeline host shim");
     const scripts = path.join(ws, ".owfa", "scripts");

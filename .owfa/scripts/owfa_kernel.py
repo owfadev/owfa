@@ -3027,6 +3027,15 @@ def main():
         validate_capabilities(pkgs, errors, warns, plugins=plugins)
     for k, v in sorted(_led.items()):
         errors.append(f"[error] pending semantic migration {k} {v.get('from', '?')}->{v.get('to', '?')} — kernel migrate {k} --clear; mechanical blessing withheld (tri-face warning)")
+    # Connector-home substrate (docs/home.md): a user-level workspace must carry
+    # the helper — connectors find $OWFA_HOME/connectors/<name>/ by walking up
+    # from their own file. Missing helper silently strands them on legacy homes.
+    if os.path.exists(os.path.join(ROOT, ".owfa", "WORKSPACE.yaml")) and not os.path.exists(
+        os.path.join(ROOT, ".owfa", "scripts", "owfa_home.py")
+    ):
+        warns.append(
+            "connector-home substrate helper missing: .owfa/scripts/owfa_home.py — connectors fall back to legacy scattered homes; run `owfa upgrade` to plant it"
+        )
     for w in warns:
         print(f"[warning] {w}")
     for e in errors:

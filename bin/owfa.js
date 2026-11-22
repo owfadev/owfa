@@ -99,7 +99,7 @@ function hasWorkspaceMarker(target) {
 // version, multi-version coexistence (G1); `current` is the workspace-
 // independent "latest installed" pointer. The kernel payload is the kernel
 // script plus its shared lib (owfa_kernel.py imports wikilib from its own dir).
-const KERNEL_FILES = ["owfa_kernel.py", "wikilib.py"];
+const KERNEL_FILES = ["owfa_kernel.py", "wikilib.py", "owfa_home.py"];
 
 function kernelVersionDir(ver) {
   return path.join(owfaHome(), "kernel", ver);
@@ -449,6 +449,35 @@ function installKernel() {
 // on a user-level workspace that file is this forwarder, which execs the
 // user-level kernel with --root. Retires in 0.5.0 along with the pipeline
 // host shim (same ruling).
+// Connector-home substrate ABI (docs/home.md): every connector process finds
+// `.owfa/scripts/owfa_home.py` by walking up from its own __file__. That means a
+// workspace must carry the helper even on the user-level channel, where
+// .owfa/scripts/ holds no kernel (the kernel lives in $OWFA_HOME/kernel/<ver>/).
+// Planting is best-effort and never fails the install: an absent helper only
+// costs connectors their substrate home (they fall back with a migration notice).
+function plantSubstrateHelper(target) {
+  const dst = path.join(target, ".owfa", "scripts", "owfa_home.py");
+  const candidates = [];
+  const cur = currentUserKernel();
+  if (cur) candidates.push(path.join(kernelVersionDir(cur), "owfa_home.py"));
+  candidates.push(path.join(CLI_ROOT, ".owfa", "scripts", "owfa_home.py"));
+  const src = candidates.find((p) => fs.existsSync(p));
+  if (!src) {
+    out("warning: owfa_home.py not found in this channel — connectors will fall back to legacy homes");
+    return null;
+  }
+  try {
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    fs.copyFileSync(src, dst);
+    fs.chmodSync(dst, 0o644);
+    out("substrate: .owfa/scripts/owfa_home.py planted (connector homes resolve under ~/.owfa/connectors/)");
+    return dst;
+  } catch (e) {
+    out(`warning: could not plant .owfa/scripts/owfa_home.py (${e.message}) — connectors fall back to legacy homes`);
+    return null;
+  }
+}
+
 function plantKernelForwarder(target) {
   const shim = path.join(target, ".owfa", "scripts", "owfa_kernel.py");
   fs.mkdirSync(path.dirname(shim), { recursive: true });
@@ -1234,6 +1263,7 @@ function cmdInit(args) {
       plantKernelForwarder(target);
       out("shim: .owfa/scripts/owfa_kernel.py forwarder planted (retires in 0.5.0) — legacy agent paths keep working");
     }
+    plantSubstrateHelper(target);
   }
 
   // ---- stage ②: the core suite ----
@@ -1430,6 +1460,13 @@ function cmdDoctor(args) {
     else out("kernel source: user-level, but NO installed kernel satisfies the marker's kernel_compat — run `owfa install-kernel`");
     const reg = registryFindByPath(target);
     out(`registry: ${reg ? `registered (id ${String(reg.id).slice(0, 8)}, kernel ${reg.kernel || "?"})` : `NOT registered — run \`owfa workspaces register ${target}\``}`);
+    // Connector-home substrate: connectors find the helper by walking up from
+    // their own __file__; a missing helper silently strands them on legacy homes.
+    const helperFile = path.join(target, ".owfa", "scripts", "owfa_home.py");
+    if (!fs.existsSync(helperFile)) {
+      out("substrate: .owfa/scripts/owfa_home.py MISSING — connectors cannot reach ~/.owfa/connectors/; run `owfa upgrade`");
+      problems.push("connector-home substrate helper is missing");
+    }
   }
   // 0.5.0 shim retirement: existing forwarder/pipeline-shim files keep working
   // — informational migration advice only, never a doctor problem
@@ -1673,6 +1710,7 @@ function cmdAdopt(args) {
     if (kernel(target, ["validate"]) !== 0) throw new Error("kernel validate failed (see above)");
     if (!shimsRetired()) plantKernelForwarder(target);   // P2: only after green — the shim occupies .owfa/scripts and must never block a rollback rename
     else out("shim: host forwarder no longer planted (retired in 0.5.0) — invoke the kernel directly (see owfa doctor)");
+    plantSubstrateHelper(target);                        // connector-home ABI: connectors resolve ~/.owfa/connectors/ through this file
   } catch (e) {
     try {
       const shimFile = path.join(scriptsDir, "owfa_kernel.py");
