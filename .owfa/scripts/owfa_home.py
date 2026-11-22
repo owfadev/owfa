@@ -30,6 +30,21 @@ Migration from pre-0.4 scattered homes (~/.qq-cli and friends): `migrate_legacy_
 MOVES the legacy directory into homes/<id> (move, never copy — credentials must not
 duplicated) and registers the binding.
 
+A connector with more than one state directory (bb + sis, say) keeps them as
+components under its single home: homes/<id>/<component>/. `component_dir` is the
+accessor and `migrate_legacy_home(..., component=...)` migrates one legacy
+directory into one component — a connector never invents a second layout.
+
+Connector bootstrap ABI (how a connector process finds this module):
+
+    1. $OWFA_HOME_HELPER                 explicit path to this file
+    2. walk-up from the connector's own __file__ (…/connectors/<name>/<pkg>/x.py
+       climbs to <workspace>/.owfa/scripts/owfa_home.py)
+    3. walk-up from cwd
+    4. no helper found → the connector falls back to its legacy scattered home
+       and prints a one-line migration notice; it must never silently create a
+       second home.
+
 Pure stdlib. State writes are atomic (tmp + os.replace) with 0600 perms; the
 registry is single-writer by convention (human or installer), so no file lock.
 """
@@ -47,9 +62,24 @@ BINDINGS_VERSION = 1
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
+def _validate_component(component: str, allow_empty: bool = False) -> None:
+    """One plain path segment — no separators (either flavour), no '..', not absolute.
+
+    `allow_empty` is for migrate_legacy_home, where no component means the
+    connector home itself (single-state connectors).
+    """
+    if not component:
+        if allow_empty:
+            return
+        raise ValueError("component name must not be empty")
+    parts = [p for p in re.split(r"[\\/]+", component) if p not in ("", ".")]
+    if not parts or any(p == ".." for p in parts) or len(parts) != 1 or os.path.isabs(component):
+        raise ValueError(f"invalid component name: {component!r}")
+
+
 def machine_root() -> Path:
     raw = os.environ.get(ENV_HOME)
-    return Path(raw).expanduser() if raw else Path.home() / ".owfa"
+    return (Path(raw).expanduser() if raw else Path.home() / ".owfa").resolve()
 
 
 def connectors_root() -> Path:
@@ -70,6 +100,30 @@ def homes_root(connector: str) -> Path:
 
 def home_dir(connector: str, binding_id: str) -> Path:
     return homes_root(connector) / binding_id
+
+
+def component_dir(
+    connector: str,
+    component: str,
+    explicit_root: str = "",
+    explicit_home: str = "",
+    create: bool = True,
+) -> Path:
+    """One state directory of a multi-directory connector: homes/<id>/<component>/.
+
+    Single-directory connectors use resolve_home() directly; a connector that
+    carries more than one (cuhksz-cli: bb + sis) names components instead of
+    growing a second home. `create` makes the directory 0700 on demand.
+    """
+    _validate_component(component)
+    path = resolve_home(connector, explicit_root, explicit_home) / component
+    if create:
+        path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            os.chmod(path, 0o700)
+        except OSError:
+            pass
+    return path
 
 
 def _now_iso() -> str:
@@ -197,18 +251,69 @@ def stale_bindings(connector: str) -> list:
     return [b for b in load_bindings(connector) if not os.path.isdir(b.get("root", ""))]
 
 
-def migrate_legacy_home(connector: str, legacy_dir: str, binding_id: str = "", root: str = "") -> dict:
+def connector_status(connector: str, explicit_root: str = "") -> dict:
+    """Read-only substrate view for a connector's `home status` command / health checks.
+
+    Reports where the connector's state lives, which components exist, and the
+    two substrate-level hazards (exclusivity violations, stale bindings). It
+    never creates or moves anything.
+    """
+    home = resolve_home(connector, explicit_root)
+    comps = []
+    try:
+        comps = sorted(p.name for p in home.iterdir() if p.is_dir())
+    except OSError:
+        pass
+    return {
+        "connector": connector,
+        "connector_dir": str(connector_dir(connector)),
+        "bindings": load_bindings(connector),
+        "resolved_root": resolve_root(connector, explicit_root),
+        "home": str(home),
+        "components": comps,
+        "exclusivity_violations": exclusivity_violations(connector),
+        "stale_bindings": stale_bindings(connector),
+    }
+
+
+def migrate_legacy_home(
+    connector: str,
+    legacy_dir: str,
+    binding_id: str = "",
+    root: str = "",
+    component: str = "",
+) -> dict:
     """Move a pre-0.4 scattered home (e.g. ~/.qq-cli) into homes/<id> and bind it.
 
     MOVE, never copy: credentials must not exist in two places. The legacy
     directory is left as a symlink to the new home so old absolute paths keep
     resolving — the symlink is the 0.5-cleanup item.
+
+    `component` targets homes/<id>/<component> for connectors that carry more
+    than one state directory (cuhksz-cli: bb, sis); the default targets the
+    home itself.
     """
+    _validate_component(component, allow_empty=True)
     src = Path(legacy_dir).expanduser()
     if not src.exists() and not src.is_symlink():
         print(f"[owfa-home] warning: legacy home {src} does not exist — registering the binding only")
-    entry = bind(connector, root or os.getcwd(), binding_id)  # empty id → reuse the root's existing binding
-    dst = Path(entry["home"])
+    # pre-flight: the target is decided without side effects, so a refusal never
+    # registers a binding or seeds a home the user did not ask for
+    root_resolved = str(Path(root or os.getcwd()).expanduser().resolve())
+    bindings = load_bindings(connector)
+    planned_id = binding_id or next(
+        (b["id"] for b in bindings if os.path.normpath(b.get("root", "")) == os.path.normpath(root_resolved)),
+        "" if bindings else "default",
+    )
+    if not planned_id:
+        planned_id = _slug(root_resolved)
+    dst = home_dir(connector, planned_id) / component if component else home_dir(connector, planned_id)
+    if dst.is_dir() and any(dst.iterdir()):
+        raise SystemExit(
+            f"[owfa-home] refusing to migrate: target home {dst} already exists and is not empty"
+        )
+    entry = bind(connector, root_resolved, planned_id or binding_id)
+    dst = Path(entry["home"]) / component if component else Path(entry["home"])
     if src.is_symlink():
         return entry  # already migrated
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -217,25 +322,31 @@ def migrate_legacy_home(connector: str, legacy_dir: str, binding_id: str = "", r
         # directory, Windows raises WinError 183 — clear the empty pre-creation
         # first so the move works on both (review P1, PR #57 round 2).
         if dst.is_dir():
-            if any(dst.iterdir()):
-                raise SystemExit(
-                    f"[owfa-home] refusing to migrate: target home {dst} already exists and is not empty"
-                )
             dst.rmdir()
         os.rename(src, dst)  # same volume — atomic enough
         try:
-            if os.name == "nt":
-                import _winapi
-
-                # Junctions need no admin rights / Developer Mode, unlike
-                # os.symlink on Windows. Argument order matches os.symlink:
-                # junction AT src pointing TO dst.
-                _winapi.CreateJunction(str(dst), str(src))
-            else:
-                os.symlink(dst, src, target_is_directory=True)
+            _link_legacy_home(src, dst)
         except OSError as exc:
             print(f"[owfa-home] warning: could not link {src} -> {dst} ({exc}); old absolute paths will not resolve")
     return entry
+
+
+def _link_legacy_home(src: Path, dst: Path) -> None:
+    """Leave a link at the legacy path pointing at the new home.
+
+    Windows has no unprivileged directory symlink, so a junction is used.
+    CPython's `_winapi.CreateJunction(src_path, dst_path)` takes the *target*
+    first and creates the junction directory at *dst_path* (it requires
+    src_path to exist and calls CreateDirectoryW(dst_path)) — so the call is
+    (new home, legacy path): junction AT src pointing TO dst. POSIX uses a
+    symlink with os.symlink(dst, src), the same shape.
+    """
+    if os.name == "nt":
+        import _winapi
+
+        _winapi.CreateJunction(str(dst), str(src))
+    else:
+        os.symlink(dst, src, target_is_directory=True)
 
 
 if __name__ == "__main__":
@@ -243,16 +354,19 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser(description="OWFA machine substrate: connector home bindings")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("bind", "unbind", "resolve", "list", "stale", "exclusive", "migrate"):
+    for name in ("bind", "unbind", "resolve", "list", "stale", "exclusive", "migrate", "component", "status"):
         s = sub.add_parser(name)
         s.add_argument("connector")
-        if name in ("bind", "resolve", "migrate"):
+        if name in ("bind", "resolve", "migrate", "status"):
             s.add_argument("--root", default="")
         if name in ("bind", "migrate"):
             s.add_argument("--id", default="")
             s.add_argument("--bot", default="")
         if name == "migrate":
             s.add_argument("--legacy", required=True)
+            s.add_argument("--component", default="")
+        if name == "component":
+            s.add_argument("component")
         if name == "unbind":
             s.add_argument("binding_id")
     args = ap.parse_args()
@@ -270,4 +384,11 @@ if __name__ == "__main__":
     elif args.cmd == "exclusive":
         print(json.dumps(exclusivity_violations(c), ensure_ascii=False))
     elif args.cmd == "migrate":
-        print(json.dumps(migrate_legacy_home(c, args.legacy, args.id, args.root or os.getcwd()), ensure_ascii=False))
+        print(json.dumps(
+            migrate_legacy_home(c, args.legacy, args.id, args.root or os.getcwd(), args.component),
+            ensure_ascii=False,
+        ))
+    elif args.cmd == "component":
+        print(component_dir(c, args.component))
+    elif args.cmd == "status":
+        print(json.dumps(connector_status(c, args.root), ensure_ascii=False, indent=2))

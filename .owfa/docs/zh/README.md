@@ -22,6 +22,7 @@
 
 - [naming.md](naming.md) —— 命名史：OWFA、`owfadev`、被冻结的 `owfa` npm 名。
 - [sandbox.md](sandbox.md) —— 沙盒：什么在哪里运行、什么永不被触碰。
+- [home.md](home.md) —— 机器级 substrate：连接器家目录、工作区绑定、连接器 bootstrap ABI。
 - [agent-behavior.md](agent-behavior.md) —— agent 行为自检。
 - [abi.md](abi.md) —— 协议 ABI：四语义调用契约、compat 区间、R11 合格线。
 - [map.md](map.md) —— map 机制：vault 资产 → wiki 代理页。

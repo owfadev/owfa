@@ -413,13 +413,19 @@ class InitUserLevelTests(unittest.TestCase):
         # lives at $OWFA_HOME/kernel/<ver>/VERSION. Pre-0.5.0 channels plant
         # the deprecated host forwarder in scripts/; from 0.5.0 on (retirement)
         # nothing is planted at all — the kernel is invoked directly.
+        scripts = self.ws / ".owfa" / "scripts"
         if SHIMS_RETIRED:
-            self.assertFalse((self.ws / ".owfa" / "scripts").exists(),
-                             "0.5.0+ must plant no host forwarder (or anything else) under .owfa/scripts/")
+            # 0.5.0+ plants no host forwarder, but the connector-home substrate
+            # helper (owfa_home.py) is NOT a shim: connectors find their machine
+            # home by walking up to it, so it must be there.
+            self.assertFalse((scripts / "owfa_kernel.py").exists(), "0.5.0+ must plant no host forwarder")
+            self.assertTrue((scripts / "owfa_home.py").exists(), "substrate helper must be planted")
+            self.assertEqual(sorted(p.name for p in scripts.iterdir()), ["owfa_home.py"],
+                             "scripts/ carries the substrate helper and nothing else")
             self.assertIn("no longer planted", self.out)
         else:
-            self.assertTrue((self.ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") >= 0)
-            self.assertFalse((self.ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
+            self.assertTrue((scripts / "owfa_kernel.py").read_text().find("FORWARDER") >= 0)
+            self.assertFalse((scripts / "wikilib.py").exists(), "scripts must hold only the P2 forwarder + substrate helper")
         self.assertFalse((self.ws / ".owfa" / "VERSION").exists())
 
     def test_marker_is_minimal_yaml(self):
@@ -547,11 +553,13 @@ class AdoptTests(unittest.TestCase):
         # tree kernel exited: scripts + VERSION gone, hold cleared; pre-0.5.0
         # the deprecated host forwarder occupies scripts/, from 0.5.0 (shim
         # retirement) nothing is planted at all
+        scripts = ws / ".owfa" / "scripts"
         if SHIMS_RETIRED:
-            self.assertFalse((ws / ".owfa" / "scripts").exists(), "0.5.0+ adopt must plant no host forwarder")
+            self.assertFalse((scripts / "owfa_kernel.py").exists(), "0.5.0+ adopt must plant no host forwarder")
+            self.assertTrue((scripts / "owfa_home.py").exists(), "adopt must plant the substrate helper")
             self.assertIn("no longer planted", r.stdout)
         else:
-            self.assertFalse((ws / ".owfa" / "scripts" / "owfa_kernel.py").read_text().find("FORWARDER") == -1 or (ws / ".owfa" / "scripts" / "wikilib.py").exists(), "scripts must hold only the P2 forwarder")
+            self.assertFalse((scripts / "owfa_kernel.py").read_text().find("FORWARDER") == -1 or (scripts / "wikilib.py").exists(), "scripts must hold only the P2 forwarder + substrate helper")
         self.assertFalse((ws / ".owfa" / "VERSION").exists())
         self.assertFalse((ws / ".owfa" / "migrations" / "kernel-exit-hold").exists())
         # marker floor = tree VERSION; registry bound; kernel installed
@@ -628,7 +636,9 @@ class ShimRetirementTests(unittest.TestCase):
             ws = Path(tmp) / "ws"
             r = self._retired(["init", str(ws), "--name", "ul", "--user-level"], home)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertFalse((ws / ".owfa" / "scripts").exists(), "retired channel must plant no host forwarder")
+            scripts = ws / ".owfa" / "scripts"
+            self.assertFalse((scripts / "owfa_kernel.py").exists(), "retired channel must plant no host forwarder")
+            self.assertTrue((scripts / "owfa_home.py").exists(), "substrate helper must be planted")
             self.assertIn("no longer planted", r.stdout)
             self.assertIn("kernel", r.stdout)  # the migration line names the direct-invocation path
 

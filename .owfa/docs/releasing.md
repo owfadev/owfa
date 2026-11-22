@@ -93,3 +93,31 @@ The retirement is version-gated on the channel's own `.owfa/VERSION` (`SHIMS_RET
 ## npm naming, one paragraph
 
 `owfa` is frozen by npm's name-similarity policy (too close to `ow`/`ora`), so `npx owfa` does not exist and every install example must say `npx owfadev`. **`owfadev` is the real package name** (the gate accepts `owfa` only for the future where the freeze lifts); one package, two bins — `owfa` and `owfadev` — both required by verify-release. See [naming.md](naming.md).
+
+## Connector release checklist (state, 0.5.2+)
+
+A connector is a *data plane*, and its state belongs to the machine substrate — never to the workspace, never to the repo. Before a connector package release:
+
+- [ ] Every state path is resolved through `.owfa/scripts/owfa_home.py` (`resolve_home` / `component_dir`); no `Path.home() / ".<connector>-cli"` remains except a **documented** legacy fallback that prints the migration command.
+- [ ] The connector exposes `home status` and `home migrate [--dry-run]`; migration is explicit, moves (never copies) and leaves a symlink at the legacy path.
+- [ ] `PKG.yaml` `connectors[]` / `uninstall.credentials` name the substrate home (`$OWFA_HOME/connectors/<name>/`) — or declare `home:` when state genuinely lives elsewhere.
+- [ ] Skills/docs stop advertising removed legacy entry points and old paths; `grep -r "~/\."` on the connector finds only intentional mentions.
+- [ ] The user-level channel plants `.owfa/scripts/owfa_home.py`; `owfa doctor` fails a marker workspace without it and `owfa upgrade` re-plants it.
+
+## 0.5.2 — connector homes land
+
+The machine substrate `owfa_home.py` existed since 0.5.0 but nothing delivered it to
+workspaces and no connector consumed it, so every connector still wrote scattered
+pre-0.4 homes (`~/.bb-cli`, `~/.sis-cli`, `~/.bili-cli`, `~/.config/mail-cli`, …).
+0.5.2 closes the loop:
+
+- `owfa_home.py` gains `component_dir()` (multi-directory connectors), `connector_status()`
+  (read-only health view) and `migrate_legacy_home(..., component=...)`.
+- The channel ships the helper in its kernel payload; `init` / `upgrade` / `adopt` plant
+  it into `<workspace>/.owfa/scripts/owfa_home.py` (the kernel itself stays in
+  `$OWFA_HOME/kernel/<ver>/`).
+- `owfa doctor` fails a marker workspace whose helper is missing, kernel `validate`
+  warns on the same condition, and the idempotent `owfa plant-helper <ws>` repairs an
+  existing workspace (the legacy `owfa upgrade` refuses marker workspaces).
+- Connector bootstrap ABI, layout, resolution order, migration and invariants:
+  [home.md](home.md).

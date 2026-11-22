@@ -20,7 +20,7 @@
 
 ## 循环二：课程学习
 
-bb domain 循环（本协议之上的一个域示例）；一个学期的节奏。需要 **owfa-cuhksz** 包——经 `kernel install` 另行安装，随之带来 **cuhksz-cli** connector（聚合 bb | sis；旧的 bb-cli / sis-cli 包装保留兼容）。
+bb domain 循环（本协议之上的一个域示例）；一个学期的节奏。需要 **owfa-cuhksz** 包——经 `kernel install` 另行安装，随之带来 **cuhksz-cli** connector（唯一入口：`cuhksz-cli bb ...` / `cuhksz-cli sis ...`；0.2.x 的 `bb-cli` / `sis-cli` 包装已在 connector 0.3.0 移除）。连接器状态居机器级 substrate——`cuhksz-cli home status` 可查。
 
 **课程接入**，每学期开学一次：cuhksz-cli 拉取，凭据只存本机；`cuhksz/bb/<term>/<course>/` 工作区落地——文档类内容全量，媒体走指针；bb-map 把 wiki 侧 territory 投影为四个桶：info 课程信息、courseware 知识点、assessments 作业档案、attachments 附件；domain 根的 inbox.md 摘要页——公告蒸馏加临近截止加未交提醒，由两个来源合成。
 

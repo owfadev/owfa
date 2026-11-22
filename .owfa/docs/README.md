@@ -17,11 +17,13 @@ This documentation set covers the **kernel and the channel** (protocol-agnostic)
 | Install or upgrade an instance (manual path, channels) | [deployment.md](deployment.md) |
 | Publish the framework or a package | [releasing.md](releasing.md) |
 | Migrate a 0.3-era instance to 0.4 | [conversion.md](conversion.md) |
+| Connector state — where credentials live, `~/.owfa` substrate | [home.md](home.md) |
 
 ## Topics
 
 - [naming.md](naming.md) — the naming history: OWFA, `owfadev`, the frozen `owfa` npm name.
 - [sandbox.md](sandbox.md) — the sandbox: what runs where, and what is never touched.
+- [home.md](home.md) — the machine substrate: connector homes, workspace bindings, the connector bootstrap ABI.
 - [agent-behavior.md](agent-behavior.md) — agent behavior self-checks.
 - [abi.md](abi.md) — the protocol ABI: the four-semantics calling contract, compat intervals, and the R11 qualification line.
 - [map.md](map.md) — the map mechanism: vault assets → wiki proxy pages.

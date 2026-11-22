@@ -116,7 +116,16 @@ try {
     const env = { ...process.env, OWFA_HOME: home, OWFA_TEST_SHIMS_RETIRED: "1" };
     const r = spawnSync(process.execPath, [BIN, "init", ws, "--name", "retire", "--user-level"], { cwd: tmpRoot, encoding: "utf-8", env });
     assert.strictEqual(r.status, 0, r.stderr + r.stdout);
-    assert.ok(!fs.existsSync(path.join(ws, ".owfa", "scripts")), "retired channel must plant no host forwarder");
+    assert.ok(
+      !fs.existsSync(path.join(ws, ".owfa", "scripts", "owfa_kernel.py")),
+      "retired channel must plant no host forwarder"
+    );
+    // the connector-home substrate helper is NOT a shim: it must be planted even
+    // on the retired channel, or connectors cannot resolve ~/.owfa/connectors/
+    assert.ok(
+      fs.existsSync(path.join(ws, ".owfa", "scripts", "owfa_home.py")),
+      "substrate helper must be planted on the user-level channel"
+    );
     assert.ok(/no longer planted/.test(r.stdout), r.stdout);
     assert.ok(!fs.existsSync(path.join(ws, ".owfa", "scripts", "pipeline.py")), "retired channel must ship no pipeline host shim");
     const scripts = path.join(ws, ".owfa", "scripts");
@@ -127,6 +136,35 @@ try {
     assert.strictEqual(d.status, 0, "deprecation notices must not fail doctor: " + d.stderr + d.stdout);
     assert.ok(/retired host forwarder/.test(d.stdout), d.stdout);
     assert.ok(/retired pipeline host shim/.test(d.stdout), d.stdout);
+  });
+
+  // B1/B2 (review): a marker workspace missing the substrate helper must FAIL
+  // doctor cleanly (a `problem:` line, not a crash), and the documented repair
+  // path (`owfa plant-helper`) must restore a green doctor.
+  step("substrate helper: doctor fails cleanly and plant-helper repairs", () => {
+    const home = path.join(tmpRoot, "substrate-home");
+    const ws = path.join(tmpRoot, "substrate-ws");
+    const env = { ...process.env, OWFA_HOME: home };
+    const init = spawnSync(process.execPath, [BIN, "init", ws, "--name", "substrate", "--user-level"], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(init.status, 0, init.stderr + init.stdout);
+    const helper = path.join(ws, ".owfa", "scripts", "owfa_home.py");
+    assert.ok(fs.existsSync(helper), "init --user-level must plant the substrate helper");
+    fs.rmSync(helper);
+    const before = spawnSync(process.execPath, [BIN, "doctor", ws], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(before.status, 1, "doctor must fail on a missing substrate helper: " + before.stdout + before.stderr);
+    assert.match(before.stdout, /problem: .*substrate helper is missing/, before.stdout);
+    assert.ok(!/ReferenceError|TypeError/.test(before.stdout + before.stderr), "doctor must not crash with a JS error");
+    assert.match(before.stdout, /owfa plant-helper/, "doctor must name the repair command");
+    const plant = spawnSync(process.execPath, [BIN, "plant-helper", ws], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(plant.status, 0, plant.stdout + plant.stderr);
+    assert.ok(fs.existsSync(helper), "plant-helper must restore the helper");
+    const after = spawnSync(process.execPath, [BIN, "doctor", ws], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(after.status, 0, after.stdout + after.stderr);
+    assert.match(after.stdout, /doctor: ok/);
+    // idempotent
+    const again = spawnSync(process.execPath, [BIN, "plant-helper", ws], { cwd: tmpRoot, encoding: "utf-8", env });
+    assert.strictEqual(again.status, 0, again.stdout + again.stderr);
+    assert.match(again.stdout, /already planted/);
   });
 
   step("owfa pkg lists the personal suite and an empty core remainder", () => {

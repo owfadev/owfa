@@ -95,3 +95,22 @@
 ## npm 命名现状（一段话）
 
 `owfa` 被 npm 的名称相似性策略冻结（太近 `ow`/`ora`），`npx owfa` 不存在，一切安装示例必须写 `npx owfadev`。**`owfadev` 是现实包名**（gate 仍接受 `owfa`，只为冻结解除的那天留门）；一个包、两个 bin——`owfa` 与 `owfadev`——verify-release 两者都强制。详见 [naming.md](naming.md)。
+
+## 连接器发布清单（状态，0.5.2+）
+
+连接器是**数据面**，状态属于机器级 substrate——不属于工作区，也不属于仓库。连接器包发布前：
+
+- [ ] 所有状态路径经 `.owfa/scripts/owfa_home.py` 解析（`resolve_home` / `component_dir`）；除**有文档**且会打印迁移命令的旧目录回退外，不再出现 `Path.home() / ".<connector>-cli"`。
+- [ ] 连接器提供 `home status` 与 `home migrate [--dry-run]`；迁移必须显式，只移动不复制，旧路径留符号链接。
+- [ ] `PKG.yaml` 的 `connectors[]` / `uninstall.credentials` 指向 substrate 家目录（`$OWFA_HOME/connectors/<name>/`），状态确实在别处时才声明 `home:`。
+- [ ] Skill/文档不再宣传已移除的旧入口与旧路径；`grep -r "~/\."` 只剩有意保留的提法。
+- [ ] 用户级通道会植入 `.owfa/scripts/owfa_home.py`；marker 工作区缺它时 `owfa doctor` 失败、`owfa upgrade` 重新植入。
+
+## 0.5.2 — 连接器家目录落地
+
+机器级 substrate `owfa_home.py` 自 0.5.0 起就存在，但既没有交付到工作区，也没有连接器使用它，于是所有连接器仍写 pre-0.4 的散落目录（`~/.bb-cli`、`~/.sis-cli`、`~/.bili-cli`、`~/.config/mail-cli` 等）。0.5.2 把环闭掉：
+
+- `owfa_home.py` 新增 `component_dir()`（多目录连接器）、`connector_status()`（只读健康视图）、`migrate_legacy_home(..., component=...)`。
+- 通道把 helper 随内核载荷发布；`init` / `upgrade` / `adopt` 把它植入 `<workspace>/.owfa/scripts/owfa_home.py`（内核本体仍在 `$OWFA_HOME/kernel/<ver>/`）。
+- marker 工作区缺 helper 时 `owfa doctor` 失败；内核 `validate` 给同类警告。
+- 连接器 bootstrap ABI、目录布局、解析顺序、迁移与不变量：见 [home.md](home.md)。

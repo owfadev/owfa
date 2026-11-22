@@ -80,6 +80,8 @@ Field by field (the personal line is the example throughout):
 
 Packages that ship connectors additionally declare a `connectors:` list (tri-state): in-repo (`name` + `path: connectors/<id>` — code ships with the package), external (`external: true` — declaration only), or system (`system: true` + `expect: ">= 2.0"` — a preinstalled binary, capability + version expectation, no code). Example from owfa-cuhksz: `cuhksz-cli` in-repo; owfa-lark: `lark-cli` external; `gh` system.
 
+Connector **state** is not part of the package: in-repo connectors keep credentials and sessions in the machine substrate `$OWFA_HOME/connectors/<name>/` (see [home.md](home.md)) and must be able to resolve it through `.owfa/scripts/owfa_home.py`. A connector whose state genuinely lives elsewhere (an OS-level client, `~/.config/<tool>`) declares `home:` under `connectors[]` — a declaration for the health checks, not a licence to invent a layout.
+
 The `uninstall:` block is a **declaration, never executable hooks** — no third execution surface (after inject text and connectors) running at a privileged moment; deletion knowledge becomes reviewable data.
 
 PKG.yaml is a **minimal YAML subset** — top-level scalars, `key: []`, block lists, one-level block mappings; anything richer is silently dropped, so keep declarations flat.

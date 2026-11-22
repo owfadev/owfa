@@ -20,7 +20,7 @@ The discipline in one sentence: the wiki takes distillates, not process. Process
 
 ## Loop Two: Course Study
 
-The bb domain loop (a domain example riding on this protocol); one semester's rhythm. Requires the **owfa-cuhksz** package — installed separately via `kernel install`, bringing the **cuhksz-cli** connector (aggregating bb | sis; the older bb-cli / sis-cli wrappers remain for compatibility).
+The bb domain loop (a domain example riding on this protocol); one semester's rhythm. Requires the **owfa-cuhksz** package — installed separately via `kernel install`, bringing the **cuhksz-cli** connector (single entry: `cuhksz-cli bb ...` / `cuhksz-cli sis ...`; the 0.2.x `bb-cli` / `sis-cli` wrappers were removed in connector 0.3.0). Connector state lives in the machine substrate — `cuhksz-cli home status` says where.
 
 **Onboarding a course**, once at term start: cuhksz-cli pulls, with credentials stored only on the local machine; the `cuhksz/bb/<term>/<course>/` workspace materializes — document-type content in full, media as pointers; bb-map projects the wiki-side territory into four buckets: info for course information, courseware for knowledge points, assessments for assignment dossiers, attachments for attachments; the domain-root inbox.md digest page — announcement distillation plus approaching deadlines plus unsubmitted reminders, synthesized from both sources.
 
